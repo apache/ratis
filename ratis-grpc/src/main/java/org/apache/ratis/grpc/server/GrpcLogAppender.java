@@ -217,6 +217,11 @@ public class GrpcLogAppender extends LogAppenderBase {
       getClient().resetConnectBackoff();
       if (appendLogRequestObserver != null) {
         appendLogRequestObserver.stop();
+        if (event == Event.COMPLETE) {
+          appendLogRequestObserver.onCompleted();
+        } else {
+          appendLogRequestObserver.cancelStream("resetClient due to " + event);
+        }
         appendLogRequestObserver = null;
       }
       final int errorCount = replyState.process(event);
@@ -375,25 +380,34 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     void stop() {
       running = false;
-      try {
-        appendLog.onError(new StatusRuntimeException(Status.CANCELLED
-            .withDescription("Stream stopped by resetClient")));
-      } catch (Exception e) {
-        LOG.debug("Failed to close appendLog stream", e);
-      }
-      if (heartbeat != null) {
-        try {
-          heartbeat.onError(new StatusRuntimeException(Status.CANCELLED
-              .withDescription("Stream stopped by resetClient")));
-        } catch (Exception e) {
-          LOG.debug("Failed to close heartbeat stream", e);
-        }
-      }
     }
 
     void onCompleted() {
-      appendLog.onCompleted();
-      Optional.ofNullable(heartbeat).ifPresent(StreamObserver::onCompleted);
+      try {
+        appendLog.onCompleted();
+      } catch (Exception e) {
+        LOG.debug("Failed to complete appendLog stream", e);
+      }
+      try {
+        Optional.ofNullable(heartbeat).ifPresent(StreamObserver::onCompleted);
+      } catch (Exception e) {
+        LOG.debug("Failed to complete heartbeat stream", e);
+      }
+    }
+
+    void cancelStream(String reason) {
+      try {
+        appendLog.onError(new StatusRuntimeException(
+            Status.CANCELLED.withDescription(reason)));
+      } catch (Exception e) {
+        LOG.debug("Failed to cancel appendLog stream", e);
+      }
+      try {
+        Optional.ofNullable(heartbeat).ifPresent((heartbeat) ->
+            heartbeat.onError(new StatusRuntimeException(Status.CANCELLED.withDescription(reason))));
+      } catch (Exception e) {
+        LOG.debug("Failed to cancel heartbeat stream", e);
+      }
     }
   }
 
