@@ -216,12 +216,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
       getClient().resetConnectBackoff();
       if (appendLogRequestObserver != null) {
-        appendLogRequestObserver.stop();
-        if (event == Event.COMPLETE) {
-          appendLogRequestObserver.onCompleted();
-        } else {
-          appendLogRequestObserver.cancelStream("resetClient due to " + event);
-        }
+        appendLogRequestObserver.stop(event);
         appendLogRequestObserver = null;
       }
       final int errorCount = replyState.process(event);
@@ -378,8 +373,13 @@ public class GrpcLogAppender extends LogAppenderBase {
       stream.onNext(proto);
     }
 
-    void stop() {
+    void stop(Event event) {
       running = false;
+      if (event == Event.COMPLETE) {
+        onCompleted();
+      } else {
+        cancelStream("resetClient due to " + event);
+      }
     }
 
     void onCompleted() {
