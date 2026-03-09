@@ -403,8 +403,8 @@ public class GrpcLogAppender extends LogAppenderBase {
         LOG.debug("Failed to cancel appendLog stream", e);
       }
       try {
-        Optional.ofNullable(heartbeat).ifPresent((heartbeat) ->
-            heartbeat.onError(new StatusRuntimeException(Status.CANCELLED.withDescription(reason))));
+        Optional.ofNullable(heartbeat).ifPresent((hb) ->
+            hb.onError(new StatusRuntimeException(Status.CANCELLED.withDescription(reason))));
       } catch (Exception e) {
         LOG.debug("Failed to cancel heartbeat stream", e);
       }
