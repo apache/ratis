@@ -107,8 +107,8 @@ public final class SnapshotSourceSelector {
   private static Comparator<FollowerInfo> newFollowerComparator(TermIndex leaderLastEntry) {
     return Comparator.<FollowerInfo, Boolean>comparing(f -> isFullyCaughtUp(f, leaderLastEntry))
         .reversed()
-        .thenComparingLong(FollowerInfo::getMatchIndex).reversed()
-        .thenComparingLong(FollowerInfo::getCommitIndex).reversed()
+        .thenComparing(Comparator.comparingLong(FollowerInfo::getMatchIndex).reversed())
+        .thenComparing(Comparator.comparingLong(FollowerInfo::getCommitIndex).reversed())
         .thenComparing(SnapshotSourceSelector::freshnessTimestamp, SnapshotSourceSelector::compareFreshness)
         // Keep order deterministic when all ranking metrics are equal, we do not want it to change across runs.
         .thenComparing(f -> f.getId().toString());
