@@ -85,6 +85,9 @@ class LogAppenderDaemon {
       LOG.info(this + " was interrupted: " + e);
     } catch (InterruptedIOException e) {
       LOG.info(this + " I/O was interrupted: " + e);
+    } catch (IllegalStateException e) {
+      LOG.info(this + " gets illegal state: " + e);
+      lifeCycle.transitionIfValid(CLOSING);
     } catch (Throwable e) {
       LOG.warn(this + " failed", e);
       lifeCycle.transitionIfValid(EXCEPTION);
