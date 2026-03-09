@@ -33,6 +33,7 @@ import org.apache.ratis.server.leader.LogAppenderBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.CallStreamObserver;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -366,11 +367,28 @@ public class GrpcLogAppender extends LogAppenderBase {
       while (!stream.isReady() && running) {
         sleep(waitForReady, isHeartBeat);
       }
+      if (!running) {
+        return;
+      }
       stream.onNext(proto);
     }
 
     void stop() {
       running = false;
+      try {
+        appendLog.onError(new StatusRuntimeException(Status.CANCELLED
+            .withDescription("Stream stopped by resetClient")));
+      } catch (Exception e) {
+        LOG.debug("Failed to close appendLog stream", e);
+      }
+      if (heartbeat != null) {
+        try {
+          heartbeat.onError(new StatusRuntimeException(Status.CANCELLED
+              .withDescription("Stream stopped by resetClient")));
+        } catch (Exception e) {
+          LOG.debug("Failed to close heartbeat stream", e);
+        }
+      }
     }
 
     void onCompleted() {
