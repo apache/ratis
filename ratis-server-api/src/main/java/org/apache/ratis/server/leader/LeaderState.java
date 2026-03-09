@@ -23,6 +23,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.util.JavaUtils;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -65,5 +66,8 @@ public interface LeaderState {
 
   /** Received an {@link AppendEntriesReplyProto} */
   void onAppendEntriesReply(LogAppender appender, AppendEntriesReplyProto reply);
+
+  /** @return all follower states tracked by this leader. */
+  Collection<FollowerInfo> getFollowerInfos();
 
 }

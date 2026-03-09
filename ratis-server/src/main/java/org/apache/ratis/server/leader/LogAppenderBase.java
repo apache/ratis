@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -218,6 +219,20 @@ public abstract class LogAppenderBase implements LogAppender {
     };
   }
 
+  /**
+   * Select ranked follower source peers for snapshot install.
+   *
+   * An empty list means no follower satisfies the minimum conditions and
+   * callers should fall back to leader-sourced snapshot installation.
+   */
+  protected List<RaftPeerProto> selectSnapshotSourcePeers(TermIndex firstAvailableLogTermIndex) {
+    return SnapshotSourceSelector.selectSourcePeers(
+        getLeaderState().getFollowerInfos(),
+        getFollowerId(),
+        firstAvailableLogTermIndex.getIndex(),
+        getLeaderLastEntryForSnapshotSourceSelection());
+  }
+
 
   @Override
   public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat)
@@ -274,9 +289,16 @@ public abstract class LogAppenderBase implements LogAppender {
 
   @Override
   public InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex) {
+    return newInstallSnapshotNotificationRequest(firstAvailableLogTermIndex, 0L, Collections.emptyList());
+  }
+
+  @Override
+  public InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(
+      TermIndex firstAvailableLogTermIndex, long minimumSnapshotIndex, List<RaftPeerProto> sourcePeers) {
     Preconditions.assertTrue(firstAvailableLogTermIndex.getIndex() >= 0);
     synchronized (server) {
-      return LeaderProtoUtils.toInstallSnapshotRequestProto(server, getFollowerId(), firstAvailableLogTermIndex);
+      return LeaderProtoUtils.toInstallSnapshotRequestProto(
+          server, getFollowerId(), firstAvailableLogTermIndex, minimumSnapshotIndex, sourcePeers);
     }
   }
 
