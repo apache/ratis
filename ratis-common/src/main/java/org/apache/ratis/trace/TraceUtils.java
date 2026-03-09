@@ -19,6 +19,7 @@ package org.apache.ratis.trace;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
@@ -26,21 +27,26 @@ import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.context.propagation.TextMapGetter;
 import org.apache.ratis.proto.RaftProtos.SpanContextProto;
-import org.apache.ratis.util.FutureUtils;
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.apache.ratis.util.VersionInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 public final class TraceUtils {
 
   private static final Tracer TRACER = GlobalOpenTelemetry.getTracer("org.apache.ratis",
       VersionInfo.getSoftwareInfoVersion());
+
+  private static final Logger LOG = LoggerFactory.getLogger(TraceUtils.class);
 
   private TraceUtils() {
   }
@@ -54,7 +60,7 @@ public final class TraceUtils {
    * The returned future will complete with the same result or error as the original future,
    * but the provided {@code span} will be ended when the future completes.
    */
-  public static <T, THROWABLE extends Throwable> CompletableFuture<T>  traceAsyncMethod(
+  static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncMethod(
       CheckedSupplier<CompletableFuture<T>, THROWABLE> action, Supplier<Span> spanSupplier) throws THROWABLE {
     final Span span = spanSupplier.get();
     try (Scope ignored = span.makeCurrent()) {
@@ -75,8 +81,34 @@ public final class TraceUtils {
     }
   }
 
+  public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncMethod(
+      CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
+      RaftClientRequest request, String memberId, String spanName) throws THROWABLE {
+    return traceAsyncMethod(action, () -> createServerSpanFromClientRequest(request, memberId, spanName));
+  }
+
+  public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncMethodIfEnabled(
+      boolean enabled,
+      CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
+      RaftClientRequest request, String memberId, String spanName) throws THROWABLE {
+    return enabled ? traceAsyncMethod(action, request, memberId, spanName) : action.get();
+  }
+
+  private static Span createServerSpanFromClientRequest(RaftClientRequest request, String memberId, String spanName) {
+    final Context remoteContext = extractContextFromProto(request.getSpanContext());
+    final Span span = getGlobalTracer()
+        .spanBuilder(spanName)
+        .setParent(remoteContext)
+        .setSpanKind(SpanKind.SERVER)
+        .startSpan();
+    span.setAttribute(RatisAttributes.ATTR_CLIENT_INVOCATION_ID, String.valueOf(request.getClientId()));
+    span.setAttribute(RatisAttributes.ATTR_CALL_ID, String.valueOf(request.getCallId()));
+    span.setAttribute(RatisAttributes.ATTR_MEMBER_ID, memberId);
+    return span;
+  }
+
   private static void endSpan(CompletableFuture<?> future, Span span) {
-    FutureUtils.addListener(future, (resp, error) -> {
+    addListener(future, (resp, error) -> {
       if (error != null) {
         setError(span, error);
       } else {
@@ -89,6 +121,35 @@ public final class TraceUtils {
   public static void setError(Span span, Throwable error) {
     span.recordException(error);
     span.setStatus(StatusCode.ERROR);
+  }
+
+  /**
+   * This is method is used when you just want to add a listener to the given future. We will call
+   * {@link CompletableFuture#whenComplete(BiConsumer)} to register the {@code action} to the
+   * {@code future}. Ignoring the return value of a Future is considered as a bad practice as it may
+   * suppress exceptions thrown from the code that completes the future, and this method will catch
+   * all the exception thrown from the {@code action} to catch possible code bugs.
+   * <p/>
+   * And the error phone check will always report FutureReturnValueIgnored because every method in
+   * the {@link CompletableFuture} class will return a new {@link CompletableFuture}, so you always
+   * have one future that has not been checked. So we introduce this method and add a suppression
+   * warnings annotation here.
+   */
+  @SuppressWarnings("FutureReturnValueIgnored")
+  private static <T> void addListener(CompletableFuture<T> future,
+      BiConsumer<? super T, ? super Throwable> action) {
+    future.whenComplete((resp, error) -> {
+      try {
+        // See this post on stack overflow(shorten since the url is too long),
+        // https://s.apache.org/completionexception
+        // For a chain of CompletableFuture, only the first child CompletableFuture can get the
+        // original exception, others will get a CompletionException, which wraps the original
+        // exception. So here we unwrap it before passing it to the callback action.
+        action.accept(resp, JavaUtils.unwrapCompletionException(error));
+      } catch (Throwable t) {
+        LOG.error("Unexpected error caught when processing CompletableFuture", t);
+      }
+    });
   }
 
   private static final TextMapPropagator PROPAGATOR =

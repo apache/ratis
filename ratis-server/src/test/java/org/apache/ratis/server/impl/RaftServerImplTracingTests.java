@@ -32,10 +32,12 @@ import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
+import org.apache.ratis.trace.TraceConfigKeys;
 import org.apache.ratis.trace.TraceUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -51,35 +53,8 @@ public class RaftServerImplTracingTests {
 
   @Test
   public void testSubmitClientRequestAsync() throws Exception {
-    RaftGroup group = RaftGroup.emptyGroup();
-    StateMachine sm = new SimpleStateMachine4Testing();
-    RaftServerProxy proxy = mock(RaftServerProxy.class);
-    when(proxy.getId()).thenReturn(RaftPeerId.valueOf("peer1"));
-    when(proxy.getProperties()).thenReturn(new RaftProperties());
-    when(proxy.getThreadGroup()).thenReturn(new ThreadGroup("test"));
-
-    RaftServerImpl server = new RaftServerImpl(group, sm, proxy, RaftStorage.StartupOption.FORMAT);
-
-    // build a minimal RaftClientRequest with a client span context;
-    final RaftClientRequest r = newRaftClientRequest(RaftClientRequest.writeRequestType());
-    final String testSpanName = "test-appendEntries_emitsSpan";
-
-    // invoke submitClientRequestAsync
-    Span span = openTelemetryExtension
-        .getOpenTelemetry().getTracer("test").spanBuilder(testSpanName)
-        .setSpanKind(SpanKind.INTERNAL)
-        .startSpan();
-          try {
-            server.submitClientRequestAsync(r);
-          } catch (ServerNotReadyException ignored) {
-            // ignore the server is not running, because we're just trying to verify the span is emitted,
-            // and the server not running is expected in this test
-          } finally {
-            span.end();
-          }
-
-    List<SpanData> spans = openTelemetryExtension.getSpans();
-    assertEquals(3, spans.size());
+    final List<SpanData> spans = submitClientRequestAndCollectNewSpans(true);
+    assertEquals(2, spans.size());
     assertTrue(
         spans.stream().anyMatch(s -> s.getKind() == SpanKind.CLIENT && s.getName().equals("client-span")),
         "Expected at least one span with SpanKind.CLIENT"
@@ -89,12 +64,57 @@ public class RaftServerImplTracingTests {
             && s.getName().equals("raft.server.submitClientRequestAsync")),
         "Expected at least one span with SpanKind.SERVER"
     );
-    assertTrue(
-        spans.stream().anyMatch(s -> s.getKind() == SpanKind.INTERNAL
-            && s.getName().equals(testSpanName)),
-        "Expected at least one span with SpanKind.INTERNAL"
-    );
 
+  }
+
+  @Test
+  public void testSubmitClientRequestAsyncTracingDisabled() throws Exception {
+    final List<SpanData> spans = submitClientRequestAndCollectNewSpans(false);
+    // Even when server-side tracing is disabled, we still emit the client span used to
+    // generate the propagated context.
+    assertEquals(1, spans.size());
+    assertTrue(
+        spans.stream().noneMatch(s -> s.getKind() == SpanKind.SERVER
+            && s.getName().equals("raft.server.submitClientRequestAsync")),
+        "Expected no SERVER span when tracing is disabled"
+    );
+    assertTrue(
+        spans.stream().anyMatch(s -> s.getKind() == SpanKind.CLIENT && s.getName().equals("client-span")),
+        "Expected at least one span with SpanKind.CLIENT"
+    );
+  }
+
+  private static List<SpanData> submitClientRequestAndCollectNewSpans(boolean enableTracing)
+      throws Exception {
+    final int before = openTelemetryExtension.getSpans().size();
+
+    final RaftServerImpl server = newRaftServerImpl(enableTracing);
+    try {
+      final RaftClientRequest request = newRaftClientRequest(RaftClientRequest.writeRequestType());
+
+      try {
+        server.submitClientRequestAsync(request);
+      } catch (ServerNotReadyException ignored) {
+        // server is not running; only verifying span emission
+      }
+    } finally {
+      server.close();
+    }
+
+    final List<SpanData> after = openTelemetryExtension.getSpans();
+    return new ArrayList<>(after.subList(before, after.size()));
+  }
+
+  private static RaftServerImpl newRaftServerImpl(boolean enableTracing) throws Exception {
+    final RaftGroup group = RaftGroup.emptyGroup();
+    final StateMachine sm = new SimpleStateMachine4Testing();
+    final RaftServerProxy proxy = mock(RaftServerProxy.class);
+    when(proxy.getId()).thenReturn(RaftPeerId.valueOf("peer1"));
+    final RaftProperties properties = new RaftProperties();
+    TraceConfigKeys.setEnabled(properties, enableTracing);
+    when(proxy.getProperties()).thenReturn(properties);
+    when(proxy.getThreadGroup()).thenReturn(new ThreadGroup("test"));
+    return new RaftServerImpl(group, sm, proxy, RaftStorage.StartupOption.FORMAT);
   }
 
   private static RaftClientRequest newRaftClientRequest(RaftClientRequest.Type type) {
