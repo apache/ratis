@@ -267,16 +267,18 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   @Override
   public void run() throws IOException {
-    for(; isRunning(); mayWait()) {
-      //HB period is expired OR we have messages OR follower is behind with commit index
-      if (shouldSendAppendEntries() || isFollowerCommitBehindLastCommitIndex()) {
-        final boolean installingSnapshot = installSnapshot();
-        appendLog(installingSnapshot || haveTooManyPendingRequests());
+    try {
+      for (; isRunning(); mayWait()) {
+        //HB period is expired OR we have messages OR follower is behind with commit index
+        if (shouldSendAppendEntries() || isFollowerCommitBehindLastCommitIndex()) {
+          final boolean installingSnapshot = installSnapshot();
+          appendLog(installingSnapshot || haveTooManyPendingRequests());
+        }
+        getLeaderState().checkHealth(getFollower());
       }
-      getLeaderState().checkHealth(getFollower());
+    } finally {
+      Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObservers::onCompleted);
     }
-
-    Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObservers::onCompleted);
   }
 
   public long getWaitTimeMs() {
