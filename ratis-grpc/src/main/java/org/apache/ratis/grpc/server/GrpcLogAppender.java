@@ -58,7 +58,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -353,7 +358,6 @@ public class GrpcLogAppender extends LogAppenderBase {
           return t;
         });
 
-//    private final AtomicBoolean closing = new AtomicBoolean(false);
     private final AtomicBoolean completed = new AtomicBoolean(false);
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
