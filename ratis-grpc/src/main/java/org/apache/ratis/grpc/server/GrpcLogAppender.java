@@ -277,7 +277,12 @@ public class GrpcLogAppender extends LogAppenderBase {
         getLeaderState().checkHealth(getFollower());
       }
     } finally {
-      Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObservers::onCompleted);
+      try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
+        if (appendLogRequestObserver != null) {
+          appendLogRequestObserver.onCompleted();
+          appendLogRequestObserver = null;
+        }
+      }
     }
   }
 
