@@ -47,7 +47,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+
+import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
+import org.apache.ratis.util.CodeInjectionForTesting;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -201,6 +205,88 @@ public class TestLogAppenderWithGrpc
             "Old LogAppender should be garbage collected after stream cleanup");
       }
     }, 20, ONE_SECOND, "old-appender-gc", LOG);
+  }
+
+  /**
+   * Verify that the follower's ServerRequestStreamObserver cleans up previousOnNext
+   * when handleError is triggered. This injects failures at the APPEND_ENTRIES point
+   * on a specific follower, causing process(request) to fail and handleError to be called.
+   * Without the fix, previousOnNext retains the last PendingServerRequest (including the
+   * full AppendEntriesRequestProto with log entry data) after handleError closes the stream.
+   */
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testFollowerHandleErrorCleanup(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    runWithNewCluster(3, this::runTestFollowerHandleErrorCleanup);
+  }
+
+  private void runTestFollowerHandleErrorCleanup(MiniRaftClusterWithGrpc cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final RaftPeerId leaderId = leader.getId();
+
+    try (RaftClient client = cluster.createClient(leaderId)) {
+      for (int i = 0; i < 5; i++) {
+        Assertions.assertTrue(client.io().send(
+            new RaftTestUtil.SimpleMessage("init-" + i)).isSuccess());
+      }
+    }
+
+    final RaftPeerId followerId = cluster.getFollowers().get(0).getId();
+    final String APPEND_ENTRIES = "RaftServerImpl.appendEntries";
+    final AtomicBoolean shouldFail = new AtomicBoolean(false);
+
+    CodeInjectionForTesting.put(APPEND_ENTRIES, (localId, remoteId, args) -> {
+      if (shouldFail.get() && localId.toString().equals(followerId.toString())) {
+        throw new RuntimeException("Injected failure for handleError test");
+      }
+      return false;
+    });
+
+    try {
+      final int numCycles = 3;
+      for (int cycle = 0; cycle < numCycles; cycle++) {
+        LOG.info("=== HandleError cycle {} ===", cycle);
+
+        shouldFail.set(true);
+
+        try (RaftClient client = cluster.createClient(leaderId)) {
+          for (int i = 0; i < 5; i++) {
+            client.io().send(new RaftTestUtil.SimpleMessage("fail-" + cycle + "-" + i));
+          }
+        }
+
+        // Wait for the leader to detect the stream errors from the failing follower
+        JavaUtils.attempt(() -> {
+          final long leaderCommit = leader.getRaftLog().getLastCommittedIndex();
+          Assertions.assertTrue(leaderCommit > 0);
+        }, 10, ONE_SECOND, "leader-commit-cycle-" + cycle, LOG);
+
+        shouldFail.set(false);
+
+        try (RaftClient client = cluster.createClient(leaderId)) {
+          for (int i = 0; i < 5; i++) {
+            Assertions.assertTrue(client.io().send(
+                new RaftTestUtil.SimpleMessage("recover-" + cycle + "-" + i)).isSuccess());
+          }
+        }
+
+        final int c = cycle;
+        JavaUtils.attempt(() -> {
+          final RaftServer.Division f = cluster.getDivision(followerId);
+          Assertions.assertTrue(f.getInfo().getLastAppliedIndex() > 0,
+              "Follower " + followerId + " should recover after handleError");
+        }, 10, ONE_SECOND, "follower-recover-" + c, LOG);
+      }
+
+      try (RaftClient client = cluster.createClient(leaderId)) {
+        final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("final"));
+        Assertions.assertTrue(reply.isSuccess());
+        client.io().watch(reply.getLogIndex(), RaftProtos.ReplicationLevel.ALL_COMMITTED);
+      }
+    } finally {
+      CodeInjectionForTesting.put(APPEND_ENTRIES, BlockRequestHandlingInjection.getInstance());
+    }
   }
 
   /**
