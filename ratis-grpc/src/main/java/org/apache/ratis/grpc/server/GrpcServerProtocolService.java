@@ -114,6 +114,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     private void handleError(Throwable e, REQUEST request) {
       GrpcUtil.warn(LOG, () -> getId() + ": Failed " + op + " request " + requestToString(request), e);
       if (isClosed.compareAndSet(false, true)) {
+        previousOnNext.set(null);
         responseObserver.onError(wrapException(e, request));
       }
     }

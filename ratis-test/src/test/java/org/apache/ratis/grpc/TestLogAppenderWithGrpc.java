@@ -25,9 +25,11 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.leader.FollowerInfo;
+import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -39,10 +41,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -146,6 +151,110 @@ public class TestLogAppenderWithGrpc
       // If old LogAppender die before new LogAppender start, INCONSISTENCY equal to 1,
       // else INCONSISTENCY greater than 1
       Assertions.assertTrue(newleaderMetrics.getRegistry().counter(counter).getCount() >= 1L);
+    }
+  }
+
+  /**
+   * Verify that old LogAppender instances are properly cleaned up (gRPC streams terminated)
+   * after restartLogAppenders. Without the fix, gRPC holds references to unterminated
+   * stream response handlers, preventing old LogAppender instances from being collected.
+   */
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testLogAppenderStreamCleanupOnRestart(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    runWithNewCluster(3, this::runTestLogAppenderStreamCleanupOnRestart);
+  }
+
+  private void runTestLogAppenderStreamCleanupOnRestart(MiniRaftClusterWithGrpc cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final RaftPeerId leaderId = leader.getId();
+
+    try (RaftClient client = cluster.createClient(leaderId)) {
+      for (int i = 0; i < 10; i++) {
+        final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+        Assertions.assertTrue(reply.isSuccess());
+      }
+    }
+
+    final List<WeakReference<LogAppender>> weakRefs =
+        RaftServerTestUtil.getLogAppenders(leader)
+            .map(WeakReference::new)
+            .collect(Collectors.toList());
+    Assertions.assertFalse(weakRefs.isEmpty());
+
+    RaftServerTestUtil.restartLogAppenders(leader);
+
+    try (RaftClient client = cluster.createClient(leaderId)) {
+      for (int i = 0; i < 10; i++) {
+        client.io().send(new RaftTestUtil.SimpleMessage("after-" + i));
+      }
+    }
+
+    // Old appenders should be GC-able once their gRPC streams are terminated.
+    // If streams leaked, gRPC retains references to the response handlers
+    // (inner classes of GrpcLogAppender), preventing collection.
+    JavaUtils.attempt(() -> {
+      System.gc();
+      for (WeakReference<LogAppender> ref : weakRefs) {
+        Assertions.assertNull(ref.get(),
+            "Old LogAppender should be garbage collected after stream cleanup");
+      }
+    }, 20, ONE_SECOND, "old-appender-gc", LOG);
+  }
+
+  /**
+   * Reproduce the StreamObserver leak by repeatedly killing and restarting a follower.
+   * Each kill triggers onError on the leader's response handler, calling
+   * resetClient -> stop(ERROR) -> cancelStream. Without the fix, the old gRPC streams
+   * are never terminated and accumulate on both leader and follower sides.
+   */
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testStreamObserverCleanupOnFollowerKillRestart(Boolean separateHeartbeat) throws Exception {
+    GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
+    runWithNewCluster(3, this::runTestStreamObserverCleanupOnFollowerKillRestart);
+  }
+
+  private void runTestStreamObserverCleanupOnFollowerKillRestart(MiniRaftClusterWithGrpc cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final RaftPeerId leaderId = leader.getId();
+    final int numCycles = 5;
+
+    try (RaftClient client = cluster.createClient(leaderId)) {
+      for (int i = 0; i < 5; i++) {
+        Assertions.assertTrue(client.io().send(
+            new RaftTestUtil.SimpleMessage("init-" + i)).isSuccess());
+      }
+    }
+
+    for (int cycle = 0; cycle < numCycles; cycle++) {
+      LOG.info("=== Kill/Restart cycle {} ===", cycle);
+      final RaftPeerId followerId = cluster.getFollowers().get(0).getId();
+
+      cluster.killServer(followerId);
+
+      try (RaftClient client = cluster.createClient(leaderId)) {
+        for (int i = 0; i < 5; i++) {
+          Assertions.assertTrue(client.io().send(
+              new RaftTestUtil.SimpleMessage("cycle" + cycle + "-" + i)).isSuccess());
+        }
+      }
+
+      cluster.restartServer(followerId, false);
+
+      JavaUtils.attempt(() -> {
+        final RaftServer.Division f = cluster.getDivision(followerId);
+        Assertions.assertTrue(f.getInfo().getLastAppliedIndex() > 0,
+            "Follower " + followerId + " should have applied entries");
+      }, 10, ONE_SECOND, "follower-catchup-" + cycle, LOG);
+    }
+
+    // Verify all entries committed across the cluster
+    try (RaftClient client = cluster.createClient(leaderId)) {
+      final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("final"));
+      Assertions.assertTrue(reply.isSuccess());
+      client.io().watch(reply.getLogIndex(), RaftProtos.ReplicationLevel.ALL_COMMITTED);
     }
   }
 }
