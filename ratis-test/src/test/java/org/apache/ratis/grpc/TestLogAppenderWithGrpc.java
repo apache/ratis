@@ -50,6 +50,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
+import org.apache.ratis.grpc.server.GrpcServerProtocolServiceTestUtil;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.util.CodeInjectionForTesting;
 
@@ -222,6 +223,7 @@ public class TestLogAppenderWithGrpc
   }
 
   private void runTestFollowerHandleErrorCleanup(MiniRaftClusterWithGrpc cluster) throws Exception {
+    GrpcServerProtocolServiceTestUtil.resetHandleErrorLeakCount();
     final RaftServer.Division leader = waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
 
@@ -284,6 +286,9 @@ public class TestLogAppenderWithGrpc
         Assertions.assertTrue(reply.isSuccess());
         client.io().watch(reply.getLogIndex(), RaftProtos.ReplicationLevel.ALL_COMMITTED);
       }
+
+      Assertions.assertEquals(0, GrpcServerProtocolServiceTestUtil.getHandleErrorLeakCount(),
+          "previousOnNext should be cleaned up in handleError to prevent memory leaks");
     } finally {
       CodeInjectionForTesting.put(APPEND_ENTRIES, BlockRequestHandlingInjection.getInstance());
     }

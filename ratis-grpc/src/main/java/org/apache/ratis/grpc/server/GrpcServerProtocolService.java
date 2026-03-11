@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.grpc.server;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ratis.grpc.GrpcUtil;
@@ -45,6 +46,9 @@ import java.util.function.Supplier;
 
 class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
+
+  /** Counts handleError closures where previousOnNext was not cleaned up. */
+  static final AtomicInteger HANDLE_ERROR_LEAK_COUNT = new AtomicInteger(0);
 
   private enum BatchLogKey implements BatchLogger.Key {
     COMPLETED_REQUEST,
@@ -116,6 +120,9 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       if (isClosed.compareAndSet(false, true)) {
         previousOnNext.set(null);
         responseObserver.onError(wrapException(e, request));
+        if (previousOnNext.get() != null) {
+          HANDLE_ERROR_LEAK_COUNT.incrementAndGet();
+        }
       }
     }
 
