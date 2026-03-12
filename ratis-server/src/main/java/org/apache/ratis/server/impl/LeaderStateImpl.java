@@ -401,7 +401,6 @@ class LeaderStateImpl implements LeaderState {
     switch (readIndexType) {
     case REPLIED_INDEX:
       this.replyFlusher = new ReplyFlusher(name, state.getLastAppliedIndex(),
-          () -> server.getState().getLastAppliedIndex(),
           RaftServerConfigKeys.Read.ReadIndex.repliedIndexBatchInterval(properties));
       readIndexSupplier = replyFlusher::getRepliedIndex;
       break;
@@ -1246,7 +1245,7 @@ class LeaderStateImpl implements LeaderState {
       // Remove from pending map but hold the reply for batch flushing.
       final PendingRequest pending = pendingRequests.removePendingRequest(termIndex);
       if (pending != null) {
-        replyFlusher.hold(pending, reply);
+        replyFlusher.hold(pending, reply, termIndex.getIndex());
       }
     } else {
       pendingRequests.replyPendingRequest(termIndex, reply);

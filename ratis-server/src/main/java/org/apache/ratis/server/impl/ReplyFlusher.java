@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.concurrent.TimeUnit;
-import java.util.function.LongSupplier;
 
 /**
  * Implements the reply flush logic as part of the leader batch write when RepliedIndex is used.
@@ -35,26 +34,29 @@ import java.util.function.LongSupplier;
 public class ReplyFlusher {
   static final Logger LOG = LoggerFactory.getLogger(ReplyFlusher.class);
 
-  /** A write reply that has been built but not yet sent to the client. */
+  /** A write reply that has been built but not yet sent to the client */
   static class HeldReply {
     private final PendingRequest pending;
     private final RaftClientReply reply;
+    private final long index;
 
-    HeldReply(PendingRequest pending, RaftClientReply reply) {
+    HeldReply(PendingRequest pending, RaftClientReply reply, long index) {
       this.pending = pending;
       this.reply = reply;
+      this.index = index;
     }
 
-    void release() {
+    long release() {
       pending.setReply(reply);
+      return index;
     }
   }
 
   static class Replies {
     private LinkedList<HeldReply> list = new LinkedList<>();
 
-    synchronized void add(PendingRequest pending, RaftClientReply reply) {
-      list.add(new HeldReply(pending, reply));
+    synchronized void add(PendingRequest pending, RaftClientReply reply, long index) {
+      list.add(new HeldReply(pending, reply, index));
     }
 
     synchronized LinkedList<HeldReply> getAndSetNewList() {
@@ -69,12 +71,10 @@ public class ReplyFlusher {
   private final Daemon daemon;
   private Replies replies = new Replies();
   private final RaftLogIndex repliedIndex;
-  /** Supplies the last applied index from the state machine. */
-  private final LongSupplier appliedIndexSupplier;
   /** The interval at which held write replies are flushed. */
   private final TimeDuration batchInterval;
 
-  ReplyFlusher(String name, long repliedIndex, LongSupplier appliedIndexSupplier, TimeDuration batchInterval) {
+  ReplyFlusher(String name, long repliedIndex, TimeDuration batchInterval) {
     this.name = name + "-ReplyFlusher";
     this.lifeCycle = new LifeCycle(this.name);
     this.daemon = Daemon.newBuilder()
@@ -82,7 +82,6 @@ public class ReplyFlusher {
         .setRunnable(this::run)
         .build();
     this.repliedIndex = new RaftLogIndex("repliedIndex", repliedIndex);
-    this.appliedIndexSupplier = appliedIndexSupplier;
     this.batchInterval = batchInterval;
   }
 
@@ -90,9 +89,9 @@ public class ReplyFlusher {
     return repliedIndex.get();
   }
 
-  /** Hold a write reply for later batch flushing. */
-  void hold(PendingRequest pending, RaftClientReply reply) {
-    replies.add(pending, reply);
+  /** Hold a write reply for later batch flushing */
+  void hold(PendingRequest pending, RaftClientReply reply, long index) {
+    replies.add(pending, reply, index);
   }
 
   void start() {
@@ -121,14 +120,17 @@ public class ReplyFlusher {
     }
   }
 
-  /** Flush all held replies and advance {@link #repliedIndex} to the applied index. */
+  /** Flush all held replies and advance {@link #repliedIndex}. */
   private void flush() {
     final LinkedList<HeldReply> toFlush = replies.getAndSetNewList();
-    for (HeldReply held : toFlush) {
-      held.release();
+    if (toFlush.isEmpty()) {
+      return;
     }
-    final long appliedIndex = appliedIndexSupplier.getAsLong();
-    repliedIndex.updateToMax(appliedIndex, s ->
+    long maxIndex = toFlush.removeLast().release();
+    for (HeldReply held : toFlush) {
+      maxIndex = Math.max(maxIndex, held.release());
+    }
+    repliedIndex.updateToMax(maxIndex, s ->
         LOG.debug("{}: flushed {} replies, {}", name, toFlush.size(), s));
   }
 
