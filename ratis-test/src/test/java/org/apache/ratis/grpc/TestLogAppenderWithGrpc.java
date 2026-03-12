@@ -33,6 +33,7 @@ import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.CodeInjectionForTesting.Code;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.junit.jupiter.api.Assertions;
@@ -240,7 +241,7 @@ public class TestLogAppenderWithGrpc
     final AtomicInteger handleErrorCount = new AtomicInteger(0);
     final AtomicInteger leakCount = new AtomicInteger(0);
 
-    CodeInjectionForTesting.put(APPEND_ENTRIES, (localId, remoteId, args) -> {
+    Code previousAECode = CodeInjectionForTesting.put(APPEND_ENTRIES, (localId, remoteId, args) -> {
       if (shouldFail.get() && localId.toString().equals(followerId.toString())) {
         throw new RuntimeException("Injected failure for handleError test");
       }
@@ -300,7 +301,9 @@ public class TestLogAppenderWithGrpc
       Assertions.assertEquals(0, leakCount.get(),
           "previousOnNext should be cleaned up in handleError to prevent memory leaks");
     } finally {
-      CodeInjectionForTesting.put(APPEND_ENTRIES, BlockRequestHandlingInjection.getInstance());
+      if (previousAECode != null) {
+        CodeInjectionForTesting.put(APPEND_ENTRIES, previousAECode);
+      }
       CodeInjectionForTesting.remove(GRPC_SERVER_HANDLE_ERROR);
     }
   }
