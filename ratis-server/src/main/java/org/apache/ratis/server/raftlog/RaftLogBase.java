@@ -113,7 +113,7 @@ public abstract class RaftLogBase implements RaftLog {
     state.assertOpen();
   }
 
-  /** Is this log already opened? */
+  @Override
   public boolean isOpened() {
     return state.isOpened();
   }

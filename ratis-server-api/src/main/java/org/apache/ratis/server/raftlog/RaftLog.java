@@ -43,6 +43,9 @@ public interface RaftLog extends RaftLogSequentialOps, Closeable {
   /** Invalid log index is used to indicate that the log index is missing. */
   long INVALID_LOG_INDEX = LEAST_VALID_LOG_INDEX - 1;
 
+  /** Is this log already opened but not yet closed? */
+  boolean isOpened();
+
   /** Does this log contains the given {@link TermIndex}? */
   default boolean contains(TermIndex ti) {
     Objects.requireNonNull(ti, "ti == null");
