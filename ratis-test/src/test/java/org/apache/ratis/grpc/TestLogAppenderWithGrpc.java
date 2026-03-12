@@ -48,13 +48,14 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import org.apache.ratis.grpc.server.GrpcServerProtocolServiceTestUtil;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.util.CodeInjectionForTesting;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
+import static org.apache.ratis.grpc.server.GrpcServerProtocolService.GRPC_SERVER_HANDLE_ERROR;
 
 public class TestLogAppenderWithGrpc
     extends LogAppenderTests<MiniRaftClusterWithGrpc>
@@ -223,7 +224,6 @@ public class TestLogAppenderWithGrpc
   }
 
   private void runTestFollowerHandleErrorCleanup(MiniRaftClusterWithGrpc cluster) throws Exception {
-    GrpcServerProtocolServiceTestUtil.resetHandleErrorLeakCount();
     final RaftServer.Division leader = waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
 
@@ -237,10 +237,19 @@ public class TestLogAppenderWithGrpc
     final RaftPeerId followerId = cluster.getFollowers().get(0).getId();
     final String APPEND_ENTRIES = "RaftServerImpl.appendEntries";
     final AtomicBoolean shouldFail = new AtomicBoolean(false);
+    final AtomicInteger handleErrorCount = new AtomicInteger(0);
+    final AtomicInteger leakCount = new AtomicInteger(0);
 
     CodeInjectionForTesting.put(APPEND_ENTRIES, (localId, remoteId, args) -> {
       if (shouldFail.get() && localId.toString().equals(followerId.toString())) {
         throw new RuntimeException("Injected failure for handleError test");
+      }
+      return false;
+    });
+    CodeInjectionForTesting.put(GRPC_SERVER_HANDLE_ERROR, (localId, remoteId, args) -> {
+      handleErrorCount.incrementAndGet();
+      if (args != null && args.length > 0 && args[0] != null) {
+        leakCount.incrementAndGet();
       }
       return false;
     });
@@ -258,7 +267,6 @@ public class TestLogAppenderWithGrpc
           }
         }
 
-        // Wait for the leader to detect the stream errors from the failing follower
         JavaUtils.attempt(() -> {
           final long leaderCommit = leader.getRaftLog().getLastCommittedIndex();
           Assertions.assertTrue(leaderCommit > 0);
@@ -287,10 +295,13 @@ public class TestLogAppenderWithGrpc
         client.io().watch(reply.getLogIndex(), RaftProtos.ReplicationLevel.ALL_COMMITTED);
       }
 
-      Assertions.assertEquals(0, GrpcServerProtocolServiceTestUtil.getHandleErrorLeakCount(),
+      Assertions.assertTrue(handleErrorCount.get() > 0,
+          "handleError should have been triggered by the injected failures");
+      Assertions.assertEquals(0, leakCount.get(),
           "previousOnNext should be cleaned up in handleError to prevent memory leaks");
     } finally {
       CodeInjectionForTesting.put(APPEND_ENTRIES, BlockRequestHandlingInjection.getInstance());
+      CodeInjectionForTesting.remove(GRPC_SERVER_HANDLE_ERROR);
     }
   }
 

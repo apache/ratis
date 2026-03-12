@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.grpc.server;
 
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ratis.grpc.GrpcUtil;
@@ -32,6 +31,8 @@ import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
 import org.apache.ratis.util.BatchLogger;
+import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
@@ -44,11 +45,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
+public class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
 
-  /** Counts handleError closures where previousOnNext was not cleaned up. */
-  static final AtomicInteger HANDLE_ERROR_LEAK_COUNT = new AtomicInteger(0);
+  public static final String GRPC_SERVER_HANDLE_ERROR =
+      JavaUtils.getClassSimpleName(GrpcServerProtocolService.class) + ".handleError";
 
   private enum BatchLogKey implements BatchLogger.Key {
     COMPLETED_REQUEST,
@@ -120,9 +121,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       if (isClosed.compareAndSet(false, true)) {
         previousOnNext.set(null);
         responseObserver.onError(wrapException(e, request));
-        if (previousOnNext.get() != null) {
-          HANDLE_ERROR_LEAK_COUNT.incrementAndGet();
-        }
+        CodeInjectionForTesting.execute(GRPC_SERVER_HANDLE_ERROR, getId(), null, previousOnNext.get());
       }
     }
 
