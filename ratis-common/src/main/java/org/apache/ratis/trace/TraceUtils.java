@@ -101,9 +101,9 @@ public final class TraceUtils {
         .setParent(remoteContext)
         .setSpanKind(SpanKind.SERVER)
         .startSpan();
-    span.setAttribute(RatisAttributes.ATTR_CLIENT_INVOCATION_ID, String.valueOf(request.getClientId()));
-    span.setAttribute(RatisAttributes.ATTR_CALL_ID, String.valueOf(request.getCallId()));
-    span.setAttribute(RatisAttributes.ATTR_MEMBER_ID, memberId);
+    span.setAttribute(RatisAttributes.CLIENT_ID, String.valueOf(request.getClientId()));
+    span.setAttribute(RatisAttributes.CALL_ID, String.valueOf(request.getCallId()));
+    span.setAttribute(RatisAttributes.MEMBER_ID, memberId);
     return span;
   }
 

@@ -25,10 +25,9 @@ import io.opentelemetry.api.common.AttributeKey;
  * Conventions</a>.
  */
 public final class RatisAttributes {
-  public static final AttributeKey<String> ATTR_CLIENT_INVOCATION_ID =
-      AttributeKey.stringKey("raft.client.invocation.id");
-  public static final AttributeKey<String> ATTR_MEMBER_ID = AttributeKey.stringKey("raft.member.id");
-  public static final AttributeKey<String> ATTR_CALL_ID = AttributeKey.stringKey("raft.call.id");
+  public static final AttributeKey<String> CLIENT_ID = AttributeKey.stringKey("raft.client.id");
+  public static final AttributeKey<String> MEMBER_ID = AttributeKey.stringKey("raft.member.id");
+  public static final AttributeKey<String> CALL_ID = AttributeKey.stringKey("raft.call.id");
 
 
   private RatisAttributes() {
