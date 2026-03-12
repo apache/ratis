@@ -40,6 +40,7 @@ import org.slf4j.event.Level;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.ReadOnlyRequestTests.CounterStateMachine;
@@ -144,12 +145,10 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testFollowerLinearizableReadParallel() throws Exception {
-    final Type type = readIndexType();
-    runWithNewCluster(cluster -> runTestFollowerReadOnlyParallel(type, cluster));
+    runWithNewCluster(LinearizableReadTests::runTestFollowerReadOnlyParallel);
   }
 
-  static <C extends MiniRaftCluster> void runTestFollowerReadOnlyParallel(Type readIndexType, C cluster)
-      throws Exception {
+  static <C extends MiniRaftCluster> void runTestFollowerReadOnlyParallel(C cluster) throws Exception {
     final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
     final List<RaftServer.Division> followers = cluster.getFollowers();
