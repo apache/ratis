@@ -128,6 +128,7 @@ public interface ClientProtoUtils {
 
     Optional.ofNullable(request.getSlidingWindowEntry()).ifPresent(b::setSlidingWindowEntry);
     Optional.ofNullable(request.getRoutingTable()).map(RoutingTable::toProto).ifPresent(b::setRoutingTable);
+    Optional.ofNullable(request.getSpanContext()).ifPresent(b::setSpanContext);
 
     return b.setCallId(request.getCallId())
         .setToLeader(request.isToLeader())
@@ -187,6 +188,9 @@ public interface ClientProtoUtils {
     }
     if (request.hasSlidingWindowEntry()) {
       b.setSlidingWindowEntry(request.getSlidingWindowEntry());
+    }
+    if (request.hasSpanContext()) {
+      b.setSpanContext(request.getSpanContext());
     }
     return b.setClientId(ClientId.valueOf(request.getRequestorId()))
         .setGroupId(ProtoUtils.toRaftGroupId(request.getRaftGroupId()))
