@@ -124,7 +124,10 @@ public abstract class LogAppenderBase implements LogAppender {
 
   @Override
   public boolean isRunning() {
-    return daemon.isWorking() && server.getInfo().isLeader();
+    return daemon.isWorking()
+        && server.getInfo().isAlive()
+        && server.getInfo().isLeader()
+        && getRaftLog().isOpened();
   }
 
   @Override
@@ -133,8 +136,8 @@ public abstract class LogAppenderBase implements LogAppender {
   }
 
   void restart() {
-    if (!server.getInfo().isAlive()) {
-      LOG.warn("Failed to restart {}: server {} is not alive", this, server.getMemberId());
+    if (!isRunning()) {
+      LOG.warn("{} is not running: skipping restart", this);
       return;
     }
     getLeaderState().restart(this);
