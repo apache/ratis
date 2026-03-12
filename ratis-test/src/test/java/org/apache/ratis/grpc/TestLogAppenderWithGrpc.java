@@ -55,7 +55,6 @@ import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.util.CodeInjectionForTesting;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
-import static org.apache.ratis.grpc.server.GrpcServerProtocolService.GRPC_SERVER_HANDLE_ERROR;
 
 public class TestLogAppenderWithGrpc
     extends LogAppenderTests<MiniRaftClusterWithGrpc>
@@ -236,6 +235,7 @@ public class TestLogAppenderWithGrpc
 
     final RaftPeerId followerId = cluster.getFollowers().get(0).getId();
     final String APPEND_ENTRIES = "RaftServerImpl.appendEntries";
+    final String GRPC_SERVER_HANDLE_ERROR = "GrpcServerProtocolService.handleError";
     final AtomicBoolean shouldFail = new AtomicBoolean(false);
     final AtomicInteger handleErrorCount = new AtomicInteger(0);
     final AtomicInteger leakCount = new AtomicInteger(0);
