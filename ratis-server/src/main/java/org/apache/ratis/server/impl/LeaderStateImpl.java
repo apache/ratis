@@ -646,7 +646,7 @@ class LeaderStateImpl implements LeaderState {
     final boolean initializing = !isCaughtUp(follower);
     final RaftPeerId targetId = follower.getId();
     return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, getCurrentTerm(), entries,
-        ServerImplUtils.effectiveCommitIndex(raftLog.getLastCommittedIndex(), previous, entries.size()),
+        ServerImplUtils.effectiveCommitIndex(readIndexSupplier.get(), previous, entries.size()),
         initializing, previous, server.getCommitInfos(), callId);
   }
 
