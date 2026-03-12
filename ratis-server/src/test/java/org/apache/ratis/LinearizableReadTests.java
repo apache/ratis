@@ -172,17 +172,8 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
         writeReplies.add(new Reply(count, leaderClient.async().send(WAIT_AND_INCREMENT)));
         Thread.sleep(100);
 
-        if (readIndexType == Type.REPLIED_INDEX) {
-          // With REPLIED_INDEX the read index only advances after the leader has applied the
-          // transaction and the reply batch is flushed.  WAIT_AND_INCREMENT takes 500 ms in
-          // the state machine but we only waited 100 ms, so its reply has not been generated
-          // yet and the follower read may only see the preceding sync INCREMENT (count - 1).
-          assertReplyAtLeast(count - 1, f0Client.io().sendReadOnly(QUERY, f0));
-          f1Replies.add(new Reply(count - 1, f1Client.async().sendReadOnly(QUERY, f1)));
-        } else {
-          assertReplyExact(count, f0Client.io().sendReadOnly(QUERY, f0));
-          f1Replies.add(new Reply(count, f1Client.async().sendReadOnly(QUERY, f1)));
-        }
+        assertReplyExact(count, f0Client.io().sendReadOnly(QUERY, f0));
+        f1Replies.add(new Reply(count, f1Client.async().sendReadOnly(QUERY, f1)));
       }
 
       for (int i = 0; i < n; i++) {
