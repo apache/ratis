@@ -67,6 +67,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -871,6 +872,50 @@ public class TestSegmentedRaftLog extends BaseTest {
       }
       System.out.println(entries.size() + " appendEntry finished in " + (System.nanoTime() - start) +
           " ns with asyncFlush " + useAsyncFlush);
+    }
+  }
+
+  @Test
+  public void testStateBetweenCacheAndRecordAppend() throws Exception {
+    final AtomicReference<Throwable> testError = new AtomicReference<>();
+    final CountDownLatch injectionHit = new CountDownLatch(1);
+
+    final CodeInjectionForTesting.Code code = (localId, remoteId, args) -> {
+      final LogSegment segment = (LogSegment) localId;
+      final TermIndex ti = (TermIndex) remoteId;
+      try {
+        // entry is in the cache but the record is not in the record list.
+        Assertions.assertNotNull(segment.getEntryFromCache(ti));
+        Assertions.assertNull(segment.getLogRecord(ti.getIndex()));
+      } catch (Throwable t) {
+        testError.set(t);
+      } finally {
+        injectionHit.countDown();
+      }
+      return true;
+    };
+
+    try (SegmentedRaftLog raftLog = newSegmentedRaftLog()) {
+      CodeInjectionForTesting.put(LogSegment.APPEND_RECORD, code);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+      final LogEntryProto newEntry = prepareLogEntry(1, 0, () -> "newEntry", false);
+
+      raftLog.appendEntry(newEntry).join();
+
+      Assertions.assertTrue(injectionHit.await(5, TimeUnit.SECONDS), "Injection point was not hit.");
+
+      final Throwable t = testError.get();
+      if (t != null) {
+        throw new Exception("Test failed", t);
+      }
+
+      // after the append, both entry and record should be available.
+      final LogSegment segment = raftLog.getRaftLogCache().getOpenSegment();
+      final TermIndex ti = segment.getLastTermIndex();
+      Assertions.assertNotNull(segment.getEntryFromCache(ti));
+      Assertions.assertNotNull(segment.getLogRecord(ti.getIndex()));
+    } finally {
+      CodeInjectionForTesting.remove(LogSegment.APPEND_RECORD);
     }
   }
 }
