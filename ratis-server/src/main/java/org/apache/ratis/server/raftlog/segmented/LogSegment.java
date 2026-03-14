@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import org.apache.ratis.util.CodeInjectionForTesting;
 
 
 /**
@@ -357,6 +358,7 @@ public final class LogSegment {
     append(true, entry, op);
   }
 
+  public static final String APPEND_RECORD = LogSegment.class.getSimpleName() + ".append";
   private void append(boolean keepEntryInCache, LogEntryProto entry, Op op) {
     Objects.requireNonNull(entry, "entry == null");
     final LogRecord currentLast = records.getLast();
@@ -371,9 +373,14 @@ public final class LogSegment {
 
     final LogRecord record = new LogRecord(totalFileSize, entry);
     if (keepEntryInCache) {
+      // It is important to put the entry into the cache before appending the
+      // record to the record list. Otherwise, a reader thread may get the
+      // record from the list but not the entry from the cache.
       putEntryCache(record.getTermIndex(), entry, op);
+      CodeInjectionForTesting.execute(APPEND_RECORD, this, record.getTermIndex());
     }
     records.append(record);
+
     totalFileSize += getEntrySize(entry, op);
     endIndex = entry.getIndex();
   }

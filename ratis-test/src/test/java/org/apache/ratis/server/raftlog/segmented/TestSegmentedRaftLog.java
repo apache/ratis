@@ -67,6 +67,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -75,6 +76,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
 import static java.lang.Boolean.FALSE;
@@ -871,6 +874,76 @@ public class TestSegmentedRaftLog extends BaseTest {
       }
       System.out.println(entries.size() + " appendEntry finished in " + (System.nanoTime() - start) +
           " ns with asyncFlush " + useAsyncFlush);
+    }
+  }
+
+  public static final Logger LOG = LoggerFactory.getLogger(TestSegmentedRaftLog.class);
+  @Test
+  public void testConcurrentGetDuringAppend() throws Exception {
+    RaftServerConfigKeys.Log.setReadLockEnabled(properties, false);
+    final CountDownLatch injectionPaused = new CountDownLatch(1);
+    final CountDownLatch readerCanProceed = new CountDownLatch(1);
+    final AtomicReference<Throwable> error = new AtomicReference<>();
+    final AtomicReference<LogEntryProto> readEntry = new AtomicReference<>();
+
+    final CodeInjectionForTesting.Code code = (localId, remoteId, args) -> {
+      // in log worker thread, holding write lock
+      injectionPaused.countDown();
+      try {
+        if (!readerCanProceed.await(5, TimeUnit.SECONDS)) {
+          error.set(new TimeoutException("The reader thread did not start in time."));
+        }
+      } catch (InterruptedException e) {
+        error.set(e);
+      }
+      return true;
+    };
+
+    try (SegmentedRaftLog raftLog = newSegmentedRaftLog()) {
+      CodeInjectionForTesting.put(LogSegment.APPEND_RECORD, code);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+      final LogEntryProto newEntry = prepareLogEntry(1, 0, () -> "newEntry", false);
+
+      // Run appendEntry asynchronously.
+      final Thread appender = new Thread(() -> {
+        raftLog.appendEntry(newEntry).join();
+      });
+      appender.start();
+
+      // Wait until the append operation is paused at the injection point.
+      Assertions.assertTrue(injectionPaused.await(5, TimeUnit.SECONDS), "Injection point was not hit.");
+
+      // Start a new reader thread to call get().
+      // This thread will block until the write lock is released.
+      final Thread reader = new Thread(() -> {
+        try {
+          readEntry.set(raftLog.get(newEntry.getIndex()));
+          Assertions.assertNull(readEntry.get());
+          // Unblock the writer thread.
+          readerCanProceed.countDown();
+        } catch (Throwable t) {
+          error.set(t);
+        }
+      });
+      reader.start();
+
+      // Wait for both the append and the read to complete.
+      reader.join();
+      appender.join();
+
+      // Check for errors.
+      if (error.get() != null) {
+        throw new Exception("Test failed", error.get());
+      }
+
+      // When the reader's get() call completed, the append was fully finished,
+      // so it should have returned the correct entry.
+      Assertions.assertEquals(newEntry.getIndex(), raftLog.getLastEntryTermIndex().getIndex());
+      readEntry.set(raftLog.get(newEntry.getIndex()));
+      Assertions.assertNotNull(readEntry.get());
+      Assertions.assertEquals(newEntry, readEntry.get());
+    } finally {
+      CodeInjectionForTesting.remove(LogSegment.APPEND_RECORD);
     }
   }
 }
