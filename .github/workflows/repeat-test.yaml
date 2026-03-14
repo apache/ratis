@@ -95,11 +95,11 @@ jobs:
         split: ${{ fromJson(needs.prepare.outputs.matrix) }}
       fail-fast: ${{ fromJson(github.event.inputs.fail-fast) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.prepare.outputs.ref }}
       - name: Cache for maven dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.m2/repository
@@ -108,7 +108,7 @@ jobs:
           restore-keys: |
             maven-repo-
       - name: Setup java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: 8
@@ -121,7 +121,7 @@ jobs:
         run: dev-support/checks/_summary.sh target/unit/summary.txt
         if: ${{ !cancelled() }}
       - name: Archive build results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ failure() }}
         with:
           name: result-${{ github.run_number }}-${{ github.run_id }}-split-${{ matrix.split }}
@@ -132,7 +132,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download build results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
       - name: Count failures
         run: |
           failures=$(find . -name 'summary.txt' | grep -v 'iteration' | xargs grep -v 'exit code: 0' | wc -l)

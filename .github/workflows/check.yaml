@@ -90,11 +90,11 @@ jobs:
     steps:
       - name: Checkout project
         if: ${{ !inputs.needs-source-tarball }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download source tarball
         if: ${{ inputs.needs-source-tarball }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ratis-src
 
@@ -105,7 +105,7 @@ jobs:
 
       - name: Create cache for Maven dependencies
         if: ${{ inputs.script == 'build' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.m2/repository/*/*/*
@@ -116,7 +116,7 @@ jobs:
 
       - name: Restore cache for Maven dependencies
         if: ${{ inputs.script != 'build' }}
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/.m2/repository/*/*/*
@@ -128,7 +128,7 @@ jobs:
       - name: Download Maven repo
         id: download-maven-repo
         if: ${{ inputs.needs-maven-repo }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: maven-repo
           path: |
@@ -136,7 +136,7 @@ jobs:
 
       - name: Download binary tarball
         if: ${{ inputs.needs-binary-tarball }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ratis-bin
 
@@ -148,7 +148,7 @@ jobs:
 
       - name: Setup java ${{ inputs.java-version }}
         if: ${{ inputs.java-version }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: ${{ inputs.java-version }}
@@ -169,7 +169,7 @@ jobs:
 
       - name: Archive build results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ (inputs.split && format('{0}-{1}', inputs.script, inputs.split)) || inputs.script }}
           path: target/${{ inputs.script }}
@@ -179,7 +179,7 @@ jobs:
       # to avoid the need for 3 more inputs.
       - name: Store binaries for tests
         if: ${{ inputs.script == 'build' && !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ratis-bin
           path: |
@@ -188,7 +188,7 @@ jobs:
 
       - name: Store source tarball for compilation
         if: ${{ inputs.script == 'build' && !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ratis-src
           path: |
@@ -197,7 +197,7 @@ jobs:
 
       - name: Store Maven repo for tests
         if: ${{ inputs.script == 'build' && !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maven-repo
           path: |
