@@ -47,7 +47,7 @@ public final class VersionInfo {
 
   private enum SoftwareInfo {
     // the ordering is the output ordering
-    NAME, VERSION, URL, REVISION;
+    NAME, VERSION, REVISION;
 
     static SoftwareInfo parse(String key) {
       for (SoftwareInfo info : SoftwareInfo.values()) {
