@@ -44,12 +44,9 @@
   </distributionManagement>
 
   <properties>
-    <distMgmtSnapshotsId>apache.snapshots.https</distMgmtSnapshotsId>
-    <distMgmtSnapshotsName>Apache Development Snapshot Repository</distMgmtSnapshotsName>
-    <distMgmtSnapshotsUrl>https://repository.apache.org/content/repositories/snapshots</distMgmtSnapshotsUrl>
-    <distMgmtStagingId>apache.staging.https</distMgmtStagingId>
-    <distMgmtStagingName>Apache Release Distribution Repository</distMgmtStagingName>
-    <distMgmtStagingUrl>https://repository.apache.org/service/local/staging/deploy/maven2</distMgmtStagingUrl>
+    <distMgmtStagingId>${distMgmtReleasesId}</distMgmtStagingId>
+    <distMgmtStagingName>${distMgmtReleasesName}</distMgmtStagingName>
+    <distMgmtStagingUrl>${distMgmtReleasesUrl}</distMgmtStagingUrl>
     <!-- Contains all shaded thirdparty dependencies; make sure to also update in pom.xml -->
     <ratis.thirdparty.version>1.0.11</ratis.thirdparty.version>
     <!-- no testable code in this module -->
