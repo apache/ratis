@@ -39,11 +39,11 @@ Be careful to keep both separate majorities online!
 
 To add a new node (e.g., `N3`) to an existing group (e.g., `N0`, `N1`, `N2`), follow these steps:
 
-1. Start the new peer `N3` with **EMPTY** group. 
+1. Start the new peer `N3` with the existing groupId and provide an empty list of peers.
 
 ```java
         RaftServer N3 = RaftServer.newBuilder()
-            .setGroup(RaftGroup.emptygroup())
+            .setGroup(RaftGroup.valueOf(groupId, Collections.emptyList()))
             .setProperties(properties)
             .setServerId(n3id)
             .setStateMachine(userStateMachine)
@@ -52,8 +52,8 @@ To add a new node (e.g., `N3`) to an existing group (e.g., `N0`, `N1`, `N2`), fo
 ```
 
 2. Invoke a `setConfiguration` method in the [AdminApi](
-../../../../ratis-client/src/main/java/org/apache/ratis/client/api/AdminApi.java#L44) 
-with the new group as the parameter.
+../../../../ratis-client/src/main/java/org/apache/ratis/client/api/AdminApi.java#L44)
+   on the existing cluster with the new list of peers as the parameter.
 It will wait for the new peer to catch up before returning the reply.
 ```java
       reply = client.admin().setConfiguration(List.of(N0, N1, N2, N3))
