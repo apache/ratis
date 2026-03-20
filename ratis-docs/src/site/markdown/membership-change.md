@@ -39,11 +39,11 @@ Be careful to keep both separate majorities online!
 
 To add a new node (e.g., `N3`) to an existing group (e.g., `N0`, `N1`, `N2`), follow these steps:
 
-1. Start the new peer `N3` with the existing groupID but provide an empty list of peers.
+1. Start the new peer `N3` with the existing groupId and provide an empty list of peers.
 
 ```java
         RaftServer N3 = RaftServer.newBuilder()
-        .setGroup(RaftGroup.valueOf(groupId, List.of()))
+            .setGroup(RaftGroup.valueOf(groupId, Collections.emptyList()))
             .setProperties(properties)
             .setServerId(n3id)
             .setStateMachine(userStateMachine)
