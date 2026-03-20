@@ -26,8 +26,10 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.context.propagation.TextMapGetter;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.apache.ratis.util.VersionInfo;
@@ -48,11 +50,19 @@ public final class TraceUtils {
 
   private static final Logger LOG = LoggerFactory.getLogger(TraceUtils.class);
 
+  private static final RaftProperties PROPERTIES = new RaftProperties();
+  private static final String DEFAULT_OPERATION = "DEFAULT_OPERATION";
+  private static final String UNKNOWN_PEER = "UNKNOWN_PEER";
+
   private TraceUtils() {
   }
 
   public static Tracer getGlobalTracer() {
     return TRACER;
+  }
+
+  public static RaftProperties getProperties() {
+    return PROPERTIES;
   }
 
   /**
@@ -94,6 +104,36 @@ public final class TraceUtils {
     return enabled ? traceAsyncMethod(action, request, memberId, spanName) : action.get();
   }
 
+  public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncImplSend(
+      CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
+      RaftClientRequest.Type type, RaftPeerId server) throws THROWABLE {
+    return isTraceEnabled() ? traceAsyncClientSend(action, type, server, "AsyncImpl::send") : action.get();
+  }
+
+  private static boolean isTraceEnabled() {
+    return TraceConfigKeys.enabled(getProperties());
+  }
+
+  public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncClientSend(
+      CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
+      RaftClientRequest.Type type, RaftPeerId server, String spanName) throws THROWABLE {
+    return traceAsyncMethod(action, () -> createClientOperationSpan(type, server, spanName));
+  }
+
+  private static Span createClientOperationSpan(RaftClientRequest.Type type, RaftPeerId server,
+      String spanName) {
+    String name = (spanName == null || spanName.isEmpty()) ? DEFAULT_OPERATION : spanName;
+    String peerId = server == null ? UNKNOWN_PEER : String.valueOf(server);
+    final Span span = getGlobalTracer()
+        .spanBuilder(name)
+        .setSpanKind(SpanKind.CLIENT)
+        .startSpan();
+    span.setAttribute(RatisAttributes.PEER_ID, peerId);
+    span.setAttribute(RatisAttributes.OPERATION_NAME, name);
+    span.setAttribute(RatisAttributes.OPERATION_TYPE, String.valueOf(type));
+    return span;
+  }
+
   private static Span createServerSpanFromClientRequest(RaftClientRequest request, String memberId, String spanName) {
     final Context remoteContext = extractContextFromProto(request.getSpanContext());
     final Span span = getGlobalTracer()
@@ -108,13 +148,22 @@ public final class TraceUtils {
   }
 
   private static void endSpan(CompletableFuture<?> future, Span span) {
+    if (span == null) {
+      LOG.debug("Span is null, cannot trace the future {}", future);
+      return;
+    }
     addListener(future, (resp, error) -> {
-      if (error != null) {
-        setError(span, error);
-      } else {
-        span.setStatus(StatusCode.OK);
+      try {
+        if (error != null) {
+          setError(span, error);
+        } else {
+          span.setStatus(StatusCode.OK);
+        }
+      } catch (Throwable t) {
+        LOG.error("Error setting span status, ending span anyway", t);
+      } finally {
+        span.end();
       }
-      span.end();
     });
   }
 
@@ -145,7 +194,7 @@ public final class TraceUtils {
         // For a chain of CompletableFuture, only the first child CompletableFuture can get the
         // original exception, others will get a CompletionException, which wraps the original
         // exception. So here we unwrap it before passing it to the callback action.
-        action.accept(resp, JavaUtils.unwrapCompletionException(error));
+        action.accept(resp, error == null ? null : JavaUtils.unwrapCompletionException(error));
       } catch (Throwable t) {
         LOG.error("Unexpected error caught when processing CompletableFuture", t);
       }
