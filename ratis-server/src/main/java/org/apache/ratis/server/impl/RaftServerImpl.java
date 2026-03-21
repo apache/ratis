@@ -816,13 +816,7 @@ class RaftServerImpl implements RaftServer.Division,
         getMemberId() + " is not in " + expected + ": current state is " + c), expected);
   }
 
-  /**
-   * Cancels a given transaction.
-   * For a provided exception set the exception for the transaction context
-   * and then cancel the transaction to notify the state machine that the transaction cannot be appended.
-   * @param context
-   * @param exception
-   */
+  /** Cancel a transaction and notify the state machine. Set exception if provided to the transaction context.*/
   private void cancelTransaction(TransactionContextImpl context, Exception exception) {
     if (context == null) {
       return;
