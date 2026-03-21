@@ -64,7 +64,6 @@ import java.util.stream.Collectors;
 
 import static org.apache.ratis.RaftTestUtil.getPeersWithPriority;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
-import static org.apache.ratis.proto.RaftProtos.RaftPeerRole.LISTENER;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_ELECTION_ELAPSED_TIME;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_COUNT_METRIC;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIME_TAKEN;
@@ -556,6 +555,8 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         assertTrue(reply.isSuccess());
         Collection<RaftPeer> peer = leader.getRaftConf().getAllPeers(RaftProtos.RaftPeerRole.LISTENER);
         assertEquals(0, peer.size());
+
+        RaftServerTestUtil.waitAndCheckNewConf(cluster, cluster.getPeers(), 0, null);
 
         listeners = cluster.getListeners()
                   .stream().map(RaftServer.Division::getPeer).collect(Collectors.toList());
