@@ -40,6 +40,7 @@ import org.slf4j.event.Level;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -52,6 +53,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
   }
 
   private static volatile boolean failPreAppend = false;
+  private static final AtomicInteger numCancelTransaction = new AtomicInteger();
 
   protected static class StateMachineWithException extends
       SimpleStateMachine4Testing {
@@ -71,6 +73,12 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       } else {
         return trx;
       }
+    }
+
+    @Override
+    public TransactionContext cancelTransaction(TransactionContext trx) throws IOException {
+      numCancelTransaction.incrementAndGet();
+      return super.cancelTransaction(trx);
     }
   }
 
@@ -176,6 +184,33 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       Assertions.assertNotNull(currentEntry);
       Assertions.assertTrue(RetryCacheTestUtil.isFailed(currentEntry));
       Assertions.assertNotEquals(oldEntry, currentEntry);
+      failPreAppend = false;
+    }
+  }
+
+  @Test
+  public void testCancelTransactionOnPreAppendFailure() throws Exception {
+    runWithNewCluster(3, this::runTestCancelTransactionOnPreAppendFailure);
+  }
+
+  private void runTestCancelTransactionOnPreAppendFailure(CLUSTER cluster) throws Exception {
+    final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+    failPreAppend = true;
+    numCancelTransaction.set(0);
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      try {
+        client.io().send(new SimpleMessage("cancel-transaction"));
+        fail("Exception expected");
+      } catch (StateMachineException e) {
+        Assertions.assertTrue(e.getCause().getMessage().contains("Fake Exception in preAppend"));
+      }
+
+      JavaUtils.attemptRepeatedly(() -> {
+        Assertions.assertTrue(numCancelTransaction.get() > 0,
+            () -> "Expected cancelTransaction() to be called but got " + numCancelTransaction.get());
+        return null;
+      }, 10, ONE_SECOND, "wait for cancelTransaction", LOG);
+    } finally {
       failPreAppend = false;
     }
   }
