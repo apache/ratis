@@ -23,6 +23,7 @@ import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
+import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
@@ -52,6 +53,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Comparator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -250,6 +252,15 @@ public class GrpcLogAppender extends LogAppenderBase {
     if (installSnapshotEnabled) {
       final SnapshotInfo snapshot = shouldInstallSnapshot();
       if (snapshot != null) {
+        final TermIndex firstAvailable = shouldNotifyToInstallSnapshot();
+        if (firstAvailable != null) {
+          final List<RaftPeerProto> sourcePeers = selectSnapshotSourcePeers(firstAvailable);
+          if (!sourcePeers.isEmpty()) {
+            notifyInstallSnapshot(firstAvailable, sourcePeers);
+            return true;
+          }
+        }
+        // Fallback to the existing leader-sourced install path when no eligible source follower exists.
         installSnapshot(snapshot);
         return true;
       }
@@ -257,7 +268,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       // check installSnapshotNotification
       final TermIndex firstAvailable = shouldNotifyToInstallSnapshot();
       if (firstAvailable != null) {
-        notifyInstallSnapshot(firstAvailable);
+        notifyInstallSnapshot(firstAvailable, selectSnapshotSourcePeers(firstAvailable));
         return true;
       }
     }
@@ -802,15 +813,18 @@ public class GrpcLogAppender extends LogAppenderBase {
    * Send an installSnapshot notification request to the Follower.
    * @param firstAvailable the first available log's index on the Leader
    */
-  private void notifyInstallSnapshot(TermIndex firstAvailable) {
+  private void notifyInstallSnapshot(TermIndex firstAvailable, List<RaftPeerProto> sourcePeers) {
     BatchLogger.print(BatchLogKey.INSTALL_SNAPSHOT_NOTIFY, getFollower().getName(),
-        suffix -> LOG.info("{}: notifyInstallSnapshot with firstAvailable={}, followerNextIndex={} {}",
-            this, firstAvailable, getFollower().getNextIndex(), suffix));
+        suffix -> LOG.info("{}: notifyInstallSnapshot with firstAvailable={}, followerNextIndex={}, "
+                + "minimumSnapshotIndex={}, sourcePeers={} {}",
+            this, firstAvailable, getFollower().getNextIndex(),
+            getMinimumSnapshotIndex(firstAvailable), sourcePeers.size(), suffix));
 
     final InstallSnapshotResponseHandler responseHandler = new InstallSnapshotResponseHandler(true);
     StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver = null;
     // prepare and enqueue the notify install snapshot request.
-    final InstallSnapshotRequestProto request = newInstallSnapshotNotificationRequest(firstAvailable);
+    final InstallSnapshotRequestProto request = newInstallSnapshotNotificationRequest(
+        firstAvailable, getMinimumSnapshotIndex(firstAvailable), sourcePeers);
     if (LOG.isInfoEnabled()) {
       LOG.info("{}: send {}", this, ServerStringUtils.toInstallSnapshotRequestString(request));
     }
@@ -830,45 +844,6 @@ public class GrpcLogAppender extends LogAppenderBase {
       return;
     }
     responseHandler.waitForResponse();
-  }
-
-  /**
-   * Should the Leader notify the Follower to install the snapshot through
-   * its own State Machine.
-   * @return the first available log's start term index
-   */
-  private TermIndex shouldNotifyToInstallSnapshot() {
-    final FollowerInfo follower = getFollower();
-    final long leaderNextIndex = getRaftLog().getNextIndex();
-    final boolean isFollowerBootstrapping = getLeaderState().isFollowerBootstrapping(follower);
-    final long leaderStartIndex = getRaftLog().getStartIndex();
-    final TermIndex firstAvailable = Optional.ofNullable(getRaftLog().getTermIndex(leaderStartIndex))
-        .orElseGet(() -> TermIndex.valueOf(getServer().getInfo().getCurrentTerm(), leaderNextIndex));
-    if (isFollowerBootstrapping && !follower.hasAttemptedToInstallSnapshot()) {
-      // If the follower is bootstrapping and has not yet installed any snapshot from leader, then the follower should
-      // be notified to install a snapshot. Every follower should try to install at least one snapshot during
-      // bootstrapping, if available.
-      LOG.debug("{}: follower is bootstrapping, notify to install snapshot to {}.", this, firstAvailable);
-      return firstAvailable;
-    }
-
-    final long followerNextIndex = follower.getNextIndex();
-    if (followerNextIndex >= leaderNextIndex) {
-      return null;
-    }
-
-    if (followerNextIndex < leaderStartIndex) {
-      // The Leader does not have the logs from the Follower's last log
-      // index onwards. And install snapshot is disabled. So the Follower
-      // should be notified to install the latest snapshot through its
-      // State Machine.
-      return firstAvailable;
-    } else if (leaderStartIndex == RaftLog.INVALID_LOG_INDEX) {
-      // Leader has no logs to check from, hence return next index.
-      return firstAvailable;
-    }
-
-    return null;
   }
 
   static class AppendEntriesRequest {

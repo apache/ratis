@@ -1304,6 +1304,13 @@ class LeaderStateImpl implements LeaderState {
     return StreamSupport.stream(senders.spliterator(), false);
   }
 
+  @Override
+  public Collection<FollowerInfo> getFollowerInfos() {
+    return getLogAppenders()
+        .map(LogAppender::getFollower)
+        .collect(Collectors.collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
+  }
+
   Optional<LogAppender> getLogAppender(RaftPeerId id) {
     return getLogAppenders().filter(a -> a.getFollowerId().equals(id)).findAny();
   }

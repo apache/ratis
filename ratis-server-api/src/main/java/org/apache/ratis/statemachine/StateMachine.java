@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -293,6 +294,24 @@ public interface StateMachine extends Closeable {
     default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
         RoleInfoProto roleInfoProto, TermIndex firstTermIndexInLog) {
       return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Notify the {@link StateMachine} that the leader has purged entries from its log.
+     * In order to catch up, the {@link StateMachine} has to install a snapshot asynchronously.
+     *
+     * @param roleInfoProto information about the current node role and rpc delay information.
+     * @param firstTermIndexInLog the term-index of the first append entry available in the leader's log.
+     * @param minimumSnapshotIndex minimum acceptable snapshot index for this request.
+     *                             A value of 0 means unspecified. This is used for backward compatibility.
+     * @param sourcePeers ranked source peers (highest preference first) from which
+     *                    the follower may fetch the snapshot.
+     * @return return the last term-index in the snapshot after the snapshot installation.
+     */
+    default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
+        RoleInfoProto roleInfoProto, TermIndex firstTermIndexInLog,
+        long minimumSnapshotIndex, List<RaftPeerProto> sourcePeers) {
+      return notifyInstallSnapshotFromLeader(roleInfoProto, firstTermIndexInLog);
     }
   }
 

@@ -219,6 +219,12 @@ message InstallSnapshotRequestProto {
 
   message NotificationProto {
     TermIndexProto firstAvailableTermIndex = 1; // first available log index to notify Follower to install snapshot.
+    // Minimum acceptable snapshot index for this install request.
+    // 0 means unspecified for backward compatibility.
+    uint64 minimumSnapshotIndex = 2;
+    // Ranked source peers (highest preference first) from which the follower may fetch the snapshot.
+    // Older peers ignore this field.
+    repeated RaftPeerProto sourcePeers = 3;
   }
 
   RaftRpcRequestProto serverRequest = 1;
