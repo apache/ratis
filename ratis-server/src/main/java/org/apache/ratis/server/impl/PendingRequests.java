@@ -273,6 +273,18 @@ class PendingRequests {
   }
 
   /**
+   * Remove the {@link PendingRequest} for the given {@link TermIndex} without sending a reply.
+   *  @return the removed {@link PendingRequest}, or null if not found.
+   */
+  PendingRequest removePendingRequest(TermIndex termIndex) {
+    final PendingRequest pending = pendingRequests.remove(termIndex);
+    if (pending != null) {
+      Preconditions.assertEquals(termIndex, pending.getTermIndex(), "termIndex");
+    }
+    return pending;
+  }
+
+  /**
    * The leader state is stopped. Send NotLeaderException to all the pending
    * requests since they have not got applied to the state machine yet.
    */
