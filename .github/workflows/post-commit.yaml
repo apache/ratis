@@ -24,10 +24,13 @@ on:
   pull_request:
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.pull_request.number || case(github.repository == 'apache/ratis', github.sha, github.ref_name) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.repository != 'apache/ratis' }}
 
 jobs:
   CI:
+    if: github.event_name == 'pull_request'
+      || github.repository == 'apache/ratis'
+      || github.ref_name != 'master'
     uses: ./.github/workflows/ci.yaml
     secrets: inherit
