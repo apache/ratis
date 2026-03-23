@@ -25,6 +25,7 @@ import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import static org.apache.ratis.ReadOnlyRequestTests.assertOption;
 import static org.apache.ratis.server.RaftServerConfigKeys.Read.Option.LINEARIZABLE;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 public class TestLinearizableReadWithGrpc
   extends LinearizableReadTests<MiniRaftClusterWithGrpc>
@@ -45,5 +46,6 @@ public class TestLinearizableReadWithGrpc
     assertOption(LINEARIZABLE, p);
     assertFalse(RaftServerConfigKeys.Read.leaderLeaseEnabled(p));
     assertFalse(isLeaderLeaseEnabled());
+    assertSame(readIndexType(), RaftServerConfigKeys.Read.ReadIndex.type(p));
   }
 }
