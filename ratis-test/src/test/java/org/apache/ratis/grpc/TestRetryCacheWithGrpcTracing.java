@@ -40,7 +40,7 @@ public class TestRetryCacheWithGrpcTracing
 
   {
     getProperties().setBoolean(TraceConfigKeys.ENABLED_KEY, true);
-    TraceConfigKeys.setEnabled(TraceUtils.getProperties(), true);
+    TraceUtils.setTracingEnabled(true);
   }
 
   private List<SpanData> spans;

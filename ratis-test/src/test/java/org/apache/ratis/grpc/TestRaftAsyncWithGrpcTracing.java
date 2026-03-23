@@ -36,8 +36,7 @@ public class TestRaftAsyncWithGrpcTracing extends RaftAsyncTests<MiniRaftCluster
     implements MiniRaftClusterWithGrpc.FactoryGet {
   {
     getProperties().setBoolean(TraceConfigKeys.ENABLED_KEY, true);
-    // TraceUtils uses getTraceProperties() for client-side traceAsyncRpcSend, not cluster properties
-    TraceConfigKeys.setEnabled(TraceUtils.getProperties(), true);
+    TraceUtils.setTracingEnabled(true);
   }
 
   @RegisterExtension

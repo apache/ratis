@@ -61,8 +61,8 @@ public final class TraceUtils {
     return TRACER;
   }
 
-  public static RaftProperties getProperties() {
-    return PROPERTIES;
+  public static void setTracingEnabled(boolean enabled) {
+    TraceConfigKeys.setEnabled(PROPERTIES, enabled);
   }
 
   /**
@@ -111,7 +111,7 @@ public final class TraceUtils {
   }
 
   private static boolean isTraceEnabled() {
-    return TraceConfigKeys.enabled(getProperties());
+    return TraceConfigKeys.enabled(PROPERTIES);
   }
 
   public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncClientSend(

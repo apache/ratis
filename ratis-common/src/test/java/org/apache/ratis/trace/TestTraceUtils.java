@@ -38,7 +38,7 @@ public class TestTraceUtils {
 
   private void runTraceAsyncAndAssertClientSpan(boolean tracingEnabled, boolean expectClientSpan)
       throws Exception {
-    TraceConfigKeys.setEnabled(TraceUtils.getProperties(), tracingEnabled);
+    TraceUtils.setTracingEnabled(tracingEnabled);
     TraceUtils.traceAsyncImplSend(
         () -> CompletableFuture.completedFuture("ok"),
         null,
