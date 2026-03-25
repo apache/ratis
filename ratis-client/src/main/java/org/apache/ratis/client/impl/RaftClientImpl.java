@@ -43,6 +43,7 @@ import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
+import org.apache.ratis.trace.TraceUtils;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -218,6 +219,7 @@ public final class RaftClientImpl implements RaftClient {
         .setParameters(parameters)
         .build());
     this.adminApi = JavaUtils.memoize(() -> new AdminImpl(this));
+    TraceUtils.setTracerWhenEnabled(properties);
   }
 
   @Override
