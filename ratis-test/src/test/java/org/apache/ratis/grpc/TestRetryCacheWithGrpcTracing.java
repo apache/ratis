@@ -60,12 +60,7 @@ public class TestRetryCacheWithGrpcTracing
    */
   @Test
   public void testBasicRetry() throws Exception {
-//    Span span = openTelemetryExtension.getOpenTelemetry().getTracer("test")
-//        .spanBuilder("test-span").startSpan();
-
     runWithNewCluster(3, cluster -> new InvalidateRepliedCallsTest(cluster).run());
-    // span.end();
-    // Thread.sleep(1000);
 
     long deadline = System.currentTimeMillis() + 10000;
     do {
@@ -74,21 +69,13 @@ public class TestRetryCacheWithGrpcTracing
       Thread.sleep(100);
     } while (System.currentTimeMillis() < deadline);
 
-    LOG.info("Collected spans: {}", spans);
-
     assertTrue(
         spans.stream().anyMatch(s -> s.getKind() == SpanKind.CLIENT),
         "Expected at least one span with SpanKind.CLIENT (from traceAsyncRpcSend)"
     );
-
     assertTrue(
         spans.stream().anyMatch(s -> s.getKind() == SpanKind.SERVER),
         "Expected at least one span with SpanKind.SERVER"
     );
-
-//    // this must fail as there are more than two spans created in the test
-//    openTelemetryExtension.assertTraces().hasTracesSatisfyingExactly(
-//        trace -> trace.hasSpansSatisfyingExactly(spanAssert -> spanAssert.hasName("raft.server.appendEntries")),
-//        trace -> trace.hasSpansSatisfyingExactly(spanAssert -> spanAssert.hasName("test-appendEntries_emitsSpan")));
   }
 }

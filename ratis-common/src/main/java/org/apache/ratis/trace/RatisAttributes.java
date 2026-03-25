@@ -31,7 +31,7 @@ public final class RatisAttributes {
 
   public static final AttributeKey<String> PEER_ID = AttributeKey.stringKey("raft.peer.id");
   public static final AttributeKey<String> OPERATION_NAME = AttributeKey.stringKey("raft.operation.name");
-  public static final AttributeKey<String> OPERATION_TYPE = AttributeKey.stringKey("raft  .operation.type");
+  public static final AttributeKey<String> OPERATION_TYPE = AttributeKey.stringKey("raft.operation.type");
 
 
   private RatisAttributes() {
