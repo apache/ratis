@@ -102,7 +102,6 @@ import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesti
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.trace.TraceServer;
 import org.apache.ratis.trace.TraceUtils;
-import org.apache.ratis.trace.TraceConfigKeys;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.ConcurrentUtils;
