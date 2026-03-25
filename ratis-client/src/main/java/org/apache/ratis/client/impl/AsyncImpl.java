@@ -27,6 +27,7 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.trace.TraceClient;
 
 /** Async api implementations. */
 class AsyncImpl implements AsyncRpcApi {
@@ -38,7 +39,8 @@ class AsyncImpl implements AsyncRpcApi {
 
   CompletableFuture<RaftClientReply> send(
       RaftClientRequest.Type type, Message message, RaftPeerId server) {
-    return client.getOrderedAsync().send(type, message, server);
+    return TraceClient.asyncSend(
+        () -> client.getOrderedAsync().send(type, message, server), type, server);
   }
 
   @Override
