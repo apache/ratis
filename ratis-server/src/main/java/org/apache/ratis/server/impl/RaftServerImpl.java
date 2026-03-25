@@ -100,6 +100,7 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.trace.TraceServer;
 import org.apache.ratis.trace.TraceUtils;
 import org.apache.ratis.trace.TraceConfigKeys;
 import org.apache.ratis.util.CodeInjectionForTesting;
@@ -258,8 +259,6 @@ class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
 
-  private final boolean tracingEnabled;
-
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
   private final ThreadGroup threadGroup;
 
@@ -286,7 +285,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.readOption = RaftServerConfigKeys.Read.option(properties);
     this.writeIndexCache = new WriteIndexCache(properties);
     this.transactionManager = new TransactionManager(id);
-    this.tracingEnabled = TraceConfigKeys.enabled(properties);
+    TraceUtils.setTracerWhenEnabled(properties);
 
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(
         getMemberId(), state::getLastLeaderElapsedTimeMs);
@@ -948,8 +947,7 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
-    return TraceUtils.traceAsyncMethodIfEnabled(
-        tracingEnabled,
+    return TraceServer.traceAsyncMethod(
         () -> submitClientRequestAsyncInternal(request),
         request, getMemberId().toString(), "raft.server.submitClientRequestAsync");
   }

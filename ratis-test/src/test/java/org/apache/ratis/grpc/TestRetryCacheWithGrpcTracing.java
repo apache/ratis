@@ -24,7 +24,6 @@ import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import org.apache.ratis.trace.TraceConfigKeys;
-import org.apache.ratis.trace.TraceUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,10 +36,8 @@ public class TestRetryCacheWithGrpcTracing
   @RegisterExtension
   private static final OpenTelemetryExtension openTelemetryExtension =
       OpenTelemetryExtension.create();
-
   {
-    getProperties().setBoolean(TraceConfigKeys.ENABLED_KEY, true);
-    TraceUtils.setTracingEnabled(true);
+    TraceConfigKeys.setEnabled(getProperties(), true);
   }
 
   private List<SpanData> spans;

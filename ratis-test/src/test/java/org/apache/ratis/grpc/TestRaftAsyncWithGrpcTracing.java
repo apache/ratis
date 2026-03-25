@@ -24,7 +24,6 @@ import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import org.apache.ratis.RaftAsyncTests;
 import org.apache.ratis.trace.TraceConfigKeys;
-import org.apache.ratis.trace.TraceUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -35,8 +34,7 @@ import java.util.List;
 public class TestRaftAsyncWithGrpcTracing extends RaftAsyncTests<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
   {
-    getProperties().setBoolean(TraceConfigKeys.ENABLED_KEY, true);
-    TraceUtils.setTracingEnabled(true);
+    TraceConfigKeys.setEnabled(getProperties(), true);
   }
 
   @RegisterExtension

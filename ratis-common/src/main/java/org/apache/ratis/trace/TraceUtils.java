@@ -19,7 +19,6 @@ package org.apache.ratis.trace;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
@@ -28,8 +27,6 @@ import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.context.propagation.TextMapGetter;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.SpanContextProto;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.apache.ratis.util.VersionInfo;
@@ -40,35 +37,58 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
+/** Common OpenTelemetry utilities shared by {@link TraceClient} and {@link TraceServer}. */
 public final class TraceUtils {
 
-  private static final Tracer TRACER = GlobalOpenTelemetry.getTracer("org.apache.ratis",
-      VersionInfo.getSoftwareInfoVersion());
-
+  private static final AtomicReference<Tracer> TRACER = new AtomicReference<>();
   private static final Logger LOG = LoggerFactory.getLogger(TraceUtils.class);
-
-  private static final RaftProperties PROPERTIES = new RaftProperties();
-  private static final String DEFAULT_OPERATION = "DEFAULT_OPERATION";
-  private static final String UNKNOWN_PEER = "UNKNOWN_PEER";
 
   private TraceUtils() {
   }
 
   public static Tracer getGlobalTracer() {
-    return TRACER;
-  }
-
-  public static void setTracingEnabled(boolean enabled) {
-    TraceConfigKeys.setEnabled(PROPERTIES, enabled);
+    return TRACER.get();
   }
 
   /**
-   * Trace an asynchronous operation represented by a {@link CompletableFuture}.
-   * The returned future will complete with the same result or error as the original future,
-   * but the provided {@code span} will be ended when the future completes.
+   * Initializes the global tracer from configuration when tracing is enabled, or clears it when
+   * disabled. Call from {@link org.apache.ratis.server.RaftServer} and
+   * {@link org.apache.ratis.client.RaftClient} construction so tracing follows
+   * {@link TraceConfigKeys}.
+   *
+   * @param properties raft configuration; tracing is on when {@link TraceConfigKeys#enabled} is true
+   */
+  public static void setTracerWhenEnabled(RaftProperties properties) {
+    setTracerWhenEnabled(TraceConfigKeys.enabled(properties));
+  }
+
+  /**
+   * Enables or disables the tracer without reading {@link RaftProperties}. Intended for tests and
+   * simple toggles; production code should prefer {@link #setTracerWhenEnabled(RaftProperties)}.
+   *
+   * @param enabled when true, lazily obtains the OpenTelemetry tracer; when false, clears it
+   */
+  public static void setTracerWhenEnabled(boolean enabled) {
+    if (enabled) {
+      TRACER.updateAndGet(previous -> previous != null ? previous
+          : GlobalOpenTelemetry.getTracer("org.apache.ratis", VersionInfo.getSoftwareInfoVersion()));
+    } else {
+      TRACER.set(null);
+    }
+  }
+
+  static boolean isEnabled() {
+    return TRACER.get() != null;
+  }
+
+  /**
+   * Traces an asynchronous operation represented by a {@link CompletableFuture}. The returned future
+   * completes with the same outcome as the supplied future; the span is ended when that future
+   * completes.
    */
   static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncMethod(
       CheckedSupplier<CompletableFuture<T>, THROWABLE> action, Supplier<Span> spanSupplier) throws THROWABLE {
@@ -89,62 +109,6 @@ public final class TraceUtils {
       endSpan(future, span);
       return future;
     }
-  }
-
-  public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncMethod(
-      CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
-      RaftClientRequest request, String memberId, String spanName) throws THROWABLE {
-    return traceAsyncMethod(action, () -> createServerSpanFromClientRequest(request, memberId, spanName));
-  }
-
-  public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncMethodIfEnabled(
-      boolean enabled,
-      CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
-      RaftClientRequest request, String memberId, String spanName) throws THROWABLE {
-    return enabled ? traceAsyncMethod(action, request, memberId, spanName) : action.get();
-  }
-
-  public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncImplSend(
-      CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
-      RaftClientRequest.Type type, RaftPeerId server) throws THROWABLE {
-    return isTraceEnabled() ? traceAsyncClientSend(action, type, server, "AsyncImpl::send") : action.get();
-  }
-
-  private static boolean isTraceEnabled() {
-    return TraceConfigKeys.enabled(PROPERTIES);
-  }
-
-  public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncClientSend(
-      CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
-      RaftClientRequest.Type type, RaftPeerId server, String spanName) throws THROWABLE {
-    return traceAsyncMethod(action, () -> createClientOperationSpan(type, server, spanName));
-  }
-
-  private static Span createClientOperationSpan(RaftClientRequest.Type type, RaftPeerId server,
-      String spanName) {
-    String name = (spanName == null || spanName.isEmpty()) ? DEFAULT_OPERATION : spanName;
-    String peerId = server == null ? UNKNOWN_PEER : String.valueOf(server);
-    final Span span = getGlobalTracer()
-        .spanBuilder(name)
-        .setSpanKind(SpanKind.CLIENT)
-        .startSpan();
-    span.setAttribute(RatisAttributes.PEER_ID, peerId);
-    span.setAttribute(RatisAttributes.OPERATION_NAME, name);
-    span.setAttribute(RatisAttributes.OPERATION_TYPE, String.valueOf(type));
-    return span;
-  }
-
-  private static Span createServerSpanFromClientRequest(RaftClientRequest request, String memberId, String spanName) {
-    final Context remoteContext = extractContextFromProto(request.getSpanContext());
-    final Span span = getGlobalTracer()
-        .spanBuilder(spanName)
-        .setParent(remoteContext)
-        .setSpanKind(SpanKind.SERVER)
-        .startSpan();
-    span.setAttribute(RatisAttributes.CLIENT_ID, String.valueOf(request.getClientId()));
-    span.setAttribute(RatisAttributes.CALL_ID, String.valueOf(request.getCallId()));
-    span.setAttribute(RatisAttributes.MEMBER_ID, memberId);
-    return span;
   }
 
   private static void endSpan(CompletableFuture<?> future, Span span) {
@@ -189,11 +153,7 @@ public final class TraceUtils {
       BiConsumer<? super T, ? super Throwable> action) {
     future.whenComplete((resp, error) -> {
       try {
-        // See this post on stack overflow(shorten since the url is too long),
-        // https://s.apache.org/completionexception
-        // For a chain of CompletableFuture, only the first child CompletableFuture can get the
-        // original exception, others will get a CompletionException, which wraps the original
-        // exception. So here we unwrap it before passing it to the callback action.
+        // https://s.apache.org/completionexception — unwrap CompletionException for callers
         action.accept(resp, error == null ? null : JavaUtils.unwrapCompletionException(error));
       } catch (Throwable t) {
         LOG.error("Unexpected error caught when processing CompletableFuture", t);

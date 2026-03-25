@@ -38,8 +38,8 @@ public class TestTraceUtils {
 
   private void runTraceAsyncAndAssertClientSpan(boolean tracingEnabled, boolean expectClientSpan)
       throws Exception {
-    TraceUtils.setTracingEnabled(tracingEnabled);
-    TraceUtils.traceAsyncImplSend(
+    TraceUtils.setTracerWhenEnabled(tracingEnabled);
+    TraceClient.asyncSend(
         () -> CompletableFuture.completedFuture("ok"),
         null,
         RaftPeerId.valueOf("s0")
