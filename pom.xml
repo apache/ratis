@@ -163,7 +163,7 @@
     <cyclonedx.version>2.9.1</cyclonedx.version>
 
     <spotbugs.version>4.8.6</spotbugs.version>
-    <spotbugs-plugin.version>4.8.6.2</spotbugs-plugin.version>
+    <spotbugs-plugin.version>4.9.8.2</spotbugs-plugin.version>
 
     <distMgmtStagingId>${distMgmtReleasesId}</distMgmtStagingId>
     <distMgmtStagingName>${distMgmtReleasesName}</distMgmtStagingName>
