@@ -17,7 +17,7 @@
 # limitations under the License.
 
 function find_maven() {
-    if [ "$MAVEN" != "" ]; then
+    if [[ -n "${MAVEN:-}" ]]; then
       echo "${MAVEN}"
     else
       local DIR

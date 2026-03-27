@@ -13,6 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+set -u -o pipefail
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../.." || exit 1
 
@@ -20,28 +23,27 @@ source "${DIR}/../find_maven.sh"
 
 : ${WITH_COVERAGE:="false"}
 
-MAVEN_OPTIONS='-B -fae'
+REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/findbugs"}
+mkdir -p "$REPORT_DIR"
+REPORT_FILE="$REPORT_DIR/summary.txt"
 
-if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
-  #shellcheck disable=SC2086
-  ${MVN} ${MAVEN_OPTIONS} test-compile spotbugs:check
-  exit $?
-fi
+source "${DIR}/_lib.sh"
+source "${DIR}/install/spotbugs.sh"
+
+MAVEN_OPTIONS='-B -fae'
 
 if [[ "${WITH_COVERAGE}" != "true" ]]; then
   MAVEN_OPTIONS="${MAVEN_OPTIONS} -Djacoco.skip"
 fi
 
 #shellcheck disable=SC2086
-${MVN} ${MAVEN_OPTIONS} test-compile spotbugs:spotbugs
+${MVN} ${MAVEN_OPTIONS} test-compile spotbugs:spotbugs "$@" | tee "${REPORT_DIR}/output.log"
 rc=$?
 
-REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/findbugs"}
-mkdir -p "$REPORT_DIR"
-REPORT_FILE="$REPORT_DIR/summary.txt"
+touch "$REPORT_FILE"
 
 find ratis* -name spotbugsXml.xml -print0 | xargs -0 unionBugs -output "${REPORT_DIR}"/summary.xml
-convertXmlToText "${REPORT_DIR}"/summary.xml | tee "${REPORT_FILE}"
+convertXmlToText "${REPORT_DIR}"/summary.xml | tee -a "${REPORT_FILE}"
 convertXmlToText -html:fancy-hist.xsl "${REPORT_DIR}"/summary.xml "${REPORT_DIR}"/summary.html
 
 wc -l "$REPORT_FILE" | awk '{print $1}'> "$REPORT_DIR/failures"
