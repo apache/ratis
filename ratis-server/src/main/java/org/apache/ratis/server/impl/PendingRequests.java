@@ -264,12 +264,25 @@ class PendingRequests {
     return pendingRequest != null ? pendingRequest.getEntry() : null;
   }
 
-  void replyPendingRequest(TermIndex termIndex, RaftClientReply reply) {
+  /** @return the removed the {@link PendingRequest} for the given {@link TermIndex}. */
+  PendingRequest remove(TermIndex termIndex) {
     final PendingRequest pending = pendingRequests.remove(termIndex);
     if (pending != null) {
       Preconditions.assertEquals(termIndex, pending.getTermIndex(), "termIndex");
-      pending.setReply(reply);
     }
+    return pending;
+  }
+
+  /**
+   * Remove the {@link PendingRequest} for the given {@link TermIndex} without sending a reply.
+   *  @return the removed {@link PendingRequest}, or null if not found.
+   */
+  PendingRequest removePendingRequest(TermIndex termIndex) {
+    final PendingRequest pending = pendingRequests.remove(termIndex);
+    if (pending != null) {
+      Preconditions.assertEquals(termIndex, pending.getTermIndex(), "termIndex");
+    }
+    return pending;
   }
 
   /**

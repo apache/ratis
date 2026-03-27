@@ -17,11 +17,13 @@
  */
 package org.apache.ratis.grpc;
 
+import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
+
 public class TestLinearizableReadAppliedIndexWithGrpc
   extends TestLinearizableReadWithGrpc {
 
   @Override
-  public boolean readIndexAppliedIndexEnabled() {
-    return true;
+  public Type readIndexType() {
+    return Type.APPLIED_INDEX;
   }
 }
