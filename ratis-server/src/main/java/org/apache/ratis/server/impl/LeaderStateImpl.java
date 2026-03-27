@@ -1240,15 +1240,22 @@ class LeaderStateImpl implements LeaderState {
         && (server.getRaftConf().isSingleton() || lease.isValid());
   }
 
-  void replyPendingRequest(TermIndex termIndex, RaftClientReply reply) {
+  void replyPendingRequest(TermIndex termIndex, RaftClientReply reply, RetryCacheImpl.CacheEntry cacheEntry) {
+    final PendingRequest pending = pendingRequests.remove(termIndex);
+    if (pending == null) {
+      return;
+    }
+
+    final LongSupplier replyMethod = () -> {
+      cacheEntry.updateResult(reply);
+      pending.setReply(reply);
+      return termIndex.getIndex();
+    };
+
     if (readIndexType == Type.REPLIED_INDEX) {
-      // Remove from pending map but hold the reply for batch flushing.
-      final PendingRequest pending = pendingRequests.removePendingRequest(termIndex);
-      if (pending != null) {
-        replyFlusher.hold(pending, reply, termIndex.getIndex());
-      }
+      replyFlusher.hold(replyMethod);
     } else {
-      pendingRequests.replyPendingRequest(termIndex, reply);
+      replyMethod.getAsLong();
     }
   }
 

@@ -17,9 +17,10 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
+import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.Daemon;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 /**
  * Implements the reply flush logic as part of the leader batch write when RepliedIndex is used.
@@ -34,39 +36,25 @@ import java.util.concurrent.TimeUnit;
 public class ReplyFlusher {
   static final Logger LOG = LoggerFactory.getLogger(ReplyFlusher.class);
 
-  /** A write reply that has been built but not yet sent to the client */
-  static class HeldReply {
-    private final PendingRequest pending;
-    private final RaftClientReply reply;
-    private final long index;
-
-    HeldReply(PendingRequest pending, RaftClientReply reply, long index) {
-      this.pending = pending;
-      this.reply = reply;
-      this.index = index;
-    }
-
-    long release() {
-      pending.setReply(reply);
-      return index;
-    }
-  }
+  private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
+  public static final String FLUSH = CLASS_NAME + ".flush";
 
   static class Replies {
-    private LinkedList<HeldReply> list = new LinkedList<>();
+    /** When a {@link LongSupplier} is invoked, it completes a write reply and return the log index. */
+    private LinkedList<LongSupplier> list = new LinkedList<>();
 
-    synchronized void add(PendingRequest pending, RaftClientReply reply, long index) {
-      list.add(new HeldReply(pending, reply, index));
+    synchronized void add(LongSupplier replyMethod) {
+      list.add(replyMethod);
     }
 
-    synchronized LinkedList<HeldReply> getAndSetNewList() {
-      final LinkedList<HeldReply> old = list;
+    synchronized LinkedList<LongSupplier> getAndSetNewList() {
+      final LinkedList<LongSupplier> old = list;
       list = new LinkedList<>();
       return old;
     }
   }
 
-  private final String name;
+  private final Object id;
   private final LifeCycle lifeCycle;
   private final Daemon daemon;
   private Replies replies = new Replies();
@@ -74,11 +62,12 @@ public class ReplyFlusher {
   /** The interval at which held write replies are flushed. */
   private final TimeDuration batchInterval;
 
-  ReplyFlusher(String name, long repliedIndex, TimeDuration batchInterval) {
-    this.name = name + "-ReplyFlusher";
-    this.lifeCycle = new LifeCycle(this.name);
+  ReplyFlusher(Object id, long repliedIndex, TimeDuration batchInterval) {
+    this.id = id;
+    final String name = id + "-ReplyFlusher";
+    this.lifeCycle = new LifeCycle(name);
     this.daemon = Daemon.newBuilder()
-        .setName(this.name)
+        .setName(name)
         .setRunnable(this::run)
         .build();
     this.repliedIndex = new RaftLogIndex("repliedIndex", repliedIndex);
@@ -90,8 +79,8 @@ public class ReplyFlusher {
   }
 
   /** Hold a write reply for later batch flushing */
-  void hold(PendingRequest pending, RaftClientReply reply, long index) {
-    replies.add(pending, reply, index);
+  void hold(LongSupplier replyMethod) {
+    replies.add(replyMethod);
   }
 
   void start() {
@@ -122,16 +111,18 @@ public class ReplyFlusher {
 
   /** Flush all held replies and advance {@link #repliedIndex}. */
   private void flush() {
-    final LinkedList<HeldReply> toFlush = replies.getAndSetNewList();
+    CodeInjectionForTesting.execute(FLUSH, id, null);
+
+    final LinkedList<LongSupplier> toFlush = replies.getAndSetNewList();
     if (toFlush.isEmpty()) {
       return;
     }
-    long maxIndex = toFlush.removeLast().release();
-    for (HeldReply held : toFlush) {
-      maxIndex = Math.max(maxIndex, held.release());
+    long maxIndex = toFlush.removeLast().getAsLong();
+    for (LongSupplier held : toFlush) {
+      maxIndex = Math.max(maxIndex, held.getAsLong());
     }
     repliedIndex.updateToMax(maxIndex, s ->
-        LOG.debug("{}: flushed {} replies, {}", name, toFlush.size(), s));
+        LOG.debug("{}: flushed {} replies, {}", id, toFlush.size(), s));
   }
 
   /** Stop the reply flusher daemon. */

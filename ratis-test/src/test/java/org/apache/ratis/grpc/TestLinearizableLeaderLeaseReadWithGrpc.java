@@ -39,11 +39,4 @@ public class TestLinearizableLeaderLeaseReadWithGrpc
   public Type readIndexType() {
     return Type.COMMIT_INDEX;
   }
-
-  @Override
-  public void assertRaftProperties(RaftProperties p) {
-    assertOption(LINEARIZABLE, p);
-    assertTrue(RaftServerConfigKeys.Read.leaderLeaseEnabled(p));
-    assertTrue(isLeaderLeaseEnabled());
-  }
 }
