@@ -32,3 +32,7 @@ updates:
       cronjob: "15 10 * * *"
     cooldown:
       default-days: 4
+    ignore:
+      # requires Java 11
+      - dependency-name: "com.github.spotbugs:spotbugs"
+        versions: [">=4.9.0"]
