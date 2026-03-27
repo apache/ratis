@@ -81,7 +81,10 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     // TODO
   }
 
-  static List<SingleFileSnapshotInfo> getSingleFileSnapshotInfos(Path dir, boolean requireMd5) throws IOException {
+  /**
+   * Fetch all the snapshot files irrespective of whether they have an MD5 file or not
+   */
+  static List<SingleFileSnapshotInfo> getSingleFileSnapshotInfos(Path dir) throws IOException {
     final List<SingleFileSnapshotInfo> infos = new ArrayList<>();
     try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
       for (Path path : stream) {
@@ -89,15 +92,11 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
         if (filename != null) {
           final Matcher matcher = SNAPSHOT_REGEX.matcher(filename.toString());
           if (matcher.matches()) {
-            final boolean hasMd5 = MD5FileUtil.getDigestFileForFile(path.toFile()).exists();
-            if (requireMd5 && !hasMd5) {
-              continue;
-            }
-
             final long term = Long.parseLong(matcher.group(1));
             final long index = Long.parseLong(matcher.group(2));
-            final FileInfo fileInfo = new FileInfo(path, null); //No FileDigest here.
-            infos.add(new SingleFileSnapshotInfo(fileInfo, term, index, hasMd5));
+            final MD5Hash md5 = MD5FileUtil.readStoredMd5ForFile(path.toFile());
+            final FileInfo fileInfo = new FileInfo(path, md5);
+            infos.add(new SingleFileSnapshotInfo(fileInfo, term, index));
           }
         }
       }
@@ -118,8 +117,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
       return;
     }
 
-    // Fetch all the snapshot files irrespective of whether they have an MD5 file or not
-    final List<SingleFileSnapshotInfo> allSnapshotFiles = getSingleFileSnapshotInfos(stateMachineDir.toPath(), false);
+    final List<SingleFileSnapshotInfo> allSnapshotFiles = getSingleFileSnapshotInfos(stateMachineDir.toPath());
     allSnapshotFiles.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
     int numSnapshotsWithMd5 = 0;
     int deleteIdx = -1;
@@ -203,44 +201,19 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   }
 
   static SingleFileSnapshotInfo findLatestSnapshot(Path dir) throws IOException {
-    final List<SingleFileSnapshotInfo> infos = getSingleFileSnapshotInfos(dir, false);
+    final List<SingleFileSnapshotInfo> infos = getSingleFileSnapshotInfos(dir);
     if (infos.isEmpty()) {
       return null;
     }
     infos.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
 
-    // Track the latest snapshot without MD5 as fallback.
-    SingleFileSnapshotInfo fallbackWithoutMd5 = null;
     for (SingleFileSnapshotInfo latest : infos) {
-      if (!latest.hasMd5()) {
-        if (fallbackWithoutMd5 == null) {
-          fallbackWithoutMd5 = latest;
-        }
-        continue;
-      }
-
-      final Path path = latest.getFile().getPath();
-      try {
-        final MD5Hash md5 = MD5FileUtil.readStoredMd5ForFile(path.toFile());
-        if (md5 == null) {
-          LOG.warn("Snapshot file {} has missing MD5 file.", latest);
-          continue;
-        }
-        final FileInfo info = new FileInfo(path, md5);
-        return new SingleFileSnapshotInfo(info, latest.getTerm(), latest.getIndex(), true);
-      } catch (IOException e) {
-        LOG.warn("Failed to read MD5 for snapshot file {}, trying older snapshots.", latest, e);
+      if (latest.hasMd5()) {
+        return latest;
       }
     }
 
-    if (fallbackWithoutMd5 != null) {
-      LOG.warn("Using latest snapshot {} without an MD5 file.", fallbackWithoutMd5);
-      final Path path = fallbackWithoutMd5.getFile().getPath();
-      final FileInfo info = new FileInfo(path, null);
-      return new SingleFileSnapshotInfo(info,
-          fallbackWithoutMd5.getTerm(), fallbackWithoutMd5.getIndex(), false);
-    }
-    return null;
+    return infos.get(0); // all snapshots do not have MD5
   }
 
   public SingleFileSnapshotInfo updateLatestSnapshot(SingleFileSnapshotInfo info) {

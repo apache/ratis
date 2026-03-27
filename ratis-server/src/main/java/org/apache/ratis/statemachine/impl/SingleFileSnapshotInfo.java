@@ -28,24 +28,17 @@ import org.apache.ratis.server.storage.FileInfo;
  * The objects of this class are immutable.
  */
 public class SingleFileSnapshotInfo extends FileListSnapshotInfo {
-  private final Boolean hasMd5; // Whether the snapshot file has a corresponding MD5 file
-
   public SingleFileSnapshotInfo(FileInfo fileInfo, TermIndex termIndex) {
-    this(fileInfo, termIndex, null);
-  }
-
-  public SingleFileSnapshotInfo(FileInfo fileInfo, TermIndex termIndex, Boolean hasMd5) {
     super(Collections.singletonList(fileInfo), termIndex);
-    this.hasMd5 = hasMd5;
   }
 
-  public SingleFileSnapshotInfo(FileInfo fileInfo, long term, long endIndex, boolean hasMd5) {
-    this(fileInfo, TermIndex.valueOf(term, endIndex), hasMd5);
+  public SingleFileSnapshotInfo(FileInfo fileInfo, long term, long endIndex) {
+    this(fileInfo, TermIndex.valueOf(term, endIndex));
   }
 
-  /** @return the md5 file exists for the snapshot file */
+  /** @return true iff the MD5 exists. */
   public boolean hasMd5() {
-    return hasMd5 != null && hasMd5;
+    return getFile().getFileDigest() != null;
   }
 
   /** @return the file associated with the snapshot. */
