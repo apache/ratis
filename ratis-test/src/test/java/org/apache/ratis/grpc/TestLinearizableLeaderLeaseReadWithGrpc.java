@@ -18,13 +18,7 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.LinearizableReadTests;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
-
-import static org.apache.ratis.ReadOnlyRequestTests.assertOption;
-import static org.apache.ratis.server.RaftServerConfigKeys.Read.Option.LINEARIZABLE;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestLinearizableLeaderLeaseReadWithGrpc
   extends LinearizableReadTests<MiniRaftClusterWithGrpc>

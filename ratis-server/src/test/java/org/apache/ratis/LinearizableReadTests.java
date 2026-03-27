@@ -40,7 +40,6 @@ import org.slf4j.event.Level;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.ReadOnlyRequestTests.CounterStateMachine;
