@@ -25,7 +25,7 @@
   <name>Apache Ratis Metrics Dropwizard 3 Implementation</name>
 
   <properties>
-    <dropwizard3.version>3.2.5</dropwizard3.version>
+    <dropwizard3.version>3.2.6</dropwizard3.version>
   </properties>
 
   <dependencies>
