@@ -39,7 +39,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -82,6 +81,9 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     // TODO
   }
 
+  /**
+   * Fetch all the snapshot files irrespective of whether they have an MD5 file or not
+   */
   static List<SingleFileSnapshotInfo> getSingleFileSnapshotInfos(Path dir) throws IOException {
     final List<SingleFileSnapshotInfo> infos = new ArrayList<>();
     try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
@@ -92,7 +94,8 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
           if (matcher.matches()) {
             final long term = Long.parseLong(matcher.group(1));
             final long index = Long.parseLong(matcher.group(2));
-            final FileInfo fileInfo = new FileInfo(path, null); //No FileDigest here.
+            final MD5Hash md5 = MD5FileUtil.readStoredMd5ForFile(path.toFile());
+            final FileInfo fileInfo = new FileInfo(path, md5);
             infos.add(new SingleFileSnapshotInfo(fileInfo, term, index));
           }
         }
@@ -115,10 +118,25 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     }
 
     final List<SingleFileSnapshotInfo> allSnapshotFiles = getSingleFileSnapshotInfos(stateMachineDir.toPath());
+    allSnapshotFiles.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
+    int numSnapshotsWithMd5 = 0;
+    int deleteIdx = -1;
 
-    if (allSnapshotFiles.size() > numSnapshotsRetained) {
-      allSnapshotFiles.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
-      allSnapshotFiles.subList(numSnapshotsRetained, allSnapshotFiles.size())
+    for (int i = 0; i < allSnapshotFiles.size(); i++) {
+      final SingleFileSnapshotInfo snapshot = allSnapshotFiles.get(i);
+      if (snapshot.hasMd5()) {
+        if (++numSnapshotsWithMd5 == numSnapshotsRetained) {
+          // We have found the last snapshot with an MD5 file that needs to be retained
+          deleteIdx = i + 1;
+          break;
+        }
+      } else {
+        LOG.warn("Snapshot file {} has missing MD5 file.", snapshot);
+      }
+    }
+
+    if (deleteIdx > 0) {
+      allSnapshotFiles.subList(deleteIdx, allSnapshotFiles.size())
           .stream()
           .map(SingleFileSnapshotInfo::getFile)
           .map(FileInfo::getPath)
@@ -126,20 +144,21 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
             LOG.info("Deleting old snapshot at {}", snapshotPath.toAbsolutePath());
             FileUtils.deletePathQuietly(snapshotPath);
           });
-      // clean up the md5 files if the corresponding snapshot file does not exist
-      try (DirectoryStream<Path> stream = Files.newDirectoryStream(stateMachineDir.toPath(),
-          SNAPSHOT_MD5_FILTER)) {
-        for (Path md5path : stream) {
-          Path md5FileNamePath = md5path.getFileName();
-          if (md5FileNamePath == null) {
-            continue;
-          }
-          final String md5FileName = md5FileNamePath.toString();
-          final File snapshotFile = new File(stateMachineDir,
-              md5FileName.substring(0, md5FileName.length() - MD5_SUFFIX.length()));
-          if (!snapshotFile.exists()) {
-            FileUtils.deletePathQuietly(md5path);
-          }
+    }
+
+    // clean up the md5 files if the corresponding snapshot file does not exist
+    try (DirectoryStream<Path> stream = Files.newDirectoryStream(stateMachineDir.toPath(),
+      SNAPSHOT_MD5_FILTER)) {
+      for (Path md5path : stream) {
+        Path md5FileNamePath = md5path.getFileName();
+        if (md5FileNamePath == null) {
+          continue;
+        }
+        final String md5FileName = md5FileNamePath.toString();
+        final File snapshotFile = new File(stateMachineDir,
+            md5FileName.substring(0, md5FileName.length() - MD5_SUFFIX.length()));
+        if (!snapshotFile.exists()) {
+          FileUtils.deletePathQuietly(md5path);
         }
       }
     }
@@ -182,24 +201,19 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   }
 
   static SingleFileSnapshotInfo findLatestSnapshot(Path dir) throws IOException {
-    final Iterator<SingleFileSnapshotInfo> i = getSingleFileSnapshotInfos(dir).iterator();
-    if (!i.hasNext()) {
+    final List<SingleFileSnapshotInfo> infos = getSingleFileSnapshotInfos(dir);
+    if (infos.isEmpty()) {
       return null;
     }
+    infos.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
 
-    SingleFileSnapshotInfo latest = i.next();
-    for(; i.hasNext(); ) {
-      final SingleFileSnapshotInfo info = i.next();
-      if (info.getIndex() > latest.getIndex()) {
-        latest = info;
+    for (SingleFileSnapshotInfo latest : infos) {
+      if (latest.hasMd5()) {
+        return latest;
       }
     }
 
-    // read md5
-    final Path path = latest.getFile().getPath();
-    final MD5Hash md5 = MD5FileUtil.readStoredMd5ForFile(path.toFile());
-    final FileInfo info = new FileInfo(path, md5);
-    return new SingleFileSnapshotInfo(info, latest.getTerm(), latest.getIndex());
+    return infos.get(0); // all snapshots do not have MD5
   }
 
   public SingleFileSnapshotInfo updateLatestSnapshot(SingleFileSnapshotInfo info) {
