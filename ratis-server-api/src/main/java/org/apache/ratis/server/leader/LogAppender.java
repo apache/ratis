@@ -19,6 +19,7 @@ package org.apache.ratis.server.leader;
 
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
@@ -33,6 +34,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -131,6 +134,15 @@ public interface LogAppender {
   /** @return a new {@link InstallSnapshotRequestProto} object. */
   InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(TermIndex firstAvailableLogTermIndex);
 
+  /**
+   * @return a new {@link InstallSnapshotRequestProto} object carrying snapshot-install
+   *         notification plan metadata.
+   */
+  default InstallSnapshotRequestProto newInstallSnapshotNotificationRequest(
+      TermIndex firstAvailableLogTermIndex, long minimumSnapshotIndex, List<RaftPeerProto> sourcePeers) {
+    return newInstallSnapshotNotificationRequest(firstAvailableLogTermIndex);
+  }
+
   /** @return an {@link Iterable} of {@link InstallSnapshotRequestProto} for sending the given snapshot. */
   Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId, SnapshotInfo snapshot);
 
@@ -166,6 +178,60 @@ public interface LogAppender {
       }
     }
     return null;
+  }
+
+  /**
+   * Should this {@link LogAppender} send a snapshot-install notification to the follower
+   *
+   * <p>The notification path is used by follower-managed snapshot installation.
+   * Returning null means no notification should be sent for now.</p>
+   *
+   * @return the leader first available log term-index if notification should be sent; otherwise, null.
+   */
+  default TermIndex shouldNotifyToInstallSnapshot() {
+    final FollowerInfo follower = getFollower();
+    final long leaderNextIndex = getRaftLog().getNextIndex();
+    final boolean isFollowerBootstrapping = getLeaderState().isFollowerBootstrapping(follower);
+    final long leaderStartIndex = getRaftLog().getStartIndex();
+    final TermIndex firstAvailable = Optional.ofNullable(getRaftLog().getTermIndex(leaderStartIndex))
+        .orElseGet(() -> TermIndex.valueOf(getServer().getInfo().getCurrentTerm(), leaderNextIndex));
+    if (isFollowerBootstrapping && !follower.hasAttemptedToInstallSnapshot()) {
+      // Every bootstrapping follower should attempt at least one snapshot install path if needed.
+      return firstAvailable;
+    }
+
+    final long followerNextIndex = follower.getNextIndex();
+    if (followerNextIndex >= leaderNextIndex) {
+      return null;
+    }
+
+    if (followerNextIndex < leaderStartIndex) {
+      // The leader does not have follower's missing logs, so snapshot install is required.
+      return firstAvailable;
+    } else if (leaderStartIndex == RaftLog.INVALID_LOG_INDEX) {
+      // If leader has no local log range to compare, snapshot notification is still allowed.
+      return firstAvailable;
+    }
+    return null;
+  }
+
+  /**
+   * @return the minimum snapshot index acceptable for the given notification plan.
+   */
+  default long getMinimumSnapshotIndex(TermIndex firstAvailableLogTermIndex) {
+    return firstAvailableLogTermIndex.getIndex() - 1;
+  }
+
+  /**
+   * @return the leader last entry term-index for evaluating whether followers are fully caught up.
+   */
+  default TermIndex getLeaderLastEntryForSnapshotSourceSelection() {
+    final TermIndex logLast = getRaftLog().getLastEntryTermIndex();
+    if (logLast != null) {
+      return logLast;
+    }
+    final SnapshotInfo snapshot = getServer().getStateMachine().getLatestSnapshot();
+    return snapshot != null ? snapshot.getTermIndex() : null;
   }
 
   /** Define how this {@link LogAppender} should run. */

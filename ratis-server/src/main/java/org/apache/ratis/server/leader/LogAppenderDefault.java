@@ -21,8 +21,10 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.util.ServerStringUtils;
@@ -32,6 +34,7 @@ import org.apache.ratis.util.Timestamp;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -103,7 +106,7 @@ class LogAppenderDefault extends LogAppenderBase {
     return null;
   }
 
-  private InstallSnapshotReplyProto installSnapshot(SnapshotInfo snapshot) throws InterruptedIOException {
+  private InstallSnapshotReplyProto installSnapshotFromLeader(SnapshotInfo snapshot) throws InterruptedIOException {
     String requestId = UUID.randomUUID().toString();
     InstallSnapshotReplyProto reply = null;
     try {
@@ -132,6 +135,65 @@ class LogAppenderDefault extends LogAppenderBase {
     return reply;
   }
 
+  private InstallSnapshotReplyProto notifyInstallSnapshot(
+      TermIndex firstAvailable, List<RaftPeerProto> sourcePeers) throws InterruptedIOException {
+    try {
+      final long minimumSnapshotIndex = getMinimumSnapshotIndex(firstAvailable);
+      final InstallSnapshotRequestProto request = newInstallSnapshotNotificationRequest(
+          firstAvailable, minimumSnapshotIndex, sourcePeers);
+      getFollower().updateLastRpcSendTime(false);
+      final InstallSnapshotReplyProto reply = getServerRpc().installSnapshot(request);
+      getFollower().updateLastRpcResponseTime();
+      return reply;
+    } catch (InterruptedIOException ioe) {
+      throw ioe;
+    } catch (Exception e) {
+      LOG.warn("{}: Failed to notify follower to install snapshot at {} with {} source peers",
+          this, firstAvailable, sourcePeers.size(), e);
+      handleException(e);
+      return null;
+    }
+  }
+
+  private InstallSnapshotReplyProto installSnapshot(SnapshotInfo snapshot) throws InterruptedIOException {
+    final TermIndex firstAvailable = shouldNotifyToInstallSnapshot();
+    if (firstAvailable != null) {
+      final List<RaftPeerProto> sourcePeers = selectSnapshotSourcePeers(firstAvailable);
+      if (!sourcePeers.isEmpty()) {
+        LOG.info("{}: notify follower to install snapshot at {} from {} ranked follower sources",
+            this, firstAvailable, sourcePeers.size());
+        return notifyInstallSnapshot(firstAvailable, sourcePeers);
+      }
+    }
+    // Fallback to the existing leader-driven transfer when no eligible source follower exists.
+    return installSnapshotFromLeader(snapshot);
+  }
+
+  private void handleInstallSnapshotReply(InstallSnapshotReplyProto reply) {
+    switch (reply.getResult()) {
+      case NOT_LEADER:
+        onFollowerTerm(reply.getTerm());
+        break;
+      case SNAPSHOT_INSTALLED:
+      case ALREADY_INSTALLED:
+        if (reply.getInstallSnapshotReplyBodyCase() ==
+            InstallSnapshotReplyProto.InstallSnapshotReplyBodyCase.SNAPSHOTINDEX) {
+          final long installedSnapshotIndex = reply.getSnapshotIndex();
+          getFollower().setSnapshotIndex(installedSnapshotIndex);
+          getLeaderState().onFollowerCommitIndex(getFollower(), installedSnapshotIndex);
+        }
+        getFollower().setAttemptedToInstallSnapshot();
+        break;
+      case SUCCESS:
+      case SNAPSHOT_UNAVAILABLE:
+      case SNAPSHOT_EXPIRED:
+        getFollower().setAttemptedToInstallSnapshot();
+        break;
+      default:
+        break;
+    }
+  }
+
   @Override
   public void run() throws InterruptedException, IOException {
     while (isRunning()) {
@@ -143,19 +205,7 @@ class LogAppenderDefault extends LogAppenderBase {
 
           final InstallSnapshotReplyProto r = installSnapshot(snapshot);
           if (r != null) {
-            switch (r.getResult()) {
-              case NOT_LEADER:
-                onFollowerTerm(r.getTerm());
-                break;
-              case SUCCESS:
-              case SNAPSHOT_UNAVAILABLE:
-              case ALREADY_INSTALLED:
-              case SNAPSHOT_EXPIRED:
-                getFollower().setAttemptedToInstallSnapshot();
-                break;
-              default:
-                break;
-            }
+            handleInstallSnapshotReply(r);
           }
           // otherwise if r is null, retry the snapshot installation
         } else {

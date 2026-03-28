@@ -23,6 +23,7 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto.NotificationProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto.SnapshotChunkProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
@@ -30,6 +31,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 
 import java.util.Collections;
+import java.util.List;
 
 /** Leader only proto utilities. */
 final class LeaderProtoUtils {
@@ -55,8 +57,22 @@ final class LeaderProtoUtils {
 
   static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
       RaftServer.Division server, RaftPeerId replyId, TermIndex firstAvailable) {
+    return toInstallSnapshotRequestProto(server, replyId, firstAvailable, 0L, Collections.emptyList());
+  }
+
+  static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
+      RaftServer.Division server, RaftPeerId replyId, TermIndex firstAvailable,
+      long minimumSnapshotIndex, List<RaftPeerProto> sourcePeers) {
+    final NotificationProto.Builder notification = NotificationProto.newBuilder()
+        .setFirstAvailableTermIndex(firstAvailable.toProto());
+    if (minimumSnapshotIndex > 0) {
+      notification.setMinimumSnapshotIndex(minimumSnapshotIndex);
+    }
+    if (sourcePeers != null && !sourcePeers.isEmpty()) {
+      notification.addAllSourcePeers(sourcePeers);
+    }
     return toInstallSnapshotRequestProtoBuilder(server, replyId)
-        .setNotification(NotificationProto.newBuilder().setFirstAvailableTermIndex(firstAvailable.toProto()))
+        .setNotification(notification)
         .build();
   }
 

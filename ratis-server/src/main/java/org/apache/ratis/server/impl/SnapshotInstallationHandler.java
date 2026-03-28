@@ -126,17 +126,15 @@ class SnapshotInstallationHandler {
     ServerImplUtils.assertGroup(getMemberId(), leaderId, leaderGroupId);
 
     InstallSnapshotReplyProto reply = null;
-    // Check if install snapshot from Leader is enabled
-    if (installSnapshotEnabled) {
-      // Leader has sent InstallSnapshot request with SnapshotInfo. Install the snapshot.
-      if (request.hasSnapshotChunk()) {
+    if (request.hasSnapshotChunk()) {
+      // Keep existing behavior for chunked transfer, but install only if leader has it enabled.
+      if (installSnapshotEnabled) {
         reply = checkAndInstallSnapshot(request, leaderId).join();
       }
-    } else {
-      // Leader has only sent a notification to install snapshot. Inform State Machine to install snapshot.
-      if (request.hasNotification()) {
-        reply = notifyStateMachineToInstallSnapshot(request, leaderId).join();
-      }
+    } else if (request.hasNotification()) {
+      // Always accept notification requests. This enables follower-sourced install plans while
+      // keeping leader-sourced chunk transfer as fallback in the same deployment.
+      reply = notifyStateMachineToInstallSnapshot(request, leaderId).join();
     }
 
     if (reply != null) {
@@ -308,7 +306,10 @@ class SnapshotInstallationHandler {
         // is updated when state.reloadStateMachine. We shall keep this index upgraded synchronously with main thread,
         // otherwise leader could get this follower's latest nextIndex from appendEntries instead of after
         // acknowledging the SNAPSHOT_INSTALLED.
-        server.getStateMachine().followerEvent().notifyInstallSnapshotFromLeader(proto, firstAvailableLogTermIndex)
+        final long minimumSnapshotIndex = request.getNotification().getMinimumSnapshotIndex();
+        server.getStateMachine().followerEvent().notifyInstallSnapshotFromLeader(
+                proto, firstAvailableLogTermIndex, minimumSnapshotIndex,
+                request.getNotification().getSourcePeersList())
             .whenComplete((reply, exception) -> {
               if (exception != null) {
                 LOG.error("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",

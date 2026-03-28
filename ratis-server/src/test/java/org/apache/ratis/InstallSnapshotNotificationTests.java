@@ -28,6 +28,8 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.PeerChanges;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.leader.FollowerInfo;
+import org.apache.ratis.server.leader.SnapshotSourceSelector;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.LogSegmentPath;
@@ -40,6 +42,7 @@ import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.Timestamp;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -50,14 +53,18 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -88,6 +95,18 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
   private static final AtomicInteger numSnapshotRequests = new AtomicInteger();
   private static final AtomicInteger numNotifyInstallSnapshotFinished = new AtomicInteger();
+  private static final AtomicInteger numFallbackToLeaderFromSourceFailure = new AtomicInteger();
+  private static final AtomicReference<List<String>> LAST_SOURCE_PEER_IDS =
+      new AtomicReference<>(Collections.emptyList());
+  private static final AtomicLong LAST_MINIMUM_SNAPSHOT_INDEX = new AtomicLong(-1L);
+
+  private enum SnapshotSourceFetchPolicy {
+    LEADER_ONLY,
+    FAIL_SOURCE_THEN_LEADER
+  }
+
+  private static final AtomicReference<SnapshotSourceFetchPolicy> SNAPSHOT_SOURCE_FETCH_POLICY =
+      new AtomicReference<>(SnapshotSourceFetchPolicy.LEADER_ONLY);
 
   private static class StateMachine4InstallSnapshotNotificationTests extends SimpleStateMachine4Testing {
 
@@ -97,20 +116,37 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
     public CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
         RaftProtos.RoleInfoProto roleInfoProto,
         TermIndex termIndex) {
+      return notifyInstallSnapshotFromLeader(roleInfoProto, termIndex, 0L, Collections.emptyList());
+    }
+
+    @Override
+    public CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
+        RaftProtos.RoleInfoProto roleInfoProto, TermIndex termIndex,
+        long minimumSnapshotIndex, List<RaftProtos.RaftPeerProto> sourcePeers) {
       if (!roleInfoProto.getFollowerInfo().hasLeaderInfo()) {
         return JavaUtils.completeExceptionally(new IOException("Failed " +
           "notifyInstallSnapshotFromLeader due to missing leader info"));
       }
       numSnapshotRequests.incrementAndGet();
+      LAST_MINIMUM_SNAPSHOT_INDEX.set(minimumSnapshotIndex);
+      LAST_SOURCE_PEER_IDS.set(sourcePeers.stream().map(p -> RaftPeerId.valueOf(p.getId()).toString())
+          .collect(Collectors.toList()));
 
       final SingleFileSnapshotInfo leaderSnapshotInfo = (SingleFileSnapshotInfo) LEADER_SNAPSHOT_INFO_REF.get();
       LOG.info("{}: leaderSnapshotInfo = {}", getId(), leaderSnapshotInfo);
       if (leaderSnapshotInfo == null) {
-        return super.notifyInstallSnapshotFromLeader(roleInfoProto, termIndex);
+        return super.notifyInstallSnapshotFromLeader(roleInfoProto, termIndex, minimumSnapshotIndex, sourcePeers);
       }
 
       Supplier<TermIndex> supplier = () -> {
         try {
+          // Simulate a source failure before retrying with leader.
+          // We still return success after falling back to leader so that the test can verify retry behavior.
+          if (!sourcePeers.isEmpty()
+              && SNAPSHOT_SOURCE_FETCH_POLICY.get() == SnapshotSourceFetchPolicy.FAIL_SOURCE_THEN_LEADER) {
+            numFallbackToLeaderFromSourceFailure.incrementAndGet();
+          }
+
           Path leaderSnapshotFile = leaderSnapshotInfo.getFile().getPath();
           final File followerSnapshotFilePath = new File(getStateMachineDir(),
               leaderSnapshotFile.getFileName().toString());
@@ -163,6 +199,302 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
     }
 
+  }
+
+  private static class TestFollowerInfo implements FollowerInfo {
+    private final String name;
+    private final RaftPeer peer;
+    private final long matchIndex;
+    private final long commitIndex;
+    private final Timestamp lastRpcResponseTime;
+    private final Timestamp lastRespondedAppendEntriesSendTime;
+
+    TestFollowerInfo(String peerId, long matchIndex, long commitIndex, long appendResponseAgeMs) {
+      this.name = "test-" + peerId;
+      this.peer = RaftPeer.newBuilder().setId(peerId).build();
+      this.matchIndex = matchIndex;
+      this.commitIndex = commitIndex;
+      final Timestamp now = Timestamp.currentTime();
+      this.lastRpcResponseTime = now;
+      this.lastRespondedAppendEntriesSendTime = now.addTimeMs(-appendResponseAgeMs);
+    }
+
+    @Override
+    public String getName() {
+      return name;
+    }
+
+    @Override
+    public RaftPeerId getId() {
+      return peer.getId();
+    }
+
+    @Override
+    public RaftPeer getPeer() {
+      return peer;
+    }
+
+    @Override
+    public long getMatchIndex() {
+      return matchIndex;
+    }
+
+    @Override
+    public boolean updateMatchIndex(long newMatchIndex) {
+      return false;
+    }
+
+    @Override
+    public long getCommitIndex() {
+      return commitIndex;
+    }
+
+    @Override
+    public boolean updateCommitIndex(long newCommitIndex) {
+      return false;
+    }
+
+    @Override
+    public long getSnapshotIndex() {
+      return 0L;
+    }
+
+    @Override
+    public void setSnapshotIndex(long newSnapshotIndex) {
+    }
+
+    @Override
+    public void setAttemptedToInstallSnapshot() {
+    }
+
+    @Override
+    public boolean hasAttemptedToInstallSnapshot() {
+      return true;
+    }
+
+    @Override
+    public long getNextIndex() {
+      return 0L;
+    }
+
+    @Override
+    public void increaseNextIndex(long newNextIndex) {
+    }
+
+    @Override
+    public void decreaseNextIndex(long newNextIndex) {
+    }
+
+    @Override
+    public void setNextIndex(long newNextIndex) {
+    }
+
+    @Override
+    public void updateNextIndex(long newNextIndex) {
+    }
+
+    @Override
+    public void computeNextIndex(LongUnaryOperator op) {
+    }
+
+    @Override
+    public Timestamp getLastRpcResponseTime() {
+      return lastRpcResponseTime;
+    }
+
+    @Override
+    public Timestamp getLastRpcSendTime() {
+      return lastRpcResponseTime;
+    }
+
+    @Override
+    public void updateLastRpcResponseTime() {
+    }
+
+    @Override
+    public void updateLastRpcSendTime(boolean isHeartbeat) {
+    }
+
+    @Override
+    public Timestamp getLastRpcTime() {
+      return Timestamp.latest(getLastRpcResponseTime(), getLastRpcSendTime());
+    }
+
+    @Override
+    public Timestamp getLastHeartbeatSendTime() {
+      return lastRpcResponseTime;
+    }
+
+    @Override
+    public Timestamp getLastRespondedAppendEntriesSendTime() {
+      return lastRespondedAppendEntriesSendTime;
+    }
+
+    @Override
+    public void updateLastRespondedAppendEntriesSendTime(Timestamp sendTime) {
+    }
+  }
+
+  @Test
+  public void testExactMatchSourceSelection() {
+    final List<FollowerInfo> ranked = SnapshotSourceSelector.selectSourceFollowers(
+        Arrays.asList(
+            new TestFollowerInfo("exact", 200, 180, 10),
+            new TestFollowerInfo("near", 199, 190, 20),
+            new TestFollowerInfo("target", 205, 205, 5)),
+        RaftPeerId.valueOf("target"),
+        150,
+        TermIndex.valueOf(5, 200));
+
+    final List<String> ids = ranked.stream()
+        .map(FollowerInfo::getId)
+        .map(RaftPeerId::toString)
+        .collect(Collectors.toList());
+    Assertions.assertEquals(Arrays.asList("exact", "near"), ids);
+  }
+
+  @Test
+  public void testClosestFollowerSelectionByMatchIndexAndCommitIndex() {
+    final List<FollowerInfo> ranked = SnapshotSourceSelector.selectSourceFollowers(
+        Arrays.asList(
+            new TestFollowerInfo("higherCommit", 320, 300, 20),
+            new TestFollowerInfo("lowerCommit", 320, 200, 10),
+            new TestFollowerInfo("lowerMatch", 319, 400, 5),
+            new TestFollowerInfo("belowThreshold", 198, 198, 5)),
+        RaftPeerId.valueOf("target"),
+        200, // minimum acceptable match index is 199
+        TermIndex.valueOf(8, 1000));
+
+    final List<String> ids = ranked.stream()
+        .map(FollowerInfo::getId)
+        .map(RaftPeerId::toString)
+        .collect(Collectors.toList());
+    Assertions.assertEquals(Arrays.asList("higherCommit", "lowerCommit", "lowerMatch"), ids);
+  }
+
+  @Test
+  public void testFollowerSourceFailureRetryWithLeader() throws Exception {
+    final RaftProperties prop = getProperties();
+    final boolean previousInstallSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(prop);
+    RaftServerConfigKeys.Log.Appender.setInstallSnapshotEnabled(prop, true);
+    try {
+      runWithNewCluster(2, this::testFollowerSourceFailureRetryWithLeader);
+    } finally {
+      SNAPSHOT_SOURCE_FETCH_POLICY.set(SnapshotSourceFetchPolicy.LEADER_ONLY);
+      RaftServerConfigKeys.Log.Appender.setInstallSnapshotEnabled(prop, previousInstallSnapshotEnabled);
+    }
+  }
+
+  private void testFollowerSourceFailureRetryWithLeader(CLUSTER cluster) throws Exception {
+    LEADER_SNAPSHOT_INFO_REF.set(null);
+    numSnapshotRequests.set(0);
+    numFallbackToLeaderFromSourceFailure.set(0);
+    LAST_SOURCE_PEER_IDS.set(Collections.emptyList());
+    LAST_MINIMUM_SNAPSHOT_INDEX.set(-1L);
+    SNAPSHOT_SOURCE_FETCH_POLICY.set(SnapshotSourceFetchPolicy.FAIL_SOURCE_THEN_LEADER);
+
+    int i = 0;
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId leaderId = leader.getId();
+
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+        final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+        Assertions.assertTrue(reply.isSuccess());
+      }
+    }
+
+    final long nextIndex = leader.getRaftLog().getNextIndex();
+    final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
+        nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
+    JavaUtils.attemptRepeatedly(() -> {
+      Assertions.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+      return null;
+    }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
+
+    final SnapshotInfo leaderSnapshotInfo = leader.getStateMachine().getLatestSnapshot();
+    Assertions.assertNotNull(leaderSnapshotInfo);
+    Assertions.assertTrue(LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo));
+
+    final PeerChanges change = cluster.addNewPeers(1, true);
+    RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
+    RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
+
+    final RaftPeerId targetFollowerId = change.getAddedPeers().get(0).getId();
+    final RaftServer.Division targetFollower = cluster.getDivision(targetFollowerId);
+    JavaUtils.attempt(() -> {
+      Assertions.assertEquals(leaderSnapshotInfo.getIndex(),
+          RaftServerTestUtil.getLatestInstalledSnapshotIndex(targetFollower));
+    }, 10, ONE_SECOND, "targetFollowerInstalledSnapshot", LOG);
+
+    // The notification contained follower sources and the state machine retried with leader after source failure.
+    JavaUtils.attempt(() -> {
+      Assertions.assertTrue(numSnapshotRequests.get() >= 1);
+      Assertions.assertTrue(numFallbackToLeaderFromSourceFailure.get() >= 1);
+      Assertions.assertFalse(LAST_SOURCE_PEER_IDS.get().isEmpty());
+      Assertions.assertTrue(LAST_MINIMUM_SNAPSHOT_INDEX.get() >= 0);
+    }, 10, ONE_SECOND, "sourceFailureRetryWithLeader", LOG);
+  }
+
+  @Test
+  public void testNoCandidateFallbackToLeader() throws Exception {
+    final RaftProperties prop = getProperties();
+    final boolean previousInstallSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(prop);
+    RaftServerConfigKeys.Log.Appender.setInstallSnapshotEnabled(prop, true);
+    try {
+      runWithNewCluster(1, this::testNoCandidateFallbackToLeader);
+    } finally {
+      SNAPSHOT_SOURCE_FETCH_POLICY.set(SnapshotSourceFetchPolicy.LEADER_ONLY);
+      RaftServerConfigKeys.Log.Appender.setInstallSnapshotEnabled(prop, previousInstallSnapshotEnabled);
+    }
+  }
+
+  private void testNoCandidateFallbackToLeader(CLUSTER cluster) throws Exception {
+    LEADER_SNAPSHOT_INFO_REF.set(null);
+    numSnapshotRequests.set(0);
+    numFallbackToLeaderFromSourceFailure.set(0);
+    LAST_SOURCE_PEER_IDS.set(Collections.emptyList());
+    LAST_MINIMUM_SNAPSHOT_INDEX.set(-1L);
+    SNAPSHOT_SOURCE_FETCH_POLICY.set(SnapshotSourceFetchPolicy.FAIL_SOURCE_THEN_LEADER);
+
+    int i = 0;
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId leaderId = leader.getId();
+
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+        final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+        Assertions.assertTrue(reply.isSuccess());
+      }
+    }
+
+    final long nextIndex = leader.getRaftLog().getNextIndex();
+    final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
+        nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
+    JavaUtils.attemptRepeatedly(() -> {
+      Assertions.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+      return null;
+    }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
+
+    final SnapshotInfo leaderSnapshotInfo = leader.getStateMachine().getLatestSnapshot();
+    Assertions.assertNotNull(leaderSnapshotInfo);
+    Assertions.assertTrue(LEADER_SNAPSHOT_INFO_REF.compareAndSet(null, leaderSnapshotInfo));
+
+    final PeerChanges change = cluster.addNewPeers(1, true);
+    RaftServerTestUtil.runWithMinorityPeers(cluster, change.getPeersInNewConf(), cluster::setConfiguration);
+    RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
+
+    final RaftPeerId targetFollowerId = change.getAddedPeers().get(0).getId();
+    final RaftServer.Division targetFollower = cluster.getDivision(targetFollowerId);
+    JavaUtils.attempt(() -> {
+      Assertions.assertEquals(leaderSnapshotInfo.getIndex(),
+          RaftServerTestUtil.getLatestInstalledSnapshotIndex(targetFollower));
+    }, 10, ONE_SECOND, "leaderFallbackInstalledSnapshot", LOG);
+
+    // There is no follower source candidate in a single-leader cluster. The leader should directly install snapshot.
+    Assertions.assertEquals(0, numSnapshotRequests.get());
+    Assertions.assertEquals(0, numFallbackToLeaderFromSourceFailure.get());
+    Assertions.assertEquals(Collections.emptyList(), LAST_SOURCE_PEER_IDS.get());
   }
 
   /**
