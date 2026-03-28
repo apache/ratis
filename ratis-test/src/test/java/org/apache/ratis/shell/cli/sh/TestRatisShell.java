@@ -65,12 +65,11 @@ public class TestRatisShell extends BaseTest {
     final List<Command> expected = new ArrayList<>(loadCommands(RatisShell.class.getPackage().getName() + ".command"));
     Collections.sort(expected);
 
-    try(RatisShell shell = new RatisShell(OUT)) {
-      final List<Command> computed = new ArrayList<>(shell.getCommands());
-      Collections.sort(computed);
+    RatisShell shell = new RatisShell(OUT);
+    final List<Command> computed = new ArrayList<>(shell.getCommands());
+    Collections.sort(computed);
 
-      assertCommands(expected, computed);
-    }
+    assertCommands(expected, computed);
   }
 
   @Test
