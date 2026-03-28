@@ -38,3 +38,5 @@ updates:
         versions: [">=4.9.0"]
       - dependency-name: "com.github.spotbugs:spotbugs-maven-plugin"
         versions: [">=4.9.0.0"]
+      - dependency-name: "org.mockito:mockito-core"
+        versions: [">=5.0.0"]
