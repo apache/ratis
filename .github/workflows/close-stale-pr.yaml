@@ -1,0 +1,39 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: close-stale-prs
+
+on:
+  schedule:
+    # We can run this only once a week on Sundays so contributors get sufficient time to follow up.
+    - cron: '0 0 * * 0'
+
+jobs:
+  close-stale-prs:
+    permissions:
+      pull-requests: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Close Stale PRs
+        uses: actions/stale@v10
+        with:
+          stale-pr-label: 'stale'
+          exempt-draft-pr: false
+          days-before-issue-stale: -1
+          days-before-pr-stale: 60
+          days-before-pr-close: 30
+          remove-pr-stale-when-updated: true
+          operations-per-run: 500
+          stale-pr-message: 'This PR has been marked as stale due to 60 days of inactivity. Please comment or remove the stale label to keep it open. Otherwise, it will be automatically closed in ~30 days.'
+          close-pr-message: 'Thank you for your contribution. This PR is being closed due to inactivity. Please contact a maintainer if you would like to reopen it.'
