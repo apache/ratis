@@ -231,6 +231,10 @@ class RetryCacheImpl implements RetryCache {
     }
   }
 
+  void invalidate(ClientInvocationId key) {
+    cache.invalidate(key);
+  }
+
   void invalidateRepliedRequests(RaftClientRequest request) {
     final ClientId clientId = request.getClientId();
     final Iterable<Long> callIds = request.getRepliedCallIds();
@@ -263,8 +267,22 @@ class RetryCacheImpl implements RetryCache {
     if (entry != null) {
       entry.failWithReply(reply);
       return entry.getReplyFuture();
-    } else {
-      return CompletableFuture.completedFuture(reply);
     }
+    return CompletableFuture.completedFuture(reply);
+  }
+
+  /**
+   * Fail the cache entry with the given reply and remove it from the cache.
+   * This should be used when we want to fail a request without caching the failure,
+   * such as when leadership is lost before processing the request.
+   */
+  CompletableFuture<RaftClientReply> failWithReplyAndInvalidate(
+      RaftClientReply reply, CacheEntry entry) {
+    if (entry != null) {
+      entry.failWithReply(reply);
+      invalidate(entry.getKey());
+      return entry.getReplyFuture();
+    }
+    return CompletableFuture.completedFuture(reply);
   }
 }
