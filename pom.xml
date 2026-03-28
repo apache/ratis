@@ -150,7 +150,7 @@
     <maven-bundle-plugin.version>5.1.8</maven-bundle-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
     <hadoop-maven-plugins.version>3.4.3</hadoop-maven-plugins.version>
-    <sonar-maven-plugin.version>5.3.0.6276</sonar-maven-plugin.version>
+    <sonar-maven-plugin.version>5.5.0.6356</sonar-maven-plugin.version>
 
     <!-- org.codehaus.mojo -->
     <build-helper-maven-plugin.version>3.6.1</build-helper-maven-plugin.version>
