@@ -23,7 +23,6 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
@@ -32,7 +31,7 @@ import java.util.Optional;
 /**
  * An interface for all the commands that can be run from a shell.
  */
-public interface Command extends Comparable<Command>, Closeable {
+public interface Command extends Comparable<Command> {
 
   /**
    * Gets the command name as input from the shell.
@@ -119,10 +118,4 @@ public interface Command extends Comparable<Command>, Closeable {
    */
   String getDescription();
 
-  /**
-   * Used to close resources created by commands.
-   *
-   * @throws IOException if closing resources fails
-   */
-  default void close() throws IOException {}
 }

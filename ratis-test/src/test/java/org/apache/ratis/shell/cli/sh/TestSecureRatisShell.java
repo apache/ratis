@@ -85,8 +85,8 @@ public class TestSecureRatisShell extends BaseTest {
   }
 
   void runTestRatisShell(MiniRaftClusterWithGrpc cluster, boolean secure) throws Exception {
-    try(ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 16);
-        RatisShell shell = newRatisShell(out, cluster.getProperties(), secure)) {
+    try (ByteArrayOutputStream out = new ByteArrayOutputStream(1 << 16)) {
+      RatisShell shell = newRatisShell(out, cluster.getProperties(), secure);
       shell.run("group", "info", "-peers", toCliArg(cluster.getPeers()));
       final String output = out.toString();
       LOG.info("output (secure? {}):\n{}", secure, output);

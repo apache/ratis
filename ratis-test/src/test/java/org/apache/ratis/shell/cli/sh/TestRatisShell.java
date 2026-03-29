@@ -44,6 +44,7 @@ import java.util.function.Function;
 /**
  * Test {@link RatisShell}
  */
+@SuppressWarnings({"rawtypes"})
 public class TestRatisShell extends BaseTest {
   static final PrintStream OUT = System.out;
   static final Class<?>[] ARG_CLASSES = new Class[] {Context.class};
@@ -65,12 +66,11 @@ public class TestRatisShell extends BaseTest {
     final List<Command> expected = new ArrayList<>(loadCommands(RatisShell.class.getPackage().getName() + ".command"));
     Collections.sort(expected);
 
-    try(RatisShell shell = new RatisShell(OUT)) {
-      final List<Command> computed = new ArrayList<>(shell.getCommands());
-      Collections.sort(computed);
+    RatisShell shell = new RatisShell(OUT);
+    final List<Command> computed = new ArrayList<>(shell.getCommands());
+    Collections.sort(computed);
 
-      assertCommands(expected, computed);
-    }
+    assertCommands(expected, computed);
   }
 
   @Test

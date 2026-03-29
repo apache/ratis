@@ -24,11 +24,8 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.retry.ExponentialBackoffRetry;
 import org.apache.ratis.retry.RetryPolicy;
-import org.apache.ratis.thirdparty.com.google.common.io.Closer;
 import org.apache.ratis.util.TimeDuration;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Objects;
 import java.util.Properties;
@@ -37,7 +34,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * A context for ratis-shell.
  */
-public final class Context implements Closeable {
+public final class Context {
   private static final TimeDuration DEFAULT_REQUEST_TIMEOUT = TimeDuration.valueOf(15, TimeUnit.SECONDS);
   private static final RetryPolicy DEFAULT_RETRY_POLICY = ExponentialBackoffRetry.newBuilder()
       .setBaseSleepTime(TimeDuration.valueOf(1000, TimeUnit.MILLISECONDS))
@@ -46,7 +43,6 @@ public final class Context implements Closeable {
       .build();
 
   private final PrintStream mPrintStream;
-  private final Closer mCloser;
 
   private final boolean cli;
   private final RetryPolicy retryPolicy;
@@ -63,8 +59,7 @@ public final class Context implements Closeable {
 
   public Context(PrintStream printStream, boolean cli, RetryPolicy retryPolicy,
       RaftProperties properties, Parameters parameters) {
-    mCloser = Closer.create();
-    mPrintStream = mCloser.register(Objects.requireNonNull(printStream, "printStream == null"));
+    mPrintStream = Objects.requireNonNull(printStream, "printStream == null");
 
     this.cli = cli;
     this.retryPolicy = retryPolicy != null? retryPolicy : DEFAULT_RETRY_POLICY;
@@ -114,10 +109,5 @@ public final class Context implements Closeable {
         .setParameters(getParameters())
         .setRetryPolicy(getRetryPolicy())
         .build();
-  }
-
-  @Override
-  public void close() throws IOException {
-    mCloser.close();
   }
 }
