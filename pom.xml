@@ -171,10 +171,8 @@
 
     <shell-executable>bash</shell-executable>
 
-    <!-- define the Java language version used by the compiler -->
-    <maven.compiler.release>8</maven.compiler.release>
-    <!-- override maven.compiler.target=8 defined in parent POM 35; can be removed on upgrade to 36+ -->
-    <maven.compiler.target>${maven.compiler.release}</maven.compiler.target>
+    <!-- set in parent POM, but only for JDK9+ -->
+    <maven.compiler.release>${javaVersion}</maven.compiler.release>
 
     <!-- Contains all shaded thirdparty dependencies; make sure to also update in ratis-bom/pom.xml -->
     <ratis.thirdparty.version>1.0.11</ratis.thirdparty.version>
