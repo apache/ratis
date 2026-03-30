@@ -45,7 +45,7 @@ jobs:
       java-version: ${{ matrix.java }}
       needs-source-tarball: true
       script: compile
-      script-args: -Djavac.version=${{ matrix.java }}
+      script-args: -Dmaven.compiler.release=${{ matrix.java }}
       split: ${{ matrix.java }}
       timeout-minutes: 30
     secrets: inherit
