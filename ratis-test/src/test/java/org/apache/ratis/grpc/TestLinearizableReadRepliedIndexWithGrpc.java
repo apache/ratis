@@ -22,11 +22,11 @@ import org.apache.ratis.ReadOnlyRequestTests.CounterStateMachine;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServer.Division;
 import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.ReplyFlusher;
 import org.apache.ratis.util.CodeInjectionForTesting;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -53,12 +53,13 @@ public class TestLinearizableReadRepliedIndexWithGrpc
     runWithNewCluster(TestLinearizableReadRepliedIndexWithGrpc::runTestFollowerReadOnlyParallelRepliedIndex);
   }
 
-  static <C extends MiniRaftCluster> void runTestFollowerReadOnlyParallelRepliedIndex(C cluster) throws Exception {
+  static <C extends MiniRaftCluster> void runTestFollowerReadOnlyParallelRepliedIndex(C cluster)
+      throws Exception {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
-    final CounterStateMachine leaderStateMachine = (CounterStateMachine) leader.getStateMachine();
+    final CounterStateMachine leaderStateMachine = (CounterStateMachine)leader.getStateMachine();
 
-    final List<Division> followers = cluster.getFollowers();
-    assertEquals(2, followers.size());
+    final List<RaftServer.Division> followers = cluster.getFollowers();
+    Assertions.assertEquals(2, followers.size());
     final RaftPeerId f0 = followers.get(0).getId();
     final RaftPeerId f1 = followers.get(1).getId();
 
@@ -76,8 +77,8 @@ public class TestLinearizableReadRepliedIndexWithGrpc
         final int count = i + 1;
         writeReplies.add(new Reply(count, leaderClient.async().send(INCREMENT)));
 
-        // Because of read-after-write consistency, the reads must wait for all the writes
-        // Therefore, the expected count is n
+        // Because of read-after-write consistency, the reads must wait for all the writes.
+        // Therefore, the expected count is n.
         f0Replies.add(new Reply(n, f0Client.async().sendReadOnly(QUERY, f0)));
         f1Replies.add(new Reply(n, f1Client.async().sendReadOnly(QUERY, f1)));
 
@@ -88,7 +89,7 @@ public class TestLinearizableReadRepliedIndexWithGrpc
         assertEquals(count, leaderStateMachine.getCount());
       }
 
-      // All replies should not yet complete since ReplyFlusher remains blocked
+      // All replies should not yet complete since ReplyFlusher remains blocked.
       for (int i = 0; i < n; i++) {
         assertFalse(writeReplies.get(i).isDone());
         assertFalse(f0Replies.get(i).isDone());
@@ -101,13 +102,12 @@ public class TestLinearizableReadRepliedIndexWithGrpc
       assertReplyExact(n, f1Client.io().sendReadOnly(QUERY, f0));
 
       for (int i = 0; i < n; i++) {
-        // write reply should get the exact count at the write time
+        //write reply should get the exact count at the write time
         writeReplies.get(i).assertExact();
-        // read reply should be delayed and get the count at the unblocked time
+        //read reply should be delayed and get the count at the unblocked time
         f0Replies.get(i).assertExact();
         f1Replies.get(i).assertExact();
       }
-
     }
   }
 
@@ -131,4 +131,6 @@ public class TestLinearizableReadRepliedIndexWithGrpc
       return true;
     }
   }
+
+
 }

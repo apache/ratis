@@ -57,7 +57,7 @@ public class ReplyFlusher {
   private final Object id;
   private final LifeCycle lifeCycle;
   private final Daemon daemon;
-  private Replies replies = new Replies();
+  private final Replies replies = new Replies();
   private final RaftLogIndex repliedIndex;
   /** The interval at which held write replies are flushed. */
   private final TimeDuration batchInterval;
@@ -95,14 +95,12 @@ public class ReplyFlusher {
   private void run() {
     try {
       while (lifeCycle.getCurrentState() == LifeCycle.State.RUNNING) {
-        try {
-          Thread.sleep(batchInterval.toLong(TimeUnit.MILLISECONDS));
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          return;
-        }
+        batchInterval.sleep();
         flush();
       }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      LOG.warn("{}: Interrupted ", daemon.getName(), e);
     } finally {
       // Flush remaining on exit
       flush();

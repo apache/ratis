@@ -130,7 +130,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
     final List<RaftServer.Division> followers = cluster.getFollowers();
-    assertEquals(2, followers.size());
+    Assertions.assertEquals(2, followers.size());
 
     final RaftPeerId f0 = followers.get(0).getId();
     final RaftPeerId f1 = followers.get(1).getId();
@@ -163,7 +163,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
     final List<RaftServer.Division> followers = cluster.getFollowers();
-    assertEquals(2, followers.size());
+    Assertions.assertEquals(2, followers.size());
     final RaftPeerId f0 = followers.get(0).getId();
     final RaftPeerId f1 = followers.get(1).getId();
 
@@ -180,9 +180,8 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
         count++;
         writeReplies.add(new Reply(count, leaderClient.async().send(WAIT_AND_INCREMENT)));
-        // sleep to let the commitIndex/appliedIndex get updated
+        // sleep to let the commitIndex/appliedIndex get updated.
         Thread.sleep(100);
-
         // WAIT_AND_INCREMENT will delay 500ms to update the count, the read must wait for it.
         assertReplyExact(count, f0Client.io().sendReadOnly(QUERY, f0));
         f1Replies.add(new Reply(count, f1Client.async().sendReadOnly(QUERY, f1)));

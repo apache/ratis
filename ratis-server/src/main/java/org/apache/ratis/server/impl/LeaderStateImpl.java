@@ -400,7 +400,7 @@ class LeaderStateImpl implements LeaderState {
     this.readIndexType = RaftServerConfigKeys.Read.ReadIndex.type(properties);
     switch (readIndexType) {
     case REPLIED_INDEX:
-      this.replyFlusher = new ReplyFlusher(name, state.getLastAppliedIndex(),
+      this.replyFlusher = new ReplyFlusher(server.getId(), state.getLastAppliedIndex(),
           RaftServerConfigKeys.Read.ReadIndex.repliedIndexBatchInterval(properties));
       readIndexSupplier = replyFlusher::getRepliedIndex;
       break;
