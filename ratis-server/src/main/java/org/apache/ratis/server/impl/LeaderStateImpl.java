@@ -449,10 +449,10 @@ class LeaderStateImpl implements LeaderState {
 
   void checkReady(LogEntryProto entry) {
     if (entry.getTerm() == server.getState().getCurrentTerm() && startupLogEntry.get().checkStartIndex(entry)) {
-      server.getStateMachine().leaderEvent().notifyLeaderReady();
       if (replyFlusher != null) {
         replyFlusher.updateRepliedIndexToMax(entry.getIndex());
       }
+      server.getStateMachine().leaderEvent().notifyLeaderReady();
     }
   }
 
