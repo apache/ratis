@@ -78,6 +78,11 @@ public class ReplyFlusher {
     return repliedIndex.get();
   }
 
+  /** Update the replied index to at least the given value. */
+  void updateRepliedIndexToMax(long newIndex) {
+    repliedIndex.updateToMax(newIndex, s -> LOG.debug("{}: {}", id, s));
+  }
+
   /** Hold a write reply for later batch flushing */
   void hold(LongSupplier replyMethod) {
     replies.add(replyMethod);
