@@ -436,11 +436,12 @@ class LeaderStateImpl implements LeaderState {
     // Initialize startup log entry and append it to the RaftLog
     startupLogEntry.get();
     processor.start();
-    senders.forEach(LogAppender::start);
 
     if (replyFlusher != null) {
-      replyFlusher.start();
+      replyFlusher.start(startupLogEntry.get().startIndex);
     }
+
+    senders.forEach(LogAppender::start);
   }
 
   boolean isReady() {
@@ -449,9 +450,6 @@ class LeaderStateImpl implements LeaderState {
 
   void checkReady(LogEntryProto entry) {
     if (entry.getTerm() == server.getState().getCurrentTerm() && startupLogEntry.get().checkStartIndex(entry)) {
-      if (replyFlusher != null) {
-        replyFlusher.updateRepliedIndexToMax(entry.getIndex());
-      }
       server.getStateMachine().leaderEvent().notifyLeaderReady();
     }
   }

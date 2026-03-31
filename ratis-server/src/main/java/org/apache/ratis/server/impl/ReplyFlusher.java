@@ -78,17 +78,13 @@ public class ReplyFlusher {
     return repliedIndex.get();
   }
 
-  /** Update the replied index to at least the given value. */
-  void updateRepliedIndexToMax(long newIndex) {
-    repliedIndex.updateToMax(newIndex, s -> LOG.debug("{}: {}", id, s));
-  }
-
   /** Hold a write reply for later batch flushing */
   void hold(LongSupplier replyMethod) {
     replies.add(replyMethod);
   }
 
-  void start() {
+  void start(long startIndex) {
+    repliedIndex.updateToMax(startIndex, s -> LOG.debug("{}: {}", id, s));
     lifeCycle.transition(LifeCycle.State.STARTING);
     // We need to transition to RUNNING first so that ReplyFlusher#run always
     // see that the lifecycle state is in RUNNING state.
