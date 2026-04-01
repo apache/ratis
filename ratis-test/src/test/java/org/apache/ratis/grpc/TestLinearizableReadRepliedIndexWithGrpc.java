@@ -38,6 +38,7 @@ import static org.apache.ratis.ReadOnlyRequestTests.QUERY;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyExact;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestLinearizableReadRepliedIndexWithGrpc
   extends TestLinearizableReadWithGrpc {
@@ -83,10 +84,10 @@ public class TestLinearizableReadRepliedIndexWithGrpc
         final int count = i + 1;
         writeReplies.add(new Reply(count, leaderClient.async().send(INCREMENT)));
 
-        // Because of read-after-write consistency, the reads must wait for all the writes.
-        // Therefore, the expected count is n.
-        f0Replies.add(new Reply(n, f0Client.async().sendReadOnly(QUERY, f0)));
-        f1Replies.add(new Reply(n, f1Client.async().sendReadOnly(QUERY, f1)));
+        // Read reply returns immediately, but they all should return 0 since the repliedIndex has not been updated
+        // and write operations should not been applied by the followers
+        f0Replies.add(new Reply(0, f0Client.async().sendReadOnly(QUERY, f0)));
+        f1Replies.add(new Reply(0, f1Client.async().sendReadOnly(QUERY, f1)));
 
         // sleep in order to make sure
         // (1) the count is incremented, and
@@ -95,11 +96,16 @@ public class TestLinearizableReadRepliedIndexWithGrpc
         assertEquals(count, leaderStateMachine.getCount());
       }
 
-      // All replies should not yet complete since ReplyFlusher remains blocked.
       for (int i = 0; i < n; i++) {
+        // Write reply should not yet complete since ReplyFlusher remains blocked.
         assertFalse(writeReplies.get(i).isDone(), "Received unexpected Write reply " + writeReplies.get(i));
-        assertFalse(f0Replies.get(i).isDone(), "Received unexpected Read reply " + f0Replies.get(i));
-        assertFalse(f1Replies.get(i).isDone(), "Received unexpected Read reply " + f1Replies.get(i));
+
+        // Follower reads should be immediately served, but the read value should return the value before the
+        // replyFlusher is blocked
+        assertTrue(f0Replies.get(i).isDone(), "Follower read should return immediately");
+        f0Replies.get(i).assertExact();
+        assertTrue(f1Replies.get(i).isDone(), "Follower read should return immediately");
+        f1Replies.get(i).assertExact();
       }
 
       // unblock ReplyFlusher
@@ -110,9 +116,6 @@ public class TestLinearizableReadRepliedIndexWithGrpc
       for (int i = 0; i < n; i++) {
         //write reply should get the exact count at the write time
         writeReplies.get(i).assertExact();
-        //read reply should be delayed and get the count at the unblocked time
-        f0Replies.get(i).assertExact();
-        f1Replies.get(i).assertExact();
       }
     }
   }
