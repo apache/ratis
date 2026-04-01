@@ -18,6 +18,7 @@
 package org.apache.ratis;
 
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -87,6 +88,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     RaftServerConfigKeys.Read.setOption(p, LINEARIZABLE);
     RaftServerConfigKeys.Read.setLeaderLeaseEnabled(p, isLeaderLeaseEnabled());
     RaftServerConfigKeys.Read.ReadIndex.setType(p, readIndexType());
+    RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(p, false);
   }
 
   @Test
