@@ -91,9 +91,9 @@ public class TestLinearizableReadRepliedIndexWithGrpc
 
       // All replies should not yet complete since ReplyFlusher remains blocked.
       for (int i = 0; i < n; i++) {
-        assertFalse(writeReplies.get(i).isDone());
-        assertFalse(f0Replies.get(i).isDone());
-        assertFalse(f1Replies.get(i).isDone());
+        assertFalse(writeReplies.get(i).isDone(), "Received unexpected Write reply " + writeReplies.get(i));
+        assertFalse(f0Replies.get(i).isDone(), "Received unexpected Read reply " + f0Replies.get(i));
+        assertFalse(f1Replies.get(i).isDone(), "Received unexpected Read reply " + f1Replies.get(i));
       }
 
       // unblock ReplyFlusher
