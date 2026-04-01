@@ -17,14 +17,15 @@
  */
 package org.apache.ratis.grpc.metrics;
 
+import java.util.function.Supplier;
+
+import org.apache.ratis.grpc.util.ZeroCopyMessageMarshaller.Metrics;
 import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.AbstractMessage;
-
-import java.util.function.Supplier;
 
 public class ZeroCopyMetrics extends RatisMetrics {
   private static final String RATIS_GRPC_METRICS_APP_NAME = "ratis_grpc";
@@ -34,6 +35,20 @@ public class ZeroCopyMetrics extends RatisMetrics {
   private final LongCounter zeroCopyMessages = getRegistry().counter("num_zero_copy_messages");
   private final LongCounter nonZeroCopyMessages = getRegistry().counter("num_non_zero_copy_messages");
   private final LongCounter releasedMessages = getRegistry().counter("num_released_messages");
+
+  // Per-message-type zero-copy counters.
+  private final LongCounter zeroCopyAppendEntries = getRegistry().counter("num_zero_copy_append_entries");
+  private final LongCounter zeroCopyInstallSnapshot = getRegistry().counter("num_zero_copy_install_snapshot");
+  private final LongCounter zeroCopyClientRequest = getRegistry().counter("num_zero_copy_client_request");
+
+  // Aggregated savings and parse time (nanos) for zero-copy path.
+  private final LongCounter bytesSavedByZeroCopy = getRegistry().counter("bytes_saved_by_zero_copy");
+  private final LongCounter zeroCopyParseTimeNanos = getRegistry().counter("zero_copy_parse_time_nanos");
+
+  // Reason counters for zero-copy fallback.
+  private final LongCounter fallbackNotKnownLength = getRegistry().counter("zero_copy_fallback_not_known_length");
+  private final LongCounter fallbackNotDetachable = getRegistry().counter("zero_copy_fallback_not_detachable");
+  private final LongCounter fallbackNotByteBuffer = getRegistry().counter("zero_copy_fallback_not_byte_buffer");
 
   public ZeroCopyMetrics() {
     super(createRegistry());
@@ -54,12 +69,55 @@ public class ZeroCopyMetrics extends RatisMetrics {
     zeroCopyMessages.inc();
   }
 
+  public void onZeroCopyAppendEntries(AbstractMessage ignored) {
+    onZeroCopyMessage(ignored);
+    zeroCopyAppendEntries.inc();
+  }
+
+  public void onZeroCopyInstallSnapshot(AbstractMessage ignored) {
+    onZeroCopyMessage(ignored);
+    zeroCopyInstallSnapshot.inc();
+  }
+
+  public void onZeroCopyClientRequest(AbstractMessage ignored) {
+    onZeroCopyMessage(ignored);
+    zeroCopyClientRequest.inc();
+  }
+
   public void onNonZeroCopyMessage(AbstractMessage ignored) {
     nonZeroCopyMessages.inc();
   }
 
   public void onReleasedMessage(AbstractMessage ignored) {
     releasedMessages.inc();
+  }
+
+  public ZeroCopyMessageMarshallerMetrics newMarshallerMetrics() {
+    return new ZeroCopyMessageMarshallerMetrics();
+  }
+
+  // Adapter used by ZeroCopyMessageMarshaller to report parse stats and fallback reasons.
+  public class ZeroCopyMessageMarshallerMetrics implements Metrics {
+    @Override
+    public void onZeroCopyParse(long bytesSaved, long parseTimeNanos) {
+      bytesSavedByZeroCopy.inc(bytesSaved);
+      zeroCopyParseTimeNanos.inc(parseTimeNanos);
+    }
+
+    @Override
+    public void onFallbackNotKnownLength() {
+      fallbackNotKnownLength.inc();
+    }
+
+    @Override
+    public void onFallbackNotDetachable() {
+      fallbackNotDetachable.inc();
+    }
+
+    @Override
+    public void onFallbackNotByteBuffer() {
+      fallbackNotByteBuffer.inc();
+    }
   }
 
   @VisibleForTesting

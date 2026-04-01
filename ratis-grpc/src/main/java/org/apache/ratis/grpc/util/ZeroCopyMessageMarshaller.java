@@ -55,6 +55,23 @@ import java.util.function.Consumer;
 public class ZeroCopyMessageMarshaller<T extends MessageLite> implements PrototypeMarshaller<T> {
   static final Logger LOG = LoggerFactory.getLogger(ZeroCopyMessageMarshaller.class);
 
+  public interface Metrics {
+    default void onZeroCopyParse(long bytesSaved, long parseTimeNanos) {
+    }
+
+    default void onFallbackNotKnownLength() {
+    }
+
+    default void onFallbackNotDetachable() {
+    }
+
+    default void onFallbackNotByteBuffer() {
+    }
+  }
+
+  private static final Metrics NOOP_METRICS = new Metrics() {
+  };
+
   private final String name;
   private final Map<T, InputStream> unclosedStreams = Collections.synchronizedMap(new IdentityHashMap<>());
   private final Parser<T> parser;
@@ -63,13 +80,19 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
   private final Consumer<T> zeroCopyCount;
   private final Consumer<T> nonZeroCopyCount;
   private final Consumer<T> releasedCount;
+  private final Metrics metrics;
 
   public ZeroCopyMessageMarshaller(T defaultInstance) {
-    this(defaultInstance, m -> {}, m -> {}, m -> {});
+    this(defaultInstance, m -> {}, m -> {}, m -> {}, NOOP_METRICS);
   }
 
   public ZeroCopyMessageMarshaller(T defaultInstance, Consumer<T> zeroCopyCount, Consumer<T> nonZeroCopyCount,
       Consumer<T> releasedCount) {
+    this(defaultInstance, zeroCopyCount, nonZeroCopyCount, releasedCount, NOOP_METRICS);
+  }
+
+  public ZeroCopyMessageMarshaller(T defaultInstance, Consumer<T> zeroCopyCount, Consumer<T> nonZeroCopyCount,
+      Consumer<T> releasedCount, Metrics metrics) {
     this.name = JavaUtils.getClassSimpleName(defaultInstance.getClass()) + "-Marshaller";
     @SuppressWarnings("unchecked")
     final Parser<T> p = (Parser<T>) defaultInstance.getParserForType();
@@ -79,6 +102,7 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
     this.zeroCopyCount = zeroCopyCount;
     this.nonZeroCopyCount = nonZeroCopyCount;
     this.releasedCount = releasedCount;
+    this.metrics = metrics == null ? NOOP_METRICS : metrics;
   }
 
   @Override
@@ -158,27 +182,35 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
    */
   private T parseZeroCopy(InputStream stream) throws IOException {
     if (!(stream instanceof KnownLength)) {
+      metrics.onFallbackNotKnownLength();
       LOG.debug("stream is not KnownLength: {}", stream.getClass());
       return null;
     }
     if (!(stream instanceof Detachable)) {
+      metrics.onFallbackNotDetachable();
       LOG.debug("stream is not Detachable: {}", stream.getClass());
       return null;
     }
     if (!(stream instanceof HasByteBuffer)) {
+      metrics.onFallbackNotByteBuffer();
       LOG.debug("stream is not HasByteBuffer: {}", stream.getClass());
       return null;
     }
     if (!((HasByteBuffer) stream).byteBufferSupported()) {
+      metrics.onFallbackNotByteBuffer();
       LOG.debug("stream is HasByteBuffer but not byteBufferSupported: {}", stream.getClass());
       return null;
     }
 
     final int exactSize = stream.available();
     InputStream detached = ((Detachable) stream).detach();
+    // Measure only the zero-copy parse path (detach + parse).
+    final long startNanos = System.nanoTime();
     try {
       final List<ByteString> byteStrings = getByteStrings(detached, exactSize);
       final T message = parseFrom(byteStrings, exactSize);
+
+      metrics.onZeroCopyParse(exactSize, System.nanoTime() - startNanos);
 
       final InputStream previous = unclosedStreams.put(message, detached);
       Preconditions.assertNull(previous, "previous");
