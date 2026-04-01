@@ -126,6 +126,14 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     public void assertAtLeast() {
       assertReplyAtLeast(count, future.join());
     }
+
+    @Override
+    public String toString() {
+      return "Reply{" +
+          "count=" + count +
+          ", reply=" + (isDone() ? future.join() : "pending") +
+          '}';
+    }
   }
 
   static <C extends MiniRaftCluster> void runTestFollowerLinearizableRead(C cluster) throws Exception {
