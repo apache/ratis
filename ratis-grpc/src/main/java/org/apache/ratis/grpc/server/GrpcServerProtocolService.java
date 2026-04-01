@@ -47,6 +47,7 @@ import java.util.function.Supplier;
 
 import static org.apache.ratis.grpc.GrpcUtil.addMethodWithCustomMarshaller;
 import static org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.getAppendEntriesMethod;
+import static org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.getInstallSnapshotMethod;
 
 class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
@@ -59,16 +60,22 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   static class PendingServerRequest<REQUEST> {
     private final AtomicReference<ReferenceCountedObject<REQUEST>> requestRef;
     private final CompletableFuture<Void> future = new CompletableFuture<>();
+    private final String requestString;
 
-    PendingServerRequest(ReferenceCountedObject<REQUEST> requestRef) {
+    PendingServerRequest(ReferenceCountedObject<REQUEST> requestRef, String requestString) {
       requestRef.retain();
       this.requestRef = new AtomicReference<>(requestRef);
+      this.requestString = requestString;
     }
 
     REQUEST getRequest() {
       return Optional.ofNullable(requestRef.get())
           .map(ReferenceCountedObject::get)
           .orElse(null);
+    }
+
+    String getRequestString() {
+      return requestString;
     }
 
     CompletableFuture<Void> getFuture() {
@@ -104,8 +111,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
     private String getPreviousRequestString() {
       return Optional.ofNullable(previousOnNext.get())
-          .map(PendingServerRequest::getRequest)
-          .map(this::requestToString)
+          .map(PendingServerRequest::getRequestString)
           .orElse(null);
     }
 
@@ -177,7 +183,9 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
         return;
       }
 
-      final PendingServerRequest<REQUEST> current = new PendingServerRequest<>(requestRef);
+      final PendingServerRequest<REQUEST> current
+          = new PendingServerRequest<>(requestRef, requestToString(requestRef.get()));
+      current.getFuture().whenComplete((r, e) -> current.release());
       final long callId = getCallId(current.getRequest());
       final boolean isHeartbeat = isHeartbeat(current.getRequest());
       final Optional<PendingServerRequest<REQUEST>> previous = Optional.ofNullable(previousOnNext.getAndSet(current));
@@ -243,6 +251,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   private final RaftServer server;
   private final boolean zeroCopyEnabled;
   private final ZeroCopyMessageMarshaller<AppendEntriesRequestProto> zeroCopyRequestMarshaller;
+  private final ZeroCopyMessageMarshaller<InstallSnapshotRequestProto> zeroCopyInstallSnapshotMarshaller;
 
   GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server, boolean zeroCopyEnabled,
       ZeroCopyMetrics zeroCopyMetrics) {
@@ -250,8 +259,15 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     this.server = server;
     this.zeroCopyEnabled = zeroCopyEnabled;
     this.zeroCopyRequestMarshaller = new ZeroCopyMessageMarshaller<>(AppendEntriesRequestProto.getDefaultInstance(),
-        zeroCopyMetrics::onZeroCopyMessage, zeroCopyMetrics::onNonZeroCopyMessage, zeroCopyMetrics::onReleasedMessage);
+        zeroCopyMetrics::onZeroCopyAppendEntries, zeroCopyMetrics::onNonZeroCopyMessage,
+        zeroCopyMetrics::onReleasedMessage, zeroCopyMetrics.newMarshallerMetrics());
+    this.zeroCopyInstallSnapshotMarshaller = new ZeroCopyMessageMarshaller<>(
+        InstallSnapshotRequestProto.getDefaultInstance(),
+        zeroCopyMetrics::onZeroCopyInstallSnapshot, zeroCopyMetrics::onNonZeroCopyMessage,
+        zeroCopyMetrics::onReleasedMessage, zeroCopyMetrics.newMarshallerMetrics());
     zeroCopyMetrics.addUnreleased("server_protocol", zeroCopyRequestMarshaller::getUnclosedCount);
+    zeroCopyMetrics.addUnreleased("server_protocol_install_snapshot",
+        zeroCopyInstallSnapshotMarshaller::getUnclosedCount);
   }
 
   RaftPeerId getId() {
@@ -268,9 +284,16 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
     // Add appendEntries with zero copy marshaller.
     addMethodWithCustomMarshaller(orig, builder, getAppendEntriesMethod(), zeroCopyRequestMarshaller);
+    // Add installSnapshot with zero copy marshaller for zero-copy counters/metrics.
+    addMethodWithCustomMarshaller(orig, builder, getInstallSnapshotMethod(), zeroCopyInstallSnapshotMarshaller);
     // Add remaining methods as is.
+    final String appendEntriesMethod = getAppendEntriesMethod().getFullMethodName();
+    final String installSnapshotMethod = getInstallSnapshotMethod().getFullMethodName();
     orig.getMethods().stream().filter(
-        x -> !x.getMethodDescriptor().getFullMethodName().equals(getAppendEntriesMethod().getFullMethodName())
+        x -> {
+          final String methodName = x.getMethodDescriptor().getFullMethodName();
+          return !methodName.equals(appendEntriesMethod) && !methodName.equals(installSnapshotMethod);
+        }
     ).forEach(
         builder::addMethod
     );
@@ -363,6 +386,11 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       @Override
       CompletableFuture<InstallSnapshotReplyProto> process(InstallSnapshotRequestProto request) throws IOException {
         return CompletableFuture.completedFuture(server.installSnapshot(request));
+      }
+
+      @Override
+      void release(InstallSnapshotRequestProto request) {
+        zeroCopyInstallSnapshotMarshaller.release(request);
       }
 
       @Override
