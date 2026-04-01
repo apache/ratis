@@ -64,11 +64,17 @@ public class TestLinearizableReadRepliedIndexWithGrpc
     final RaftPeerId f1 = followers.get(1).getId();
 
     final BlockingCode blockingReplyFlusher = new BlockingCode();
-    CodeInjectionForTesting.put(ReplyFlusher.FLUSH, blockingReplyFlusher);
 
     try (RaftClient leaderClient = cluster.createClient(leader.getId());
          RaftClient f0Client = cluster.createClient(f0);
          RaftClient f1Client = cluster.createClient(f1)) {
+      // Warm up the clients first
+      assertReplyExact(0, leaderClient.async().sendReadOnly(QUERY).get());
+      assertReplyExact(0, f0Client.async().sendReadOnly(QUERY, f0).get());
+      assertReplyExact(0, f1Client.async().sendReadOnly(QUERY, f1).get());
+
+      CodeInjectionForTesting.put(ReplyFlusher.FLUSH, blockingReplyFlusher);
+
       final int n = 10;
       final List<Reply> writeReplies = new ArrayList<>(n);
       final List<Reply> f0Replies = new ArrayList<>(n);
