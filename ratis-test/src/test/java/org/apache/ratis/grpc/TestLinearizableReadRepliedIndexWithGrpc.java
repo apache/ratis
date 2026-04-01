@@ -69,7 +69,7 @@ public class TestLinearizableReadRepliedIndexWithGrpc
     try (RaftClient leaderClient = cluster.createClient(leader.getId());
          RaftClient f0Client = cluster.createClient(f0);
          RaftClient f1Client = cluster.createClient(f1)) {
-      // Warm up the clients first
+      // Warm up the clients first before blocking the reply flusher
       assertReplyExact(0, leaderClient.async().sendReadOnly(QUERY).get());
       assertReplyExact(0, f0Client.async().sendReadOnly(QUERY, f0).get());
       assertReplyExact(0, f1Client.async().sendReadOnly(QUERY, f1).get());
