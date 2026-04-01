@@ -318,10 +318,10 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
         }
       } catch(Exception t) {
         if (exceptionInClientThread.compareAndSet(null, t)) {
-          log.error(this + " failed", t);
+          log.error("{} failed", this, t);
         } else {
           exceptionInClientThread.get().addSuppressed(t);
-          log.error(this + " failed again!", t);
+          log.error("{} failed again!", this, t);
         }
       } finally {
         isRunning.set(false);
@@ -347,8 +347,8 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
   static void testWithLoad(final int numClients, final int numMessages,
       boolean useAsync, MiniRaftCluster cluster, Logger log) throws Exception {
-    log.info("Running testWithLoad: numClients=" + numClients
-        + ", numMessages=" + numMessages + ", async=" + useAsync);
+    log.info("Running testWithLoad: numClients={}, numMessages={}, async={}",
+        numClients, numMessages, useAsync);
 
     waitForLeader(cluster);
 
@@ -364,24 +364,25 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
       @Override
       public void run() {
-        log.info(cluster.printServers());
-        log.info(BlockRequestHandlingInjection.getInstance().toString());
-        log.info(cluster.toString());
-        clients.forEach(c -> log.info("  " + c));
-        JavaUtils.dumpAllThreads(s -> log.info(s));
-
         final int last = lastStep.get();
         if (last != previousLastStep.get()) {
           previousLastStep.set(last);
         } else {
+          // Only dump cluster/client state when no progress is detected to reduce log noise.
+          log.info(cluster.printServers());
+          log.info(BlockRequestHandlingInjection.getInstance().toString());
+          log.info(cluster.toString());
+          clients.forEach(c -> log.info("  {}", c));
+          JavaUtils.dumpAllThreads(s -> log.info(s));
+
           final RaftServer.Division leader = cluster.getLeader();
-          log.info("NO PROGRESS at " + last + ", try to restart leader=" + leader);
+          log.info("NO PROGRESS at {}, try to restart leader={}", last, leader);
           if (leader != null) {
             try {
               cluster.restartServer(leader.getId(), false);
-              log.info("Restarted leader=" + leader);
+              log.info("Restarted leader={}", leader);
             } catch (IOException e) {
-              log.error("Failed to restart leader=" + leader);
+              log.error("Failed to restart leader={}", leader);
             }
           }
         }
@@ -415,7 +416,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
         log.error("Failed to change leader ", e);
       }
     }
-    log.info("Leader change count=" + count);
+    log.info("Leader change count={}", count);
     timer.cancel();
 
     for(Client4TestWithLoad c : clients) {

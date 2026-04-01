@@ -40,7 +40,7 @@ public interface SnapshotManagementApi {
     /**
    * Trigger to create a snapshot.
    *
-   * @param creationGap When (creationGap > 0) and (astAppliedIndex - lastSnapshotIndex < creationGap),
+   * @param creationGap When (creationGap > 0) and (lastAppliedIndex - lastSnapshotIndex < creationGap),
    *                    return lastSnapshotIndex; otherwise, take a new snapshot and then return its index.
    *                    When creationGap == 0, use the server configured value as the creationGap.
    * @return a reply.  When {@link RaftClientReply#isSuccess()} is true,

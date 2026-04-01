@@ -14,6 +14,14 @@
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.apache</groupId>
+    <artifactId>apache</artifactId>
+    <version>37</version>
+    <relativePath /> <!-- resolve from repository -->
+  </parent>
+
   <groupId>org.apache.ratis</groupId>
   <artifactId>ratis-bom</artifactId>
   <version>3.3.0-SNAPSHOT</version>
@@ -22,8 +30,25 @@
 
   <packaging>pom</packaging>
 
+  <distributionManagement>
+    <repository>
+      <id>${distMgmtStagingId}</id>
+      <name>${distMgmtStagingName}</name>
+      <url>${distMgmtStagingUrl}</url>
+    </repository>
+    <snapshotRepository>
+      <id>${distMgmtSnapshotsId}</id>
+      <name>${distMgmtSnapshotsName}</name>
+      <url>${distMgmtSnapshotsUrl}</url>
+    </snapshotRepository>
+  </distributionManagement>
+
   <properties>
-    <ratis.thirdparty.version>1.0.10</ratis.thirdparty.version>
+    <distMgmtStagingId>${distMgmtReleasesId}</distMgmtStagingId>
+    <distMgmtStagingName>${distMgmtReleasesName}</distMgmtStagingName>
+    <distMgmtStagingUrl>${distMgmtReleasesUrl}</distMgmtStagingUrl>
+    <!-- Contains all shaded thirdparty dependencies; make sure to also update in pom.xml -->
+    <ratis.thirdparty.version>1.0.11</ratis.thirdparty.version>
     <!-- no testable code in this module -->
     <skipTests>true</skipTests>
   </properties>

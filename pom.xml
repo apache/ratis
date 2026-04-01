@@ -18,7 +18,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>35</version>
+    <version>37</version>
     <relativePath /> <!-- resolve from repository -->
   </parent>
 
@@ -140,9 +140,6 @@
 
 
   <properties>
-    <project.build.outputTimestamp>2025-11-03T02:50:35Z</project.build.outputTimestamp>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
      <!-- where to find the generated LICENSE files -->
     <license.aggregate.path>
       ${project.build.directory}/maven-shared-archive-resources/META-INF/LICENSE
@@ -152,13 +149,13 @@
     <!-- Maven plugin versions -->
     <maven-bundle-plugin.version>5.1.8</maven-bundle-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
-    <hadoop-maven-plugins.version>3.4.2</hadoop-maven-plugins.version>
-    <sonar-maven-plugin.version>5.3.0.6276</sonar-maven-plugin.version>
+    <hadoop-maven-plugins.version>3.4.3</hadoop-maven-plugins.version>
+    <sonar-maven-plugin.version>5.5.0.6356</sonar-maven-plugin.version>
 
     <!-- org.codehaus.mojo -->
     <build-helper-maven-plugin.version>3.6.1</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>3.6.2</exec-maven-plugin.version>
-    <extra-enforcer-rules.version>1.11.0</extra-enforcer-rules.version>
+    <extra-enforcer-rules.version>1.12.0</extra-enforcer-rules.version>
     <restrict-imports-enforcer-rule.version>3.0.0</restrict-imports-enforcer-rule.version>
     <license-maven-plugin.version>2.7.0</license-maven-plugin.version>
 
@@ -168,19 +165,14 @@
     <spotbugs.version>4.8.6</spotbugs.version>
     <spotbugs-plugin.version>4.8.6.2</spotbugs-plugin.version>
 
-    <distMgmtSnapshotsId>apache.snapshots.https</distMgmtSnapshotsId>
-    <distMgmtSnapshotsName>Apache Development Snapshot Repository</distMgmtSnapshotsName>
-    <distMgmtSnapshotsUrl>https://repository.apache.org/content/repositories/snapshots</distMgmtSnapshotsUrl>
-    <distMgmtStagingId>apache.staging.https</distMgmtStagingId>
-    <distMgmtStagingName>Apache Release Distribution Repository</distMgmtStagingName>
-    <distMgmtStagingUrl>https://repository.apache.org/service/local/staging/deploy/maven2</distMgmtStagingUrl>
+    <distMgmtStagingId>${distMgmtReleasesId}</distMgmtStagingId>
+    <distMgmtStagingName>${distMgmtReleasesName}</distMgmtStagingName>
+    <distMgmtStagingUrl>${distMgmtReleasesUrl}</distMgmtStagingUrl>
 
     <shell-executable>bash</shell-executable>
 
-    <!-- define the Java language version used by the compiler -->
-    <maven.compiler.release>8</maven.compiler.release>
-    <!-- override maven.compiler.target=8 defined in parent POM 35; can be removed on upgrade to 36+ -->
-    <maven.compiler.target>${maven.compiler.release}</maven.compiler.target>
+    <!-- set in parent POM, but only for JDK9+ -->
+    <maven.compiler.release>${javaVersion}</maven.compiler.release>
 
     <!-- Contains all shaded thirdparty dependencies; make sure to also update in ratis-bom/pom.xml -->
     <ratis.thirdparty.version>1.0.11</ratis.thirdparty.version>
@@ -189,16 +181,19 @@
     <shaded.protobuf.version>3.25.8</shaded.protobuf.version>
     <shaded.grpc.version>1.77.1</shaded.grpc.version>
 
+    <!-- OpenTelemetry versions -->
+    <opentelemetry.version>1.59.0</opentelemetry.version>
+    <opentelemetry-semconv.version>1.40.0</opentelemetry-semconv.version>
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
     <test.exclude.pattern>_</test.exclude.pattern>
     <!-- number of threads/forks to use when running tests in parallel, see parallel-tests profile -->
     <testsThreadCount>4</testsThreadCount>
 
-    <slf4j.version>2.0.7</slf4j.version>
-    <junit-bom.version>5.13.3</junit-bom.version>
+    <slf4j.version>2.0.17</slf4j.version>
+    <junit-bom.version>5.14.3</junit-bom.version>
     <mockito.version>4.11.0</mockito.version>
-    <jacoco.version>0.8.12</jacoco.version>
+    <jacoco.version>0.8.14</jacoco.version>
     <jakarta.annotation.version>1.3.5</jakarta.annotation.version>
     <flaky-test-groups>flaky | org.apache.ratis.test.tag.FlakyTest</flaky-test-groups>
   </properties>
@@ -398,7 +393,35 @@
         <artifactId>jakarta.annotation-api</artifactId>
         <version>${jakarta.annotation.version}</version>
       </dependency>
+
+      <!-- OpenTelemetry dependencies -->
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-api</artifactId>
+        <version>${opentelemetry.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-sdk</artifactId>
+        <version>${opentelemetry.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-sdk-testing</artifactId>
+        <version>${opentelemetry.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry.semconv</groupId>
+        <artifactId>opentelemetry-semconv</artifactId>
+        <version>${opentelemetry-semconv.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-context</artifactId>
+        <version>${opentelemetry.version}</version>
+      </dependency>
     </dependencies>
+
   </dependencyManagement>
 
   <build>
@@ -406,7 +429,7 @@
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.5.0.Final</version>
+        <version>1.7.1</version>
       </extension>
     </extensions>
 
@@ -439,6 +462,8 @@
           <configuration>
             <source>8</source>
             <additionalJOptions>
+              <additionalJOption>-J-Duser.language=en</additionalJOption>
+              <additionalJOption>-J-Duser.country=US</additionalJOption>
               <additionalJOption>-Xmaxwarns</additionalJOption>
               <additionalJOption>10000</additionalJOption>
               <additionalJOption>-Xdoclint:-missing</additionalJOption>

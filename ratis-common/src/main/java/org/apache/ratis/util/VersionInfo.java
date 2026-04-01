@@ -47,7 +47,7 @@ public final class VersionInfo {
 
   private enum SoftwareInfo {
     // the ordering is the output ordering
-    NAME, VERSION, URL, REVISION;
+    NAME, VERSION, REVISION;
 
     static SoftwareInfo parse(String key) {
       for (SoftwareInfo info : SoftwareInfo.values()) {
@@ -156,6 +156,14 @@ public final class VersionInfo {
       sortedMap.put(e.getKey().toString(), e.getValue());
     }
     sortedMap.forEach(out);
+  }
+
+  /**
+   * Get the current ratis version.
+   * @return the current ratis version string.
+   */
+  public static String getSoftwareInfoVersion() {
+    return VersionInfo.load(VersionInfo.class).softwareInfos.getOrDefault(SoftwareInfo.VERSION);
   }
 
   public static void main(String[] args) {

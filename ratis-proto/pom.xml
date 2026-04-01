@@ -36,7 +36,7 @@
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.5.0.Final</version>
+        <version>1.7.1</version>
       </extension>
     </extensions>
     <plugins>
@@ -51,11 +51,6 @@
           </compilerArgs>
           <showWarnings>false</showWarnings>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <configuration/>
       </plugin>
       <!-- Make a jar and put the sources in the jar -->
       <plugin>

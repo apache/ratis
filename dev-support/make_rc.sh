@@ -95,7 +95,7 @@ mvnFun() {
   cd "$projectdir"
   git reset --hard
   git clean -fdx
-  mvnFun versions:set -DnewVersion="$RATISVERSION"
+  mvnFun versions:set -DnewVersion="$RATISVERSION" -DprocessAllModules
   git commit --allow-empty -a -m "Change version for the version $RATISVERSION $RC"
 
   git config user.signingkey "${CODESIGNINGKEY}"

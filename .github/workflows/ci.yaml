@@ -45,7 +45,7 @@ jobs:
       java-version: ${{ matrix.java }}
       needs-source-tarball: true
       script: compile
-      script-args: -Djavac.version=${{ matrix.java }}
+      script-args: -Dmaven.compiler.release=${{ matrix.java }}
       split: ${{ matrix.java }}
       timeout-minutes: 30
     secrets: inherit
@@ -109,11 +109,11 @@ jobs:
     if: github.event_name != 'pull_request'
     steps:
         - name: Checkout project
-          uses: actions/checkout@v4
+          uses: actions/checkout@v6
           with:
             fetch-depth: 0
         - name: Cache for maven dependencies
-          uses: actions/cache/restore@v4
+          uses: actions/cache/restore@v5
           with:
             path: |
               ~/.m2/repository
@@ -122,12 +122,12 @@ jobs:
             restore-keys: |
               maven-repo-
         - name: Setup java 17
-          uses: actions/setup-java@v4
+          uses: actions/setup-java@v5
           with:
             distribution: 'temurin'
             java-version: 17
         - name: Download artifacts
-          uses: actions/download-artifact@v4
+          uses: actions/download-artifact@v8
           with:
             path: target/artifacts
         - name: Untar binaries
@@ -143,7 +143,7 @@ jobs:
             SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         - name: Archive build results
-          uses: actions/upload-artifact@v4
+          uses: actions/upload-artifact@v7
           if: always()
           with:
             name: ${{ github.job }}

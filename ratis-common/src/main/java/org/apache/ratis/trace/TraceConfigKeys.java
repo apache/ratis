@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,29 +15,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.netty;
+package org.apache.ratis.trace;
 
-import org.apache.ratis.RaftAsyncTests;
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.util.Slf4jUtils;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
-import org.slf4j.event.Level;
+import org.apache.ratis.conf.RaftProperties;
 
-@Timeout(100)
-public class TestRaftAsyncWithNetty
-    extends RaftAsyncTests<MiniRaftClusterWithNetty>
-    implements MiniRaftClusterWithNetty.FactoryGet {
-  {
-    Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.INFO);
-    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.INFO);
+import java.util.function.Consumer;
+
+import static org.apache.ratis.conf.ConfUtils.getBoolean;
+import static org.apache.ratis.conf.ConfUtils.setBoolean;
+
+public interface TraceConfigKeys {
+  String PREFIX = "raft.otel.tracing";
+
+  String ENABLED_KEY = PREFIX + ".enabled";
+  boolean ENABLED_DEFAULT = false;
+
+  static boolean enabled(RaftProperties properties, Consumer<String> logger) {
+    return getBoolean(properties::getBoolean, ENABLED_KEY, ENABLED_DEFAULT, logger);
   }
 
-  @Override
-  @Test
-  @Timeout(500)
-  public void testWithLoadAsync() throws Exception {
-    super.testWithLoadAsync();
+  static boolean enabled(RaftProperties properties) {
+    return enabled(properties, null);
+  }
+
+  static void setEnabled(RaftProperties properties, boolean enabled) {
+    setBoolean(properties::setBoolean, ENABLED_KEY, enabled);
   }
 }
+
