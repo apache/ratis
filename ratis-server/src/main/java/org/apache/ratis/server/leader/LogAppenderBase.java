@@ -238,6 +238,14 @@ public abstract class LogAppenderBase implements LogAppender {
     final long snapshotIndex = follower.getSnapshotIndex();
     final long leaderNext = getRaftLog().getNextIndex();
     final long followerNext = follower.getNextIndex();
+
+    if (previous == null && followerNext > RaftLog.LEAST_VALID_LOG_INDEX && followerNext != snapshotIndex + 1) {
+      LOG.warn("{}: Previous log entry not found for follower {} with followerNextIndex = {} (snapshotIndex = {})" +
+              ". The log entry might already be purged",
+          this, follower, followerNext, snapshotIndex);
+      return null;
+    }
+
     final long halfMs = heartbeatWaitTimeMs/2;
     for (long next = followerNext; leaderNext > next && getHeartbeatWaitTimeMs() - halfMs > 0; ) {
       if (!buffer.offer(getRaftLog().getEntryWithData(next++))) {
