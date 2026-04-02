@@ -142,7 +142,8 @@ public interface LogAppender {
   default SnapshotInfo shouldInstallSnapshot() {
     // we should install snapshot if the follower needs to catch up and:
     // 1. there is no local log entry but there is snapshot
-    // 2. or the follower's next index is smaller than the log start index
+    // 2. or the follower's next index is at or before the log start index
+    //    (the previous log entry required for AppendEntries may have been purged)
     // 3. or the follower is bootstrapping (i.e. not yet caught up) and has not installed any snapshot yet
     final FollowerInfo follower = getFollower();
     final boolean isFollowerBootstrapping = getLeaderState().isFollowerBootstrapping(follower);
@@ -161,7 +162,7 @@ public interface LogAppender {
     final long followerNextIndex = getFollower().getNextIndex();
     if (followerNextIndex < getRaftLog().getNextIndex()) {
       final long logStartIndex = getRaftLog().getStartIndex();
-      if (followerNextIndex < logStartIndex || (logStartIndex == RaftLog.INVALID_LOG_INDEX && snapshot != null)) {
+      if (followerNextIndex <= logStartIndex || (logStartIndex == RaftLog.INVALID_LOG_INDEX && snapshot != null)) {
         return snapshot;
       }
     }

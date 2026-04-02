@@ -226,18 +226,33 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
-  public void testNewAppendEntriesRequestAfterPurge() throws Exception {
+  public void testNewAppendEntriesRequestAfterPurgeFollowerBehindStartIndex() throws Exception {
     final RaftProperties prop = getProperties();
     RaftServerConfigKeys.Log.setPurgeGap(prop, 1);
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("1KB"));
-    runWithNewCluster(3, this::runTestNewAppendEntriesRequestAfterPurge);
+    runWithNewCluster(3, cluster -> {
+      final long startIndexAfterPurge = setupPurgedLeaderLog(cluster);
+      // Test when followerNextIndex < leader's logStartIndex
+      runTestNewAppendEntriesRequestAfterPurge(cluster, startIndexAfterPurge - 1);
+    });
   }
 
-  void runTestNewAppendEntriesRequestAfterPurge(CLUSTER cluster) throws Exception {
+  @Test
+  public void testNewAppendEntriesRequestAfterPurgeFollowerAtStartIndex() throws Exception {
+    final RaftProperties prop = getProperties();
+    RaftServerConfigKeys.Log.setPurgeGap(prop, 1);
+    RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("1KB"));
+    runWithNewCluster(3, cluster -> {
+      final long startIndexAfterPurge = setupPurgedLeaderLog(cluster);
+      // Test when followerNextIndex == leader's logStartIndex, but the previous index is already purged
+      runTestNewAppendEntriesRequestAfterPurge(cluster, startIndexAfterPurge);
+    });
+  }
+
+  private long setupPurgedLeaderLog(CLUSTER cluster) throws Exception {
     final RaftServer.Division leader = waitForLeader(cluster);
     final RaftLog leaderLog = leader.getRaftLog();
 
-    // Write enough large messages to create multiple closed log segments
     try (RaftClient client = cluster.createClient(leader.getId())) {
       for (SimpleMessage msg : generateMsgs(5)) {
         client.io().send(msg);
@@ -253,13 +268,6 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     LOG.info("Snapshot taken at index {}", snapshotIndex);
     Assertions.assertTrue(snapshotIndex > 0, "Snapshot should have been taken");
 
-    // Get a LogAppender for one of the followers
-    final Stream<LogAppender> appenders = RaftServerTestUtil.getLogAppenders(leader);
-    Assertions.assertNotNull(appenders, "Leader should have log appenders");
-    final LogAppender appender = appenders.findFirst().orElseThrow(
-        () -> new AssertionError("No log appender found"));
-
-    // Purge the leader's log to remove old closed segments
     final long purgeUpTo = lastLogIndex - 2;
     LOG.info("Purging leader log up to index {}", purgeUpTo);
     leaderLog.purge(purgeUpTo).get();
@@ -269,11 +277,20 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     Assertions.assertTrue(startIndexAfterPurge > 1,
         "Purge should have advanced startIndex, but got " + startIndexAfterPurge);
 
-    // Set the follower's nextIndex below startIndexAfterPurge so that:
-    //   - previousIndex has been purged (getPrevious returns null)
-    //   - followerNextIndex < logStartIndex (triggers snapshot install/notification)
-    //   - snapshotIndex remains 0 (never installed a snapshot)
-    final long targetNextIndex = startIndexAfterPurge - 1;
+    return startIndexAfterPurge;
+  }
+
+  void runTestNewAppendEntriesRequestAfterPurge(CLUSTER cluster,
+      long targetNextIndex) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final RaftLog leaderLog = leader.getRaftLog();
+    final long startIndexAfterPurge = leaderLog.getStartIndex();
+
+    final Stream<LogAppender> appenders = RaftServerTestUtil.getLogAppenders(leader);
+    Assertions.assertNotNull(appenders, "Leader should have log appenders");
+    final LogAppender appender = appenders.findFirst().orElseThrow(
+        () -> new AssertionError("No log appender found"));
+
     Assertions.assertTrue(targetNextIndex > RaftLog.LEAST_VALID_LOG_INDEX,
         "targetNextIndex should be > LEAST_VALID_LOG_INDEX");
     appender.getFollower().setNextIndex(targetNextIndex);
@@ -287,31 +304,12 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     Assertions.assertNull(leaderLog.getTermIndex(targetNextIndex - 1),
         "Entry at previousIndex=" + (targetNextIndex - 1) + " should have been purged");
 
-    // Update the follower's RPC times so that getHeartbeatWaitTimeMs() > 0,
-    // ensuring newAppendEntriesRequest takes the non-heartbeat path.
-    appender.getFollower().updateLastRpcResponseTime();
-    appender.getFollower().updateLastRpcSendTime(true);
-
+    // Should not throw NPE
     Assertions.assertNull(appender.newAppendEntriesRequest(0, false),
         "newAppendEntriesRequest should return null when previous TermIndex is not found");
 
-    // Verify the follower is behind the log start index.
-    // This is the condition checked by both shouldInstallSnapshot() (when
-    // installSnapshotEnabled=true) and shouldNotifyToInstallSnapshot() (when
-    // installSnapshotEnabled=false) to trigger snapshot recovery.
-    Assertions.assertTrue(appender.getFollower().getNextIndex() < leaderLog.getStartIndex(),
-        "Follower nextIndex (" + appender.getFollower().getNextIndex()
-            + ") should be < log startIndex (" + leaderLog.getStartIndex()
-            + ") to trigger snapshot install/notification");
-
-
     Assertions.assertNotNull(appender.shouldInstallSnapshot(),
         "shouldInstallSnapshot should return non-null when followerNextIndex ("
-            + targetNextIndex + ") < logStartIndex (" + startIndexAfterPurge + ")");
-
-    // When installSnapshotEnabled=false, GrpcLogAppender.run() calls the
-    // private shouldNotifyToInstallSnapshot() which checks the same
-    // followerNextIndex < leaderStartIndex condition (already verified above)
-    // and notifies the follower to install a snapshot via its state machine.
+            + targetNextIndex + ") <= logStartIndex (" + leaderLog.getStartIndex() + ")");
   }
 }
