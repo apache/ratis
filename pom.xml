@@ -147,7 +147,7 @@
     <license.bundles.dependencies>false</license.bundles.dependencies>
 
     <!-- Maven plugin versions -->
-    <maven-bundle-plugin.version>5.1.8</maven-bundle-plugin.version>
+    <maven-bundle-plugin.version>6.0.2</maven-bundle-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
     <hadoop-maven-plugins.version>3.4.3</hadoop-maven-plugins.version>
     <sonar-maven-plugin.version>5.5.0.6356</sonar-maven-plugin.version>
