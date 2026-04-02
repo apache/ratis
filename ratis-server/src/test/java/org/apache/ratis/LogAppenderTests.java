@@ -248,6 +248,12 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     LOG.info("Leader log lastIndex={}, startIndex={}", lastLogIndex, leaderLog.getStartIndex());
     Assertions.assertTrue(lastLogIndex > 5, "Need enough log entries for the test");
 
+    // Take a snapshot so that shouldInstallSnapshot() can return it
+    final long snapshotIndex = SimpleStateMachine4Testing.get(leader).takeSnapshot();
+    LOG.info("Snapshot taken at index {}", snapshotIndex);
+    Assertions.assertTrue(snapshotIndex > 0, "Snapshot should have been taken");
+
+    // Get a LogAppender for one of the followers
     final Stream<LogAppender> appenders = RaftServerTestUtil.getLogAppenders(leader);
     Assertions.assertNotNull(appenders, "Leader should have log appenders");
     final LogAppender appender = appenders.findFirst().orElseThrow(
@@ -263,30 +269,49 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     Assertions.assertTrue(startIndexAfterPurge > 1,
         "Purge should have advanced startIndex, but got " + startIndexAfterPurge);
 
-    // Set the follower's nextIndex to a value where the previous entry
-    // has been purged, but snapshotIndex remains 0 (default).
-    // Set nextIndex = startIndexAfterPurge so that previousIndex = startIndexAfterPurge - 1
-    // which has been purged.
-    final long targetNextIndex = startIndexAfterPurge;
-    LOG.info("Setting follower nextIndex to {} (previous={} has been purged, startIndex={})",
-        targetNextIndex, targetNextIndex - 1, startIndexAfterPurge);
+    // Set the follower's nextIndex below startIndexAfterPurge so that:
+    //   - previousIndex has been purged (getPrevious returns null)
+    //   - followerNextIndex < logStartIndex (triggers snapshot install/notification)
+    //   - snapshotIndex remains 0 (never installed a snapshot)
+    final long targetNextIndex = startIndexAfterPurge - 1;
+    Assertions.assertTrue(targetNextIndex > RaftLog.LEAST_VALID_LOG_INDEX,
+        "targetNextIndex should be > LEAST_VALID_LOG_INDEX");
     appender.getFollower().setNextIndex(targetNextIndex);
 
-    final long followerSnapshotIndex = appender.getFollower().getSnapshotIndex();
-    LOG.info("Follower snapshotIndex={}, nextIndex={}", followerSnapshotIndex, targetNextIndex);
-    Assertions.assertEquals(0, followerSnapshotIndex,
+    LOG.info("Set follower nextIndex={}, startIndexAfterPurge={}, snapshotIndex={}",
+        targetNextIndex, startIndexAfterPurge, appender.getFollower().getSnapshotIndex());
+    Assertions.assertEquals(0, appender.getFollower().getSnapshotIndex(),
         "Follower snapshotIndex should be 0 (default, never installed snapshot)");
 
-    // Verify the entry at targetNextIndex exists (so the buffer fill loop will succeed)
-    // but the entry at targetNextIndex - 1 does not (so getPrevious returns null)
+    // Verify the previous entry has been purged
     Assertions.assertNull(leaderLog.getTermIndex(targetNextIndex - 1),
         "Entry at previousIndex=" + (targetNextIndex - 1) + " should have been purged");
-    Assertions.assertNotNull(leaderLog.getTermIndex(targetNextIndex),
-        "Entry at nextIndex=" + targetNextIndex + " should still exist");
 
-    // Call newAppendEntriesRequest - this should handle the purged
-    // previous entry gracefully by returning null to trigger snapshot install
-    // instead of throwing NPE.
-    Assertions.assertNull(appender.newAppendEntriesRequest(0, false));
+    // Update the follower's RPC times so that getHeartbeatWaitTimeMs() > 0,
+    // ensuring newAppendEntriesRequest takes the non-heartbeat path.
+    appender.getFollower().updateLastRpcResponseTime();
+    appender.getFollower().updateLastRpcSendTime(true);
+
+    Assertions.assertNull(appender.newAppendEntriesRequest(0, false),
+        "newAppendEntriesRequest should return null when previous TermIndex is not found");
+
+    // Verify the follower is behind the log start index.
+    // This is the condition checked by both shouldInstallSnapshot() (when
+    // installSnapshotEnabled=true) and shouldNotifyToInstallSnapshot() (when
+    // installSnapshotEnabled=false) to trigger snapshot recovery.
+    Assertions.assertTrue(appender.getFollower().getNextIndex() < leaderLog.getStartIndex(),
+        "Follower nextIndex (" + appender.getFollower().getNextIndex()
+            + ") should be < log startIndex (" + leaderLog.getStartIndex()
+            + ") to trigger snapshot install/notification");
+
+
+    Assertions.assertNotNull(appender.shouldInstallSnapshot(),
+        "shouldInstallSnapshot should return non-null when followerNextIndex ("
+            + targetNextIndex + ") < logStartIndex (" + startIndexAfterPurge + ")");
+
+    // When installSnapshotEnabled=false, GrpcLogAppender.run() calls the
+    // private shouldNotifyToInstallSnapshot() which checks the same
+    // followerNextIndex < leaderStartIndex condition (already verified above)
+    // and notifies the follower to install a snapshot via its state machine.
   }
 }
