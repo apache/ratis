@@ -857,10 +857,11 @@ public class GrpcLogAppender extends LogAppenderBase {
       return null;
     }
 
-    if (followerNextIndex <= leaderStartIndex) {
-      // The Leader does not have the log entry preceding the follower's
-      // next index (it may have been purged).  Notify the follower to
-      // install the latest snapshot through its State Machine.
+    if (followerNextIndex < leaderStartIndex) {
+      // The Leader does not have the logs from the Follower's last log
+      // index onwards. And install snapshot is disabled. So the Follower
+      // should be notified to install the latest snapshot through its
+      // State Machine.
       return firstAvailable;
     } else if (leaderStartIndex == RaftLog.INVALID_LOG_INDEX) {
       // Leader has no logs to check from, hence return next index.

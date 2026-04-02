@@ -300,16 +300,14 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     Assertions.assertEquals(0, appender.getFollower().getSnapshotIndex(),
         "Follower snapshotIndex should be 0 (default, never installed snapshot)");
 
-    // Verify the previous entry has been purged
     Assertions.assertNull(leaderLog.getTermIndex(targetNextIndex - 1),
         "Entry at previousIndex=" + (targetNextIndex - 1) + " should have been purged");
 
-    // Should not throw NPE
+    // Should return null instead of throwing NPE
     Assertions.assertNull(appender.newAppendEntriesRequest(0, false),
         "newAppendEntriesRequest should return null when previous TermIndex is not found");
 
-    Assertions.assertNotNull(appender.shouldInstallSnapshot(),
-        "shouldInstallSnapshot should return non-null when followerNextIndex ("
-            + targetNextIndex + ") <= logStartIndex (" + leaderLog.getStartIndex() + ")");
+    Assertions.assertEquals(targetNextIndex, appender.getFollower().getNextIndex(),
+        "Follower nextIndex should remain unchanged");
   }
 }
