@@ -32,6 +32,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -53,6 +54,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.slf4j.event.Level;
@@ -221,5 +223,70 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     LOG.info("last = {}", LogProtoUtils.toLogEntryString(last));
     Assertions.assertNotNull(last);
     Assertions.assertTrue(last.getIndex() <= leader.getInfo().getLastAppliedIndex());
+  }
+
+  @Test
+  public void testNewAppendEntriesRequestAfterPurge() throws Exception {
+    final RaftProperties prop = getProperties();
+    RaftServerConfigKeys.Log.setPurgeGap(prop, 1);
+    RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("1KB"));
+    runWithNewCluster(3, this::runTestNewAppendEntriesRequestAfterPurge);
+  }
+
+  void runTestNewAppendEntriesRequestAfterPurge(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final RaftLog leaderLog = leader.getRaftLog();
+
+    // Write enough large messages to create multiple closed log segments
+    try (RaftClient client = cluster.createClient(leader.getId())) {
+      for (SimpleMessage msg : generateMsgs(5)) {
+        client.io().send(msg);
+      }
+    }
+
+    final long lastLogIndex = leaderLog.getLastEntryTermIndex().getIndex();
+    LOG.info("Leader log lastIndex={}, startIndex={}", lastLogIndex, leaderLog.getStartIndex());
+    Assertions.assertTrue(lastLogIndex > 5, "Need enough log entries for the test");
+
+    final Stream<LogAppender> appenders = RaftServerTestUtil.getLogAppenders(leader);
+    Assertions.assertNotNull(appenders, "Leader should have log appenders");
+    final LogAppender appender = appenders.findFirst().orElseThrow(
+        () -> new AssertionError("No log appender found"));
+
+    // Purge the leader's log to remove old closed segments
+    final long purgeUpTo = lastLogIndex - 2;
+    LOG.info("Purging leader log up to index {}", purgeUpTo);
+    leaderLog.purge(purgeUpTo).get();
+
+    final long startIndexAfterPurge = leaderLog.getStartIndex();
+    LOG.info("Leader log after purge: startIndex={}", startIndexAfterPurge);
+    Assertions.assertTrue(startIndexAfterPurge > 1,
+        "Purge should have advanced startIndex, but got " + startIndexAfterPurge);
+
+    // Set the follower's nextIndex to a value where the previous entry
+    // has been purged, but snapshotIndex remains 0 (default).
+    // Set nextIndex = startIndexAfterPurge so that previousIndex = startIndexAfterPurge - 1
+    // which has been purged.
+    final long targetNextIndex = startIndexAfterPurge;
+    LOG.info("Setting follower nextIndex to {} (previous={} has been purged, startIndex={})",
+        targetNextIndex, targetNextIndex - 1, startIndexAfterPurge);
+    appender.getFollower().setNextIndex(targetNextIndex);
+
+    final long followerSnapshotIndex = appender.getFollower().getSnapshotIndex();
+    LOG.info("Follower snapshotIndex={}, nextIndex={}", followerSnapshotIndex, targetNextIndex);
+    Assertions.assertEquals(0, followerSnapshotIndex,
+        "Follower snapshotIndex should be 0 (default, never installed snapshot)");
+
+    // Verify the entry at targetNextIndex exists (so the buffer fill loop will succeed)
+    // but the entry at targetNextIndex - 1 does not (so getPrevious returns null)
+    Assertions.assertNull(leaderLog.getTermIndex(targetNextIndex - 1),
+        "Entry at previousIndex=" + (targetNextIndex - 1) + " should have been purged");
+    Assertions.assertNotNull(leaderLog.getTermIndex(targetNextIndex),
+        "Entry at nextIndex=" + targetNextIndex + " should still exist");
+
+    // Call newAppendEntriesRequest - this should handle the purged
+    // previous entry gracefully by returning null to trigger snapshot install
+    // instead of throwing NPE.
+    Assertions.assertNull(appender.newAppendEntriesRequest(0, false));
   }
 }
