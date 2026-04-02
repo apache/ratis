@@ -165,27 +165,6 @@ public abstract class LogAppenderBase implements LogAppender {
     return false;
   }
 
-  private TermIndex getPrevious(long nextIndex) {
-    if (nextIndex == RaftLog.LEAST_VALID_LOG_INDEX) {
-      return null;
-    }
-
-    final long previousIndex = nextIndex - 1;
-    final TermIndex previous = getRaftLog().getTermIndex(previousIndex);
-    if (previous != null) {
-      return previous;
-    }
-
-    final SnapshotInfo snapshot = server.getStateMachine().getLatestSnapshot();
-    if (snapshot != null) {
-      final TermIndex snapshotTermIndex = snapshot.getTermIndex();
-      if (snapshotTermIndex.getIndex() == previousIndex) {
-        return snapshotTermIndex;
-      }
-    }
-
-    return null;
-  }
 
   protected long getNextIndexForInconsistency(long requestFirstIndex, long replyNextIndex) {
     long next = replyNextIndex;

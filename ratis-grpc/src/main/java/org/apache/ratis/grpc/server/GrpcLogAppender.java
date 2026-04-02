@@ -868,6 +868,10 @@ public class GrpcLogAppender extends LogAppenderBase {
       return firstAvailable;
     }
 
+    if (followerNextIndex == leaderStartIndex && getPrevious(followerNextIndex) == null) {
+      return firstAvailable;
+    }
+
     return null;
   }
 

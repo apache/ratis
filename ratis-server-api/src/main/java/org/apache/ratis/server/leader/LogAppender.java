@@ -135,6 +135,35 @@ public interface LogAppender {
   Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId, SnapshotInfo snapshot);
 
   /**
+   * Get the previous {@link TermIndex} for the given next index.
+   * This is used to set the previous log entry in AppendEntries requests.
+   *
+   * @return the previous {@link TermIndex}, or null if unavailable
+   *         (e.g. the entry has been purged and the snapshot does not cover it).
+   */
+  default TermIndex getPrevious(long nextIndex) {
+    if (nextIndex == RaftLog.LEAST_VALID_LOG_INDEX) {
+      return null;
+    }
+
+    final long previousIndex = nextIndex - 1;
+    final TermIndex previous = getRaftLog().getTermIndex(previousIndex);
+    if (previous != null) {
+      return previous;
+    }
+
+    final SnapshotInfo snapshot = getServer().getStateMachine().getLatestSnapshot();
+    if (snapshot != null) {
+      final TermIndex snapshotTermIndex = snapshot.getTermIndex();
+      if (snapshotTermIndex.getIndex() == previousIndex) {
+        return snapshotTermIndex;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Should this {@link LogAppender} send a snapshot to the follower?
    *
    * @return the snapshot if it should install a snapshot; otherwise, return null.
@@ -162,6 +191,9 @@ public interface LogAppender {
     if (followerNextIndex < getRaftLog().getNextIndex()) {
       final long logStartIndex = getRaftLog().getStartIndex();
       if (followerNextIndex < logStartIndex || (logStartIndex == RaftLog.INVALID_LOG_INDEX && snapshot != null)) {
+        return snapshot;
+      }
+      if (followerNextIndex == logStartIndex && getPrevious(followerNextIndex) == null) {
         return snapshot;
       }
     }

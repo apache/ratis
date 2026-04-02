@@ -309,5 +309,9 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
 
     Assertions.assertEquals(targetNextIndex, appender.getFollower().getNextIndex(),
         "Follower nextIndex should remain unchanged");
+
+    Assertions.assertNotNull(appender.shouldInstallSnapshot(),
+        "shouldInstallSnapshot should return non-null when followerNextIndex ("
+            + targetNextIndex + ") and previous entry has been purged");
   }
 }
