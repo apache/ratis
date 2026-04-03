@@ -36,7 +36,7 @@ fi
 
 mvnGet() {
   ${MVN} -q -Dexec.executable="echo" -Dexec.args="\${${1}}" --non-recursive \
-    org.codehaus.mojo:exec-maven-plugin:1.6.0:exec 2>/dev/null
+    org.codehaus.mojo:exec-maven-plugin:exec 2>/dev/null
 }
 
 
