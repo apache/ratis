@@ -832,44 +832,6 @@ public class GrpcLogAppender extends LogAppenderBase {
     responseHandler.waitForResponse();
   }
 
-  /**
-   * Should the Leader notify the Follower to install the snapshot through
-   * its own State Machine.
-   * @return the first available log's start term index
-   */
-  private TermIndex shouldNotifyToInstallSnapshot() {
-    final FollowerInfo follower = getFollower();
-    final long leaderNextIndex = getRaftLog().getNextIndex();
-    final boolean isFollowerBootstrapping = getLeaderState().isFollowerBootstrapping(follower);
-    final long leaderStartIndex = getRaftLog().getStartIndex();
-    final TermIndex firstAvailable = Optional.ofNullable(getRaftLog().getTermIndex(leaderStartIndex))
-        .orElseGet(() -> TermIndex.valueOf(getServer().getInfo().getCurrentTerm(), leaderNextIndex));
-    if (isFollowerBootstrapping && !follower.hasAttemptedToInstallSnapshot()) {
-      // If the follower is bootstrapping and has not yet installed any snapshot from leader, then the follower should
-      // be notified to install a snapshot. Every follower should try to install at least one snapshot during
-      // bootstrapping, if available.
-      LOG.debug("{}: follower is bootstrapping, notify to install snapshot to {}.", this, firstAvailable);
-      return firstAvailable;
-    }
-
-    final long followerNextIndex = follower.getNextIndex();
-    if (followerNextIndex >= leaderNextIndex) {
-      return null;
-    }
-
-    if (followerNextIndex < leaderStartIndex) {
-      // The Leader does not have the logs from the Follower's last log
-      // index onwards. And install snapshot is disabled. So the Follower
-      // should be notified to install the latest snapshot through its
-      // State Machine.
-      return firstAvailable;
-    } else if (leaderStartIndex == RaftLog.INVALID_LOG_INDEX) {
-      // Leader has no logs to check from, hence return next index.
-      return firstAvailable;
-    }
-
-    return null;
-  }
 
   static class AppendEntriesRequest {
     private final Timekeeper timer;

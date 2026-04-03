@@ -165,27 +165,6 @@ public abstract class LogAppenderBase implements LogAppender {
     return false;
   }
 
-  private TermIndex getPrevious(long nextIndex) {
-    if (nextIndex == RaftLog.LEAST_VALID_LOG_INDEX) {
-      return null;
-    }
-
-    final long previousIndex = nextIndex - 1;
-    final TermIndex previous = getRaftLog().getTermIndex(previousIndex);
-    if (previous != null) {
-      return previous;
-    }
-
-    final SnapshotInfo snapshot = server.getStateMachine().getLatestSnapshot();
-    if (snapshot != null) {
-      final TermIndex snapshotTermIndex = snapshot.getTermIndex();
-      if (snapshotTermIndex.getIndex() == previousIndex) {
-        return snapshotTermIndex;
-      }
-    }
-
-    return null;
-  }
 
   protected long getNextIndexForInconsistency(long requestFirstIndex, long replyNextIndex) {
     long next = replyNextIndex;
@@ -238,6 +217,14 @@ public abstract class LogAppenderBase implements LogAppender {
     final long snapshotIndex = follower.getSnapshotIndex();
     final long leaderNext = getRaftLog().getNextIndex();
     final long followerNext = follower.getNextIndex();
+
+    if (previous == null && followerNext > RaftLog.LEAST_VALID_LOG_INDEX && followerNext != snapshotIndex + 1) {
+      LOG.info("{}: Skipping appendEntries since the previous log entry is unavailable:" +
+              " follower {} nextIndex={} and snapshotIndex={} but leader startIndex={}",
+          this, follower.getName(), followerNext, snapshotIndex, getRaftLog().getStartIndex());
+      return null;
+    }
+
     final long halfMs = heartbeatWaitTimeMs/2;
     for (long next = followerNext; leaderNext > next && getHeartbeatWaitTimeMs() - halfMs > 0; ) {
       if (!buffer.offer(getRaftLog().getEntryWithData(next++))) {
