@@ -193,7 +193,9 @@ public interface LogAppender {
       if (followerNextIndex < logStartIndex || (logStartIndex == RaftLog.INVALID_LOG_INDEX && snapshot != null)) {
         return snapshot;
       }
-      if (followerNextIndex == logStartIndex && getPrevious(followerNextIndex) == null) {
+      if (followerNextIndex == logStartIndex
+          && followerNextIndex > RaftLog.LEAST_VALID_LOG_INDEX
+          && getPrevious(followerNextIndex) == null) {
         return snapshot;
       }
     }

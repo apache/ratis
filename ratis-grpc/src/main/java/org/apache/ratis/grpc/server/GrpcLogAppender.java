@@ -868,7 +868,9 @@ public class GrpcLogAppender extends LogAppenderBase {
       return firstAvailable;
     }
 
-    if (followerNextIndex == leaderStartIndex && getPrevious(followerNextIndex) == null) {
+    if (followerNextIndex == leaderStartIndex
+        && followerNextIndex > RaftLog.LEAST_VALID_LOG_INDEX
+        && getPrevious(followerNextIndex) == null) {
       return firstAvailable;
     }
 
