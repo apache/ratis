@@ -41,5 +41,7 @@ updates:
       - dependency-name: "org.mockito:mockito-core"
         versions: [">=5.0.0"]
       # requires Java 17
+      - dependency-name: "org.apache.hadoop:*"
+        versions: [">=3.5.0"]
       - dependency-name: "org.junit:junit-bom"
         versions: [">=6.0.0"]
