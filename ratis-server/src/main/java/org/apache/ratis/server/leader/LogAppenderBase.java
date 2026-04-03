@@ -219,9 +219,8 @@ public abstract class LogAppenderBase implements LogAppender {
     final long followerNext = follower.getNextIndex();
 
     if (previous == null && followerNext > RaftLog.LEAST_VALID_LOG_INDEX && followerNext != snapshotIndex + 1) {
-      LOG.warn("{}: Previous log entry not found for follower {} with followerNextIndex = {} "
-              + "(followerSnapshotIndex = {}, leaderLogStartIndex = {})."
-              + " The log entry might already be purged.",
+      LOG.info("{}: Skipping appendEntries since the previous log entry is unavailable:" +
+              " follower {} nextIndex={} and snapshotIndex={} but leader startIndex={}",
           this, follower.getName(), followerNext, snapshotIndex, getRaftLog().getStartIndex());
       return null;
     }
