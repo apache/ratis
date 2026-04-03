@@ -135,37 +135,88 @@ public interface LogAppender {
   Iterable<InstallSnapshotRequestProto> newInstallSnapshotRequests(String requestId, SnapshotInfo snapshot);
 
   /**
+   * Get the previous {@link TermIndex} for the given next index.
+   * This is used to set the previous log entry in AppendEntries requests.
+   *
+   * @return the previous {@link TermIndex}, or null if unavailable
+   *         (e.g. the entry has been purged and the snapshot does not cover it).
+   */
+  default TermIndex getPrevious(long nextIndex) {
+    if (nextIndex == RaftLog.LEAST_VALID_LOG_INDEX) {
+      return null;
+    }
+
+    final long previousIndex = nextIndex - 1;
+    final TermIndex previous = getRaftLog().getTermIndex(previousIndex);
+    if (previous != null) {
+      return previous;
+    }
+
+    final SnapshotInfo snapshot = getServer().getStateMachine().getLatestSnapshot();
+    if (snapshot != null) {
+      final TermIndex snapshotTermIndex = snapshot.getTermIndex();
+      if (snapshotTermIndex.getIndex() == previousIndex) {
+        return snapshotTermIndex;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Should this {@link LogAppender} send a snapshot to the follower?
    *
    * @return the snapshot if it should install a snapshot; otherwise, return null.
    */
   default SnapshotInfo shouldInstallSnapshot() {
-    // we should install snapshot if the follower needs to catch up and:
-    // 1. there is no local log entry but there is snapshot
-    // 2. or the follower's next index is smaller than the log start index
-    // 3. or the follower is bootstrapping (i.e. not yet caught up) and has not installed any snapshot yet
-    final FollowerInfo follower = getFollower();
-    final boolean isFollowerBootstrapping = getLeaderState().isFollowerBootstrapping(follower);
     final SnapshotInfo snapshot = getServer().getStateMachine().getLatestSnapshot();
+    return shouldInstallSnapshot(snapshot != null) ? snapshot : null;
+  }
 
-    if (isFollowerBootstrapping && !follower.hasAttemptedToInstallSnapshot()) {
-      if (snapshot == null) {
+  /**
+   * Should this {@link LogAppender} send a snapshot notification to the follower?
+   *
+   * @return the first available log {@link TermIndex} if it should install a snapshot; otherwise, return null.
+   */
+  default TermIndex shouldNotifyToInstallSnapshot() {
+    if (!shouldInstallSnapshot(true)) {
+      return null;
+    }
+    final TermIndex start = getRaftLog().getTermIndex(getRaftLog().getStartIndex());
+    if (start != null) {
+      return start;
+    }
+    // No log is currently available; return the next, which will become available in the future.
+    return TermIndex.valueOf(getServer().getInfo().getCurrentTerm(), getRaftLog().getNextIndex());
+  }
+
+  default boolean shouldInstallSnapshot(boolean hasSnapshot) {
+    final FollowerInfo follower = getFollower();
+    if (getLeaderState().isFollowerBootstrapping(follower)
+        && !follower.hasAttemptedToInstallSnapshot()) {
+      if (!hasSnapshot) {
         // Leader cannot send null snapshot to follower. Hence, acknowledge InstallSnapshot attempt (even though it
         // was not attempted) so that follower can come out of staging state after appending log entries.
         follower.setAttemptedToInstallSnapshot();
-      } else {
-        return snapshot;
       }
+      return true;
     }
 
+    final long leaderNextIndex = getRaftLog().getNextIndex();
     final long followerNextIndex = getFollower().getNextIndex();
-    if (followerNextIndex < getRaftLog().getNextIndex()) {
-      final long logStartIndex = getRaftLog().getStartIndex();
-      if (followerNextIndex < logStartIndex || (logStartIndex == RaftLog.INVALID_LOG_INDEX && snapshot != null)) {
-        return snapshot;
-      }
+    if (followerNextIndex >= leaderNextIndex) {
+      // follower caught up already
+      return false;
     }
-    return null;
+    final long leaderStartIndex = getRaftLog().getStartIndex();
+    if (followerNextIndex < leaderStartIndex || leaderStartIndex == RaftLog.INVALID_LOG_INDEX) {
+      // leader does not have follower's next log
+      return true;
+    }
+    // leader does not have the previous log for appendEntries
+    return followerNextIndex == leaderStartIndex &&
+        followerNextIndex > RaftLog.LEAST_VALID_LOG_INDEX &&
+        getPrevious(followerNextIndex) == null;
   }
 
   /** Define how this {@link LogAppender} should run. */
