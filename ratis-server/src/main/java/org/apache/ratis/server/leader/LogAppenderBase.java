@@ -61,6 +61,7 @@ public abstract class LogAppenderBase implements LogAppender {
 
   private final AtomicBoolean heartbeatTrigger = new AtomicBoolean();
   private final TimeDuration waitTimeMin;
+  private final TimeDuration completeGracePeriod;
 
   protected LogAppenderBase(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
@@ -78,6 +79,7 @@ public abstract class LogAppenderBase implements LogAppender {
     this.eventAwaitForSignal = new AwaitForSignal(name);
 
     this.waitTimeMin = RaftServerConfigKeys.Log.Appender.waitTimeMin(properties);
+    this.completeGracePeriod = RaftServerConfigKeys.Log.Appender.completeGracePeriod(properties);
   }
 
   @Override
@@ -145,6 +147,10 @@ public abstract class LogAppenderBase implements LogAppender {
 
   protected TimeDuration getWaitTimeMin() {
     return waitTimeMin;
+  }
+
+  protected TimeDuration getCompleteGracePeriod() {
+    return completeGracePeriod;
   }
 
   protected TimeDuration getRemainingWaitTime() {
