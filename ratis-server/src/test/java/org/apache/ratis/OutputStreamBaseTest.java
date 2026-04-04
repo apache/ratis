@@ -300,8 +300,10 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
     Thread.sleep(500);
 
     running.set(false);
-    latch.await(5, TimeUnit.SECONDS);
+    final boolean latchCompleted = latch.await(5, TimeUnit.SECONDS);
+    Assertions.assertTrue(latchCompleted, "Writer thread did not finish within the timeout");
     LOG.info("Writer success? " + success.get());
+    Assertions.assertNotNull(success.get(), "Writer thread completed but success was not set");
     Assertions.assertTrue(success.get());
     // total number of tx should be >= result + 2, where 2 means two NoOp from
     // leaders. It may be larger than result+2 because the client may resend

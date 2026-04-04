@@ -18,6 +18,7 @@
 package org.apache.ratis;
 
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -27,6 +28,7 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -45,9 +47,12 @@ import static org.apache.ratis.ReadOnlyRequestTests.CounterStateMachine;
 import static org.apache.ratis.ReadOnlyRequestTests.INCREMENT;
 import static org.apache.ratis.ReadOnlyRequestTests.QUERY;
 import static org.apache.ratis.ReadOnlyRequestTests.WAIT_AND_INCREMENT;
+import static org.apache.ratis.ReadOnlyRequestTests.assertOption;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyAtLeast;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyExact;
 import static org.apache.ratis.server.RaftServerConfigKeys.Read.Option.LINEARIZABLE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 /** Test for the {@link RaftServerConfigKeys.Read.Option#LINEARIZABLE} feature. */
 public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
@@ -56,15 +61,20 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
   {
     Slf4jUtils.setLogLevel(RaftServer.Division.LOG, Level.DEBUG);
+    Slf4jUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   public abstract boolean isLeaderLeaseEnabled();
 
-  public abstract boolean readIndexAppliedIndexEnabled();
+  public abstract Type readIndexType();
 
-  public abstract void assertRaftProperties(RaftProperties properties);
+  public final void assertRaftProperties(RaftProperties p) {
+    assertOption(LINEARIZABLE, p);
+    assertEquals(isLeaderLeaseEnabled(), RaftServerConfigKeys.Read.leaderLeaseEnabled(p));
+    assertSame(readIndexType(), RaftServerConfigKeys.Read.ReadIndex.type(p));
+  }
 
-  void runWithNewCluster(CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
+  protected void runWithNewCluster(CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
     runWithNewCluster(3, 0, true, cluster -> {
       assertRaftProperties(cluster.getProperties());
       testCase.accept(cluster);
@@ -77,7 +87,11 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     CounterStateMachine.setProperties(p);
     RaftServerConfigKeys.Read.setOption(p, LINEARIZABLE);
     RaftServerConfigKeys.Read.setLeaderLeaseEnabled(p, isLeaderLeaseEnabled());
-    RaftServerConfigKeys.Read.ReadIndex.setAppliedIndexEnabled(p, readIndexAppliedIndexEnabled());
+    RaftServerConfigKeys.Read.ReadIndex.setType(p, readIndexType());
+    // Disable dummy request since currently the request is implemented as a watch request
+    // which can cause follower client to trigger failover to leader which will cause the
+    // all reads to be sent to the leader, making the follower read moot.
+    RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(p, false);
   }
 
   @Test
@@ -95,21 +109,33 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     runWithNewCluster(LinearizableReadTests::runTestFollowerLinearizableRead);
   }
 
-  static class Reply {
+  public static class Reply {
     private final int count;
     private final CompletableFuture<RaftClientReply> future;
 
-    Reply(int count, CompletableFuture<RaftClientReply> future) {
+    public Reply(int count, CompletableFuture<RaftClientReply> future) {
       this.count = count;
       this.future = future;
     }
 
-    void assertExact() {
+    public boolean isDone() {
+      return future.isDone();
+    }
+
+    public void assertExact() {
       assertReplyExact(count, future.join());
     }
 
-    void assertAtLeast() {
+    public void assertAtLeast() {
       assertReplyAtLeast(count, future.join());
+    }
+
+    @Override
+    public String toString() {
+      return "Reply{" +
+          "count=" + count +
+          ", reply=" + (isDone() ? future.join() : "pending") +
+          '}';
     }
   }
 
@@ -167,8 +193,9 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
         count++;
         writeReplies.add(new Reply(count, leaderClient.async().send(WAIT_AND_INCREMENT)));
+        // sleep to let the commitIndex/appliedIndex get updated.
         Thread.sleep(100);
-
+        // WAIT_AND_INCREMENT will delay 500ms to update the count, the read must wait for it.
         assertReplyExact(count, f0Client.io().sendReadOnly(QUERY, f0));
         f1Replies.add(new Reply(count, f1Client.async().sendReadOnly(QUERY, f1)));
       }
@@ -189,7 +216,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
     final List<RaftServer.Division> followers = cluster.getFollowers();
-    Assertions.assertEquals(2, followers.size());
+    assertEquals(2, followers.size());
     final RaftPeerId f0 = followers.get(0).getId();
 
     try (RaftClient leaderClient = cluster.createClient(leaderId);
