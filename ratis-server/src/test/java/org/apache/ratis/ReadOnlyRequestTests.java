@@ -58,9 +58,9 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   static final String WAIT_AND_INCREMENT_STRING = "WAIT_AND_INCREMENT";
   static final String QUERY_STRING = "QUERY";
 
-  static final Message INCREMENT = new RaftTestUtil.SimpleMessage(INCREMENT_STRING);
-  static final Message WAIT_AND_INCREMENT = new RaftTestUtil.SimpleMessage(WAIT_AND_INCREMENT_STRING);
-  static final Message QUERY = new RaftTestUtil.SimpleMessage(QUERY_STRING);
+  public static final Message INCREMENT = new RaftTestUtil.SimpleMessage(INCREMENT_STRING);
+  public static final Message WAIT_AND_INCREMENT = new RaftTestUtil.SimpleMessage(WAIT_AND_INCREMENT_STRING);
+  public static final Message QUERY = new RaftTestUtil.SimpleMessage(QUERY_STRING);
 
   @BeforeEach
   public void setup() {
@@ -144,7 +144,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     return Integer.parseInt(reply.getMessage().getContent().toString(StandardCharsets.UTF_8));
   }
 
-  static void assertReplyExact(int expectedCount, RaftClientReply reply) {
+  public static void assertReplyExact(int expectedCount, RaftClientReply reply) {
     Assertions.assertTrue(reply.isSuccess());
     final int retrieved = retrieve(reply);
     Assertions.assertEquals(expectedCount, retrieved, () -> "reply=" + reply);
@@ -163,7 +163,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
    * 2. get
    * 3. waitAndIncrement
    */
-  static class CounterStateMachine extends BaseStateMachine {
+  public static class CounterStateMachine extends BaseStateMachine {
     static void setProperties(RaftProperties properties) {
       properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, CounterStateMachine.class, StateMachine.class);
     }
@@ -193,6 +193,10 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
       }
     }
 
+    public long getCount() {
+      return counter.get();
+    }
+
     private long increment() {
       return counter.incrementAndGet();
     }
@@ -213,6 +217,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
       final LogEntryProto logEntry = trx.getLogEntry();
       final TermIndex ti = TermIndex.valueOf(logEntry);
       updateLastAppliedTermIndex(ti);
+      LOG.info("{}: updateLastAppliedTermIndex {}", getId(), ti);
 
       final String command = logEntry.getStateMachineLogEntry().getLogData().toString(StandardCharsets.UTF_8);
 
@@ -224,7 +229,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
       } else {
         updatedCount = timeoutIncrement();
       }
-      LOG.info("Applied {} command {}, updatedCount={}", ti, command, updatedCount);
+      LOG.info("{}: Applied {} command {}, updatedCount={}", getId(), ti, command, updatedCount);
 
       return toMessageFuture(updatedCount);
     }

@@ -198,7 +198,7 @@ public final class OrderedAsync {
       return;
     }
 
-    if (getSlidingWindow((RaftPeerId) null).isFirst(pending.getSeqNum())) {
+    if (getSlidingWindow(request).isFirst(pending.getSeqNum())) {
       pending.setFirstRequest();
     }
     LOG.debug("{}: send* {}", client.getId(), request);

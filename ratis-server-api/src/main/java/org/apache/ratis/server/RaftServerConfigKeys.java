@@ -280,15 +280,34 @@ public interface RaftServerConfigKeys {
     interface ReadIndex {
       String PREFIX = Read.PREFIX + ".read-index";
 
-      String APPLIED_INDEX_ENABLED_KEY = PREFIX + ".applied-index.enabled";
-      boolean APPLIED_INDEX_ENABLED_DEFAULT = false;
-      static boolean appliedIndexEnabled(RaftProperties properties) {
-        return getBoolean(properties::getBoolean, APPLIED_INDEX_ENABLED_KEY,
-            APPLIED_INDEX_ENABLED_DEFAULT, getDefaultLog());
+      enum Type {
+        /** ReadIndex returns leader's commitIndex (see Raft Paper section 6.4). */
+        COMMIT_INDEX,
+
+        /** ReadIndex returns leader's appliedIndex to reduce the ReadIndex latency. */
+        APPLIED_INDEX,
+
+        /** ReadIndex returns leader's repliedIndex, the index of the last replied request. */
+        REPLIED_INDEX
       }
 
-      static void setAppliedIndexEnabled(RaftProperties properties, boolean enabled) {
-        setBoolean(properties::setBoolean, APPLIED_INDEX_ENABLED_KEY, enabled);
+      String TYPE_KEY = PREFIX + ".type";
+      Type TYPE_DEFAULT = Type.COMMIT_INDEX;
+      static Type type(RaftProperties properties) {
+        return get(properties::getEnum, TYPE_KEY, TYPE_DEFAULT, getDefaultLog());
+      }
+      static void setType(RaftProperties properties, Type type) {
+        set(properties::setEnum, TYPE_KEY, type);
+      }
+
+      String REPLIED_INDEX_BATCH_INTERVAL_KEY = PREFIX + ".replied-index.batch-interval";
+      TimeDuration REPLIED_INDEX_BATCH_INTERVAL_DEFAULT = TimeDuration.valueOf(10, TimeUnit.MILLISECONDS);
+      static TimeDuration repliedIndexBatchInterval(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(REPLIED_INDEX_BATCH_INTERVAL_DEFAULT.getUnit()),
+            REPLIED_INDEX_BATCH_INTERVAL_KEY, REPLIED_INDEX_BATCH_INTERVAL_DEFAULT, getDefaultLog());
+      }
+      static void setRepliedIndexBatchInterval(RaftProperties properties, TimeDuration interval) {
+        setTimeDuration(properties::setTimeDuration, REPLIED_INDEX_BATCH_INTERVAL_KEY, interval);
       }
     }
   }

@@ -1837,8 +1837,12 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       // update pending request
-      role.getLeaderState().ifPresent(leader -> leader.replyPendingRequest(termIndex, r));
-      cacheEntry.updateResult(r);
+      final LeaderStateImpl leader = role.getLeaderState().orElse(null);
+      if (leader != null) {
+        leader.replyPendingRequest(termIndex, r, cacheEntry);
+      } else {
+        cacheEntry.updateResult(r);
+      }
     });
   }
 
