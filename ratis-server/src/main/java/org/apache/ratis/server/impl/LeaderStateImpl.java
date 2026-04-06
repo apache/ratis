@@ -1243,13 +1243,12 @@ class LeaderStateImpl implements LeaderState {
 
   void replyPendingRequest(TermIndex termIndex, RaftClientReply reply, RetryCacheImpl.CacheEntry cacheEntry) {
     final PendingRequest pending = pendingRequests.remove(termIndex);
-    if (pending == null) {
-      return;
-    }
 
     final LongSupplier replyMethod = () -> {
       cacheEntry.updateResult(reply);
-      pending.setReply(reply);
+      if (pending != null) {
+        pending.setReply(reply);
+      }
       return termIndex.getIndex();
     };
 
