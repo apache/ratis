@@ -6,8 +6,15 @@
     <description>Recent content in Posts on Apache Ratis</description>
     <generator>Hugo</generator>
     <language>en-us</language>
-    <lastBuildDate>Wed, 12 Nov 2025 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 03 Apr 2026 00:00:00 +0000</lastBuildDate>
     <atom:link href="https://ratis.apache.org/post/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Release 3.2.2 is available</title>
+      <link>https://ratis.apache.org/post/3.2.2.html</link>
+      <pubDate>Fri, 03 Apr 2026 00:00:00 +0000</pubDate>
+      <guid>https://ratis.apache.org/post/3.2.2.html</guid>
+      <description>&lt;!---&#xA;  Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);&#xA;  you may not use this file except in compliance with the License.&#xA;  You may obtain a copy of the License at&#xA;   http://www.apache.org/licenses/LICENSE-2.0&#xA;  Unless required by applicable law or agreed to in writing, software&#xA;  distributed under the License is distributed on an &#34;AS IS&#34; BASIS,&#xA;  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.&#xA;  See the License for the specific language governing permissions and&#xA;  limitations under the License. See accompanying LICENSE file.&#xA;--&gt;&#xA;&lt;p&gt;&lt;a href=&#34;https://ratis.apache.org/downloads.html&#34;&gt;Download&lt;/a&gt;&lt;/p&gt;</description>
+    </item>
     <item>
       <title>Release 3.2.1 is available</title>
       <link>https://ratis.apache.org/post/3.2.1.html</link>
