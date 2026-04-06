@@ -765,17 +765,18 @@ class RaftServerImpl implements RaftServer.Division,
     } catch (GroupMismatchException e) {
       return JavaUtils.completeExceptionally(e);
     }
-    return checkLeaderState(request, null);
+    return checkLeaderState(request, null, null);
   }
 
   /**
    * @return null if the server is in leader state.
    */
-  private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request, CacheEntry entry) {
+  private CompletableFuture<RaftClientReply> checkLeaderState(
+      RaftClientRequest request, CacheEntry entry, TransactionContextImpl context) {
     if (!getInfo().isLeader()) {
       NotLeaderException exception = generateNotLeaderException();
       final RaftClientReply reply = newExceptionReply(request, exception);
-      return RetryCacheImpl.failWithReply(reply, entry);
+      return failWithReply(reply, entry, context);
     }
     if (!getInfo().isLeaderReady()) {
       final CacheEntry cacheEntry = retryCache.getIfPresent(ClientInvocationId.valueOf(request));
@@ -784,13 +785,13 @@ class RaftServerImpl implements RaftServer.Division,
       }
       final LeaderNotReadyException lnre = new LeaderNotReadyException(getMemberId());
       final RaftClientReply reply = newExceptionReply(request, lnre);
-      return RetryCacheImpl.failWithReply(reply, entry);
+      return failWithReply(reply, entry, context);
     }
 
     if (!request.isReadOnly() && isSteppingDown()) {
       final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId() + " is stepping down");
       final RaftClientReply reply = newExceptionReply(request, lsde);
-      return RetryCacheImpl.failWithReply(reply, entry);
+      return failWithReply(reply, entry, context);
     }
 
     return null;
@@ -816,7 +817,25 @@ class RaftServerImpl implements RaftServer.Division,
         getMemberId() + " is not in " + expected + ": current state is " + c), expected);
   }
 
-  /** Cancel a transaction and notify the state machine. Set exception if provided to the transaction context.*/
+  private CompletableFuture<RaftClientReply> getResourceUnavailableReply(String op,
+      RaftClientRequest request, CacheEntry entry, TransactionContextImpl context) {
+    final ResourceUnavailableException e = new ResourceUnavailableException(getMemberId()
+        + ": Failed to " + op + " for " + request);
+    cancelTransaction(context, e);
+    return entry.failWithException(e);
+  }
+
+  private CompletableFuture<RaftClientReply> failWithReply(
+      RaftClientReply reply, CacheEntry entry, TransactionContextImpl context) {
+    cancelTransaction(context, reply.getException());
+    if (entry == null) {
+      return CompletableFuture.completedFuture(reply);
+    }
+    entry.failWithReply(reply);
+    return entry.getReplyFuture();
+  }
+
+  /** Cancel a transaction and notify the state machine. Set exception if provided to the transaction context. */
   private void cancelTransaction(TransactionContextImpl context, Exception exception) {
     if (context == null) {
       return;
@@ -847,70 +866,48 @@ class RaftServerImpl implements RaftServer.Division,
     if (unsyncedLeaderState == null) {
       final NotLeaderException nle = generateNotLeaderException();
       final RaftClientReply reply = newExceptionReply(request, nle);
-      cancelTransaction(context, nle);
-      return RetryCacheImpl.failWithReply(reply, cacheEntry);
+      return failWithReply(reply, cacheEntry, context);
     }
     final PendingRequests.Permit unsyncedPermit = unsyncedLeaderState.tryAcquirePendingRequest(request.getMessage());
     if (unsyncedPermit == null) {
-      final ResourceUnavailableException e = new ResourceUnavailableException(
-          getMemberId() + ": Failed to acquire a pending write request for " + request);
-      cancelTransaction(context, e);
-      return cacheEntry.failWithException(e);
+      return getResourceUnavailableReply("acquire a pending write request", request, cacheEntry, context);
     }
 
-    LeaderStateImpl leaderState = null;
-    PendingRequest pending = null;
-    CompletableFuture<RaftClientReply> failure = null;
-    Exception cancelException = null;
+    final LeaderStateImpl leaderState;
+    final PendingRequest pending;
     synchronized (this) {
-      final CompletableFuture<RaftClientReply> reply = checkLeaderState(request, cacheEntry);
+      final CompletableFuture<RaftClientReply> reply = checkLeaderState(request, cacheEntry, context);
       if (reply != null) {
-        failure = reply;
+        return reply;
       }
 
-      if (failure == null) {
-        leaderState = role.getLeaderStateNonNull();
-        final PendingRequests.Permit permit = leaderState == unsyncedLeaderState? unsyncedPermit
-            : leaderState.tryAcquirePendingRequest(request.getMessage());
-        if (permit == null) {
-          final ResourceUnavailableException e = new ResourceUnavailableException(
-              getMemberId() + ": Failed to acquire a pending write request for " + request);
-          failure = cacheEntry.failWithException(e);
-          cancelException = e;
-        } else {
-          // append the message to its local log
-          writeIndexCache.add(request.getClientId(), context.getLogIndexFuture());
-          try {
-            state.appendLog(context);
-          } catch (StateMachineException e) {
-            // the StateMachineException is thrown by the SM in the preAppend stage.
-            // Return the exception in a RaftClientReply.
-            final RaftClientReply exceptionReply = newExceptionReply(request, e);
-            cacheEntry.failWithReply(exceptionReply);
-            failure = CompletableFuture.completedFuture(exceptionReply);
-            cancelException = e;
-            // leader will step down here
-            if (e.leaderShouldStepDown() && getInfo().isLeader()) {
-              leaderState.submitStepDownEvent(StepDownReason.STATE_MACHINE_EXCEPTION);
-            }
-          }
+      leaderState = role.getLeaderStateNonNull();
+      final PendingRequests.Permit permit = leaderState == unsyncedLeaderState ? unsyncedPermit
+          : leaderState.tryAcquirePendingRequest(request.getMessage());
+      if (permit == null) {
+        return getResourceUnavailableReply("acquire a pending write request", request, cacheEntry, context);
+      }
 
-          if (failure == null) {
-            // put the request into the pending queue
-            pending = leaderState.addPendingRequest(permit, request, context);
-            if (pending == null) {
-              final ResourceUnavailableException e = new ResourceUnavailableException(
-                  getMemberId() + ": Failed to add a pending write request for " + request);
-              failure = cacheEntry.failWithException(e);
-              cancelException = e;
-            }
-          }
+      // append the message to its local log
+      writeIndexCache.add(request.getClientId(), context.getLogIndexFuture());
+      try {
+        state.appendLog(context);
+      } catch (StateMachineException e) {
+        // the StateMachineException is thrown by the SM in the preAppend stage.
+        // Return the exception in a RaftClientReply.
+        final RaftClientReply exceptionReply = newExceptionReply(request, e);
+        // leader will step down here
+        if (e.leaderShouldStepDown() && getInfo().isLeader()) {
+          leaderState.submitStepDownEvent(StepDownReason.STATE_MACHINE_EXCEPTION);
         }
+        return failWithReply(exceptionReply, cacheEntry, context);
       }
-    }
-    if (failure != null) {
-      cancelTransaction(context, cancelException);
-      return failure;
+
+      // put the request into the pending queue
+      pending = leaderState.addPendingRequest(permit, request, context);
+      if (pending == null) {
+        return getResourceUnavailableReply("add a pending write request", request, cacheEntry, context);
+      }
     }
     leaderState.notifySenders();
     return pending.getFuture();
@@ -1041,10 +1038,8 @@ class RaftServerImpl implements RaftServer.Division,
     if (context.getException() != null) {
       final Exception exception = context.getException();
       final StateMachineException e = new StateMachineException(getMemberId(), exception);
-      cancelTransaction(context, exception);
       final RaftClientReply exceptionReply = newExceptionReply(request, e);
-      cacheEntry.failWithReply(exceptionReply);
-      return CompletableFuture.completedFuture(exceptionReply);
+      return failWithReply(exceptionReply, cacheEntry, context);
     }
 
     try {

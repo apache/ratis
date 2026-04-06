@@ -206,8 +206,8 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       }
 
       JavaUtils.attemptRepeatedly(() -> {
-        Assertions.assertTrue(numCancelTransaction.get() > 0,
-            () -> "Expected cancelTransaction() to be called but got " + numCancelTransaction.get());
+        Assertions.assertEquals(1, numCancelTransaction.get(),
+            () -> "Expected cancelTransaction() to be called exactly once but got " + numCancelTransaction.get());
         return null;
       }, 10, ONE_SECOND, "wait for cancelTransaction", LOG);
     } finally {
