@@ -17,20 +17,11 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.LinearizableReadTests;
-import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
-
-public class TestLinearizableLeaderLeaseReadWithGrpc
-  extends LinearizableReadTests<MiniRaftClusterWithGrpc>
-  implements MiniRaftClusterWithGrpc.FactoryGet {
+public class TestLinearizableReadRepliedIndexLeaderLeaseWithGrpc
+    extends TestLinearizableReadRepliedIndexWithGrpc {
 
   @Override
   public boolean isLeaderLeaseEnabled() {
     return true;
-  }
-
-  @Override
-  public Type readIndexType() {
-    return Type.COMMIT_INDEX;
   }
 }
