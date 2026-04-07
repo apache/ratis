@@ -33,6 +33,7 @@ import org.apache.ratis.server.leader.LogAppenderBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.CallStreamObserver;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -215,7 +216,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
       getClient().resetConnectBackoff();
       if (appendLogRequestObserver != null) {
-        appendLogRequestObserver.stop();
+        appendLogRequestObserver.stop(event);
         appendLogRequestObserver = null;
       }
       final int errorCount = replyState.process(event);
@@ -266,16 +267,23 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   @Override
   public void run() throws IOException {
-    for(; isRunning(); mayWait()) {
-      //HB period is expired OR we have messages OR follower is behind with commit index
-      if (shouldSendAppendEntries() || isFollowerCommitBehindLastCommitIndex()) {
-        final boolean installingSnapshot = installSnapshot();
-        appendLog(installingSnapshot || haveTooManyPendingRequests());
+    try {
+      for (; isRunning(); mayWait()) {
+        //HB period is expired OR we have messages OR follower is behind with commit index
+        if (shouldSendAppendEntries() || isFollowerCommitBehindLastCommitIndex()) {
+          final boolean installingSnapshot = installSnapshot();
+          appendLog(installingSnapshot || haveTooManyPendingRequests());
+        }
+        getLeaderState().checkHealth(getFollower());
       }
-      getLeaderState().checkHealth(getFollower());
+    } finally {
+      try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
+        if (appendLogRequestObserver != null) {
+          appendLogRequestObserver.onCompleted();
+          appendLogRequestObserver = null;
+        }
+      }
     }
-
-    Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObservers::onCompleted);
   }
 
   public long getWaitTimeMs() {
@@ -366,16 +374,46 @@ public class GrpcLogAppender extends LogAppenderBase {
       while (!stream.isReady() && running) {
         sleep(waitForReady, isHeartBeat);
       }
+      if (!running) {
+        return;
+      }
       stream.onNext(proto);
     }
 
-    void stop() {
+    void stop(Event event) {
       running = false;
+      if (event == Event.COMPLETE) {
+        onCompleted();
+      } else {
+        cancelStream("stop due to " + event);
+      }
     }
 
     void onCompleted() {
-      appendLog.onCompleted();
-      Optional.ofNullable(heartbeat).ifPresent(StreamObserver::onCompleted);
+      try {
+        appendLog.onCompleted();
+      } catch (Exception e) {
+        LOG.debug("Failed to complete appendLog stream", e);
+      }
+      try {
+        Optional.ofNullable(heartbeat).ifPresent(StreamObserver::onCompleted);
+      } catch (Exception e) {
+        LOG.debug("Failed to complete heartbeat stream", e);
+      }
+    }
+
+    void cancelStream(String reason) {
+      try {
+        appendLog.onError(new StatusRuntimeException(Status.CANCELLED.withDescription(reason)));
+      } catch (Exception e) {
+        LOG.debug("Failed to cancel appendLog stream", e);
+      }
+      try {
+        Optional.ofNullable(heartbeat).ifPresent((hb) ->
+            hb.onError(new StatusRuntimeException(Status.CANCELLED.withDescription(reason))));
+      } catch (Exception e) {
+        LOG.debug("Failed to cancel heartbeat stream", e);
+      }
     }
   }
 

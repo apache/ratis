@@ -31,6 +31,8 @@ import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
 import org.apache.ratis.util.BatchLogger;
+import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
@@ -45,6 +47,9 @@ import java.util.function.Supplier;
 
 class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
+
+  public static final String GRPC_SERVER_HANDLE_ERROR =
+      JavaUtils.getClassSimpleName(GrpcServerProtocolService.class) + ".handleError";
 
   private enum BatchLogKey implements BatchLogger.Key {
     COMPLETED_REQUEST,
@@ -114,7 +119,9 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     private void handleError(Throwable e, REQUEST request) {
       GrpcUtil.warn(LOG, () -> getId() + ": Failed " + op + " request " + requestToString(request), e);
       if (isClosed.compareAndSet(false, true)) {
+        previousOnNext.set(null);
         responseObserver.onError(wrapException(e, request));
+        CodeInjectionForTesting.execute(GRPC_SERVER_HANDLE_ERROR, getId(), null, previousOnNext.get());
       }
     }
 
@@ -172,18 +179,22 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
         BatchLogger.print(BatchLogKey.COMPLETED_REQUEST, getName(),
             suffix -> LOG.info("{}: Completed {}, lastRequest: {} {}",
                 getId(), op, getPreviousRequestString(), suffix));
+        previousOnNext.set(null);
         requestFuture.get().thenAccept(reply -> {
           BatchLogger.print(BatchLogKey.COMPLETED_REPLY, getName(),
               suffix -> LOG.info("{}: Completed {}, lastReply: {} {}",
                   getId(), op, ProtoUtils.shortDebugString(reply), suffix));
           responseObserver.onCompleted();
         });
+        requestFuture.set(null);
       }
     }
     @Override
     public void onError(Throwable t) {
       GrpcUtil.warn(LOG, () -> getId() + ": "+ op + " onError, lastRequest: " + getPreviousRequestString(), t);
       if (isClosed.compareAndSet(false, true)) {
+        previousOnNext.set(null);
+        requestFuture.set(null);
         Status status = Status.fromThrowable(t);
         if (status != null && status.getCode() != Status.Code.CANCELLED) {
           responseObserver.onCompleted();

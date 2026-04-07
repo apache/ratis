@@ -50,9 +50,9 @@ public final class CodeInjectionForTesting {
       = new ConcurrentHashMap<>();
 
   /** Put an injection point. */
-  public static void put(String injectionPoint, Code code) {
+  public static Code put(String injectionPoint, Code code) {
     LOG.debug("put: {}, {}", injectionPoint, code);
-    INJECTION_POINTS.put(injectionPoint, code);
+    return INJECTION_POINTS.put(injectionPoint, code);
   }
 
   /** Execute the injected code, if there is any. */
