@@ -24,6 +24,8 @@ on:
         default: ''
         required: false
 
+permissions: { }
+
 jobs:
   build:
     uses: ./.github/workflows/check.yaml

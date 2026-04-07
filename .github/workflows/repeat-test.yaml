@@ -49,6 +49,9 @@ env:
   FAIL_FAST: ${{ github.event.inputs.fail-fast }}
   SPLITS: ${{ github.event.inputs.splits }}
 run-name: ${{ github.event_name == 'workflow_dispatch' && format('{0}#{1}[{2}]-{3}x{4}', inputs.test-class, inputs.test-method, inputs.ref, inputs.splits, inputs.iterations) || '' }}
+
+permissions: { }
+
 jobs:
   prepare:
     runs-on: ubuntu-24.04
