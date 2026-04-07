@@ -58,6 +58,10 @@ class LogAppenderDaemon {
     return !LifeCycle.States.CLOSING_OR_CLOSED_OR_EXCEPTION.contains(lifeCycle.getCurrentState());
   }
 
+  public boolean isClosingOrClosed() {
+    return LifeCycle.States.CLOSING_OR_CLOSED.contains(lifeCycle.getCurrentState());
+  }
+
   public void tryToStart() {
     if (lifeCycle.compareAndTransition(NEW, STARTING)) {
       daemon.start();
