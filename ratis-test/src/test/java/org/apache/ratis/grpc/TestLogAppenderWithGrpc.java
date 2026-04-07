@@ -20,6 +20,7 @@ package org.apache.ratis.grpc;
 import org.apache.ratis.LogAppenderTests;
 import org.apache.ratis.grpc.server.GrpcServicesImpl;
 import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
@@ -177,13 +178,17 @@ public class TestLogAppenderWithGrpc
 
     // Inject a one-time IllegalStateException into the leader's AppendEntries send path.
     // This causes the LogAppenderDaemon to enter EXCEPTION state and call restart().
+    final RaftGroupId groupId = cluster.getGroupId();
     final AtomicInteger failCount = new AtomicInteger(0);
     try {
       CodeInjectionForTesting.put(GrpcServicesImpl.GRPC_SEND_SERVER_REQUEST, (localId, remoteId, args) -> {
         if (leaderId.equals(localId)
-                && args.length > 0 && args[0] instanceof RaftProtos.AppendEntriesRequestProto
-                && failCount.getAndIncrement() < 1) {
-          throw new IllegalStateException("Injected failure for restart test");
+                && args.length > 0 && args[0] instanceof RaftProtos.AppendEntriesRequestProto) {
+          final RaftProtos.AppendEntriesRequestProto proto = (RaftProtos.AppendEntriesRequestProto) args[0];
+          if (RaftGroupId.valueOf(proto.getServerRequest().getRaftGroupId().getId()).equals(groupId)
+                  && failCount.getAndIncrement() < 1) {
+            throw new IllegalStateException("Injected failure for restart test");
+          }
         }
         return false;
       });
