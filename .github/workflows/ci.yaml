@@ -23,6 +23,13 @@ on:
         description: Ratis git ref (branch, tag or commit hash)
         default: ''
         required: false
+    secrets:
+      DEVELOCITY_ACCESS_KEY:
+        description: 'Token for submitting build scan to Develocity'
+        required: false
+      SONARCLOUD_TOKEN:
+        description: 'Token for submitting coverage data to SonarCloud'
+        required: false
 
 permissions: { }
 
@@ -33,7 +40,8 @@ jobs:
       script: build
       script-args: -Prelease
       timeout-minutes: 30
-    secrets: inherit
+    secrets:
+      DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
   compile:
     needs:
@@ -50,14 +58,16 @@ jobs:
       script-args: -Dmaven.compiler.release=${{ matrix.java }}
       split: ${{ matrix.java }}
       timeout-minutes: 30
-    secrets: inherit
+    secrets:
+      DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
   release:
     uses: ./.github/workflows/check.yaml
     with:
       script: release
       timeout-minutes: 30
-    secrets: inherit
+    secrets:
+      DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
   repro:
     needs:
@@ -68,7 +78,8 @@ jobs:
       script: repro
       script-args: -Prelease
       timeout-minutes: 30
-    secrets: inherit
+    secrets:
+      DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
   basic:
     strategy:
@@ -83,7 +94,8 @@ jobs:
     with:
       script: ${{ matrix.check }}
       timeout-minutes: 30
-    secrets: inherit
+    secrets:
+      DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
   unit:
     strategy:
@@ -100,7 +112,8 @@ jobs:
       script-args: -P${{ matrix.profile }}-tests
       split: ${{ matrix.profile }}
       timeout-minutes: 60
-    secrets: inherit
+    secrets:
+      DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
   coverage:
     needs:
