@@ -825,13 +825,6 @@ class RaftServerImpl implements RaftServer.Division,
     return entry.failWithException(e);
   }
 
-  /**
-   * Fail with a reply and cancel the transaction if provided.
-   * @param reply the reply to fail with
-   * @param entry the cache entry to fail with, if null return the completed reply
-   * @param context the transaction context to cancel, if null no transaction is cancelled
-   * @return the future of the reply
-   */
   private CompletableFuture<RaftClientReply> failWithReply(
       RaftClientReply reply, CacheEntry entry, TransactionContextImpl context) {
     if (context != null) {
