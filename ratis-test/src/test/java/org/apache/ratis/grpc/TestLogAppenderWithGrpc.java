@@ -18,7 +18,9 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.LogAppenderTests;
+import org.apache.ratis.grpc.server.GrpcServicesImpl;
 import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -29,11 +31,14 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.event.Level;
@@ -42,7 +47,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -146,6 +154,56 @@ public class TestLogAppenderWithGrpc
       // If old LogAppender die before new LogAppender start, INCONSISTENCY equal to 1,
       // else INCONSISTENCY greater than 1
       Assertions.assertTrue(newleaderMetrics.getRegistry().counter(counter).getCount() >= 1L);
+    }
+  }
+
+  @Test
+  public void testLogAppenderAutoRestartOnException() throws Exception {
+    runWithNewCluster(3, this::runTestAutoRestartOnException);
+  }
+
+  private void runTestAutoRestartOnException(MiniRaftClusterWithGrpc cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final RaftPeerId leaderId = leader.getId();
+
+    try (RaftClient client = cluster.createClient(leaderId)) {
+      for (int i = 0; i < 5; i++) {
+        Assertions.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("init-" + i)).isSuccess());
+      }
+    }
+
+    final Set<LogAppender> before = RaftServerTestUtil.getLogAppenders(leader).collect(Collectors.toSet());
+    Assertions.assertEquals(2, before.size());
+
+    // Inject a one-time IllegalStateException into the leader's AppendEntries send path.
+    // This causes the LogAppenderDaemon to enter EXCEPTION state and call restart().
+    final AtomicInteger failCount = new AtomicInteger(0);
+    try {
+      CodeInjectionForTesting.put(GrpcServicesImpl.GRPC_SEND_SERVER_REQUEST, (localId, remoteId, args) -> {
+        if (leaderId.equals(localId)
+                && args.length > 0 && args[0] instanceof RaftProtos.AppendEntriesRequestProto
+                && failCount.getAndIncrement() < 1) {
+          throw new IllegalStateException("Injected failure for restart test");
+        }
+        return false;
+      });
+
+      JavaUtils.attempt(() -> {
+        final Set<LogAppender> current = RaftServerTestUtil.getLogAppenders(leader)
+                .collect(Collectors.toSet());
+        Assertions.assertEquals(2, current.size());
+        Assertions.assertTrue(current.stream().anyMatch(a -> !before.contains(a)),
+                "Expected at least one new LogAppender instance after daemon exception restart");
+      }, 30, ONE_SECOND, "LogAppender auto-restart after exception", LOG);
+    } finally {
+      CodeInjectionForTesting.remove(GrpcServicesImpl.GRPC_SEND_SERVER_REQUEST);
+    }
+
+    try (RaftClient client = cluster.createClient(leaderId)) {
+      for (int i = 0; i < 5; i++) {
+        Assertions.assertTrue(
+                client.io().send(new RaftTestUtil.SimpleMessage("after-restart-" + i)).isSuccess());
+      }
     }
   }
 }
