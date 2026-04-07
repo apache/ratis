@@ -825,9 +825,19 @@ class RaftServerImpl implements RaftServer.Division,
     return entry.failWithException(e);
   }
 
+  /**
+   * Fail with a reply and cancel the transaction if provided.
+   * @param reply the reply to fail with
+   * @param entry the cache entry to fail with, if null return the completed reply
+   * @param context the transaction context to cancel, if null no transaction is cancelled
+   * @return the future of the reply
+   */
   private CompletableFuture<RaftClientReply> failWithReply(
       RaftClientReply reply, CacheEntry entry, TransactionContextImpl context) {
-    cancelTransaction(context, reply.getException());
+    if (context != null) {
+      cancelTransaction(context, reply.getException());
+    }
+
     if (entry == null) {
       return CompletableFuture.completedFuture(reply);
     }
@@ -900,7 +910,7 @@ class RaftServerImpl implements RaftServer.Division,
         if (e.leaderShouldStepDown() && getInfo().isLeader()) {
           leaderState.submitStepDownEvent(StepDownReason.STATE_MACHINE_EXCEPTION);
         }
-        return failWithReply(exceptionReply, cacheEntry, context);
+        return failWithReply(exceptionReply, cacheEntry, null);
       }
 
       // put the request into the pending queue
@@ -1044,12 +1054,9 @@ class RaftServerImpl implements RaftServer.Division,
 
     try {
       return appendTransaction(request, context, cacheEntry);
-    } catch (IOException ioe) {
-      cancelTransaction(context, ioe);
-      throw ioe;
-    } catch (RuntimeException re) {
-      cancelTransaction(context, re);
-      throw re;
+    } catch (Exception e) {
+      cancelTransaction(context, e);
+      throw e;
     }
   }
 
