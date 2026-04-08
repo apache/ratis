@@ -189,11 +189,11 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
   }
 
   @Test
-  public void testCancelTransactionOnPreAppendFailure() throws Exception {
-    runWithNewCluster(3, this::runTestCancelTransactionOnPreAppendFailure);
+  public void testNoCancelTransactionOnPreAppendFailure() throws Exception {
+    runWithNewCluster(3, this::runTestNoCancelTransactionOnPreAppendFailure);
   }
 
-  private void runTestCancelTransactionOnPreAppendFailure(CLUSTER cluster) throws Exception {
+  private void runTestNoCancelTransactionOnPreAppendFailure(CLUSTER cluster) throws Exception {
     final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
     failPreAppend = true;
     numCancelTransaction.set(0);
@@ -206,8 +206,8 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       }
 
       JavaUtils.attemptRepeatedly(() -> {
-        Assertions.assertEquals(1, numCancelTransaction.get(),
-            () -> "Expected cancelTransaction() to be called exactly once but got " + numCancelTransaction.get());
+        Assertions.assertEquals(0, numCancelTransaction.get(),
+            () -> "Expected cancelTransaction() not to be called but got " + numCancelTransaction.get());
         return null;
       }, 10, ONE_SECOND, "wait for cancelTransaction", LOG);
     } finally {
