@@ -125,13 +125,13 @@ public abstract class LogAppenderBase implements LogAppender {
   @Override
   public boolean isRunning() {
     return daemon.isWorking()
-        && isLeaderReady();
+        && isLeaderAlive();
   }
 
-  private boolean isLeaderReady() {
+  private boolean isLeaderAlive() {
     return server.getInfo().isAlive()
-            && server.getInfo().isLeader()
-            && getRaftLog().isOpened();
+        && server.getInfo().isLeader()
+        && getRaftLog().isOpened();
   }
 
   @Override
@@ -144,7 +144,7 @@ public abstract class LogAppenderBase implements LogAppender {
       LOG.warn("{}: daemon is closing or closed, skipping restart", this);
       return;
     }
-    if (!isLeaderReady()) {
+    if (!isLeaderAlive()) {
       LOG.warn("{}: leader is not ready, skipping restart", this);
       return;
     }
