@@ -171,6 +171,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
         assertTrue(t.getTimer().getCount() > 0L);
       }
     }
+    cluster.shutdown();
   }
 
   void runTest(CLUSTER cluster) throws Exception {
