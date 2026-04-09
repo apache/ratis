@@ -214,17 +214,18 @@ class SnapshotInstallationHandler {
           return future.thenApply(dummy -> reply);
         }
 
-        //TODO: We should only update State with installed snapshot once the request is done.
-        state.installSnapshot(request);
-
-        final int expectedChunkIndex = nextChunkIndex.getAndIncrement();
+        final int expectedChunkIndex = nextChunkIndex.get();
         if (expectedChunkIndex != snapshotChunkRequest.getRequestIndex()) {
           throw new IOException("Unexpected request chunk index: " + snapshotChunkRequest.getRequestIndex()
               + " (the expected index is " + expectedChunkIndex + ")");
         }
+        // Append chunks to a temporary location first. Publish only when done=true.
+        state.appendSnapshot(request);
+        nextChunkIndex.incrementAndGet();
         // update the committed index
         // re-load the state machine if this is the last chunk
         if (snapshotChunkRequest.getDone()) {
+          state.finalizeSnapshot(request);
           state.reloadStateMachine(lastIncluded);
           chunk0CallId.set(-1);
         }
