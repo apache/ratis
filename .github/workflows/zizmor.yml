@@ -13,28 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: build-branch
+name: zizmor
 
 on:
   push:
-    branches-ignore:
-      - 'dependabot/**'
-    tags:
-      - '**'
   pull_request:
-
-concurrency:
-  group: ci-${{ github.event.pull_request.number || case(github.repository == 'apache/ratis', github.sha, github.ref_name) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.repository != 'apache/ratis' }}
 
 permissions: { }
 
 jobs:
-  CI:
-    if: github.event_name == 'pull_request'
-      || github.repository == 'apache/ratis'
-      || github.ref_name != 'master'
-    uses: ./.github/workflows/ci.yaml
-    secrets:
-      DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
-      SONARCLOUD_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+  zizmor:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
+
+    - name: Run zizmor
+      uses: zizmorcore/zizmor-action@71321a20a9ded102f6e9ce5718a2fcec2c4f70d8 # v0.5.2

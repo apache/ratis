@@ -76,6 +76,11 @@ on:
         default: 30
         required: false
 
+    secrets:
+      DEVELOCITY_ACCESS_KEY:
+        description: 'Token for submitting build scan to Develocity'
+        required: false
+
 env:
   MAVEN_ARGS: --batch-mode --show-version
   MAVEN_OPTS: -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.class=standard -Dmaven.wagon.http.retryHandler.count=3
@@ -85,16 +90,19 @@ env:
 jobs:
   check:
     name: ${{ (inputs.split && format('{0} ({1})', inputs.script, inputs.split)) || inputs.script }}
+    environment: org
     runs-on: ${{ inputs.runner }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:
       - name: Checkout project
         if: ${{ !inputs.needs-source-tarball }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Download source tarball
         if: ${{ inputs.needs-source-tarball }}
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ratis-src
 
@@ -105,7 +113,7 @@ jobs:
 
       - name: Create cache for Maven dependencies
         if: ${{ inputs.script == 'build' }}
-        uses: actions/cache@v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.m2/repository/*/*/*
@@ -116,7 +124,7 @@ jobs:
 
       - name: Restore cache for Maven dependencies
         if: ${{ inputs.script != 'build' }}
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.m2/repository/*/*/*
@@ -128,7 +136,7 @@ jobs:
       - name: Download Maven repo
         id: download-maven-repo
         if: ${{ inputs.needs-maven-repo }}
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: maven-repo
           path: |
@@ -136,7 +144,7 @@ jobs:
 
       - name: Download binary tarball
         if: ${{ inputs.needs-binary-tarball }}
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ratis-bin
 
@@ -148,7 +156,7 @@ jobs:
 
       - name: Setup java ${{ inputs.java-version }}
         if: ${{ inputs.java-version }}
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: 'temurin'
           java-version: ${{ inputs.java-version }}
@@ -169,7 +177,7 @@ jobs:
 
       - name: Archive build results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: ${{ (inputs.split && format('{0}-{1}', inputs.script, inputs.split)) || inputs.script }}
           path: target/${{ inputs.script }}
@@ -179,7 +187,7 @@ jobs:
       # to avoid the need for 3 more inputs.
       - name: Store binaries for tests
         if: ${{ inputs.script == 'build' && !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: ratis-bin
           path: |
@@ -188,7 +196,7 @@ jobs:
 
       - name: Store source tarball for compilation
         if: ${{ inputs.script == 'build' && !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: ratis-src
           path: |
@@ -197,7 +205,7 @@ jobs:
 
       - name: Store Maven repo for tests
         if: ${{ inputs.script == 'build' && !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: maven-repo
           path: |

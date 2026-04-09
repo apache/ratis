@@ -23,7 +23,7 @@ updates:
       interval: "cron"
       cronjob: "15 9 * * *"
     cooldown:
-      default-days: 4
+      default-days: 7
   - package-ecosystem: "maven"
     directory: "/"
     schedule:
@@ -31,7 +31,7 @@ updates:
       interval: "cron"
       cronjob: "15 10 * * *"
     cooldown:
-      default-days: 4
+      default-days: 7
     ignore:
       # requires Java 11
       - dependency-name: "com.github.spotbugs:spotbugs"
