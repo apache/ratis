@@ -191,8 +191,6 @@ public class TransactionContextImpl implements TransactionContext {
 
   @Override
   public TransactionContext cancelTransaction() throws IOException {
-    // TODO: This is not called from Raft server / log yet. When an IOException happens, we should
-    // call this to let the SM know that Transaction cannot be synced
     return stateMachine.cancelTransaction(this);
   }
 }
