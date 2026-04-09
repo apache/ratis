@@ -257,14 +257,4 @@ class RetryCacheImpl implements RetryCache {
     cache.invalidateAll();
     statistics.set(null);
   }
-
-  static CompletableFuture<RaftClientReply> failWithReply(
-      RaftClientReply reply, CacheEntry entry) {
-    if (entry != null) {
-      entry.failWithReply(reply);
-      return entry.getReplyFuture();
-    } else {
-      return CompletableFuture.completedFuture(reply);
-    }
-  }
 }
