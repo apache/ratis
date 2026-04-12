@@ -29,6 +29,7 @@ import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.proto.RaftProtos.ServerRpcProto;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
@@ -45,7 +46,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -144,8 +144,8 @@ class SnapshotInstallationHandler {
         final LogEntryProto proto = request.getLastRaftConfigurationLogEntryProto();
         state.truncate(proto.getIndex());
         if (!state.getRaftConf().equals(LogProtoUtils.toRaftConfiguration(proto))) {
-          LOG.info("{}: set new configuration {} from snapshot", getMemberId(), ProtoUtils.shortDebugString(proto));
-          state.updateConfiguration(Collections.singletonList(proto));
+          LOG.info("{}: set new configuration {} from snapshot", getMemberId(), proto);
+          state.setRaftConf(proto);
           state.writeRaftConfiguration(proto);
           server.getStateMachine().event().notifyConfigurationChanged(
               proto.getTerm(), proto.getIndex(), proto.getConfigurationEntry());
@@ -181,7 +181,7 @@ class SnapshotInstallationHandler {
       future = server.changeToFollowerAndPersistMetadata(leaderTerm, true, "installSnapshot");
       state.setLeader(leaderId, "installSnapshot");
 
-      server.updateLastRpcTime(UpdateType.INSTALL_SNAPSHOT_START);
+      server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_START);
       long callId = chunk0CallId.get();
       // 1. leaderTerm < currentTerm will never come here
       // 2. leaderTerm == currentTerm && callId == request.getCallId()
@@ -228,7 +228,7 @@ class SnapshotInstallationHandler {
           chunk0CallId.set(-1);
         }
       } finally {
-        server.updateLastRpcTime(UpdateType.INSTALL_SNAPSHOT_COMPLETE);
+        server.updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_COMPLETE);
       }
     }
     if (snapshotChunkRequest.getDone()) {
@@ -291,7 +291,7 @@ class SnapshotInstallationHandler {
         // For the cases where RaftConf is empty on newly started peer with empty peer list,
         // we retrieve leader info from installSnapShotRequestProto.
         final RoleInfoProto proto = leaderProto == null || server.getRaftConf().getPeer(state.getLeaderId()) != null?
-            server.getRoleInfoProto(): getRoleInfoProto(leaderProto);
+            server.getRoleInfoProto(): getRoleInfoProto(ProtoUtils.toRaftPeer(leaderProto));
         // This is the first installSnapshot notify request for this term and
         // index. Notify the state machine to install the snapshot.
         LOG.info("{}: notifyInstallSnapshot: nextIndex is {} but the leader's first available index is {}.",
@@ -385,7 +385,7 @@ class SnapshotInstallationHandler {
     }
   }
 
-  private RoleInfoProto getRoleInfoProto(RaftPeerProto leader) {
+  private RoleInfoProto getRoleInfoProto(RaftPeer leader) {
     final RoleInfo role = server.getRole();
     final Optional<FollowerState> fs = role.getFollowerState();
     final ServerRpcProto leaderInfo = toServerRpcProto(leader,

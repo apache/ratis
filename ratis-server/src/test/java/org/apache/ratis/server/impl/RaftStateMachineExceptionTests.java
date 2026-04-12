@@ -187,4 +187,31 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       failPreAppend = false;
     }
   }
+
+  @Test
+  public void testNoCancelTransactionOnPreAppendFailure() throws Exception {
+    runWithNewCluster(3, this::runTestNoCancelTransactionOnPreAppendFailure);
+  }
+
+  private void runTestNoCancelTransactionOnPreAppendFailure(CLUSTER cluster) throws Exception {
+    final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+    failPreAppend = true;
+    numCancelTransaction.set(0);
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      try {
+        client.io().send(new SimpleMessage("cancel-transaction"));
+        fail("Exception expected");
+      } catch (StateMachineException e) {
+        Assertions.assertTrue(e.getCause().getMessage().contains("Fake Exception in preAppend"));
+      }
+
+      JavaUtils.attemptRepeatedly(() -> {
+        Assertions.assertEquals(0, numCancelTransaction.get(),
+            () -> "Expected cancelTransaction() not to be called but got " + numCancelTransaction.get());
+        return null;
+      }, 10, ONE_SECOND, "wait for cancelTransaction", LOG);
+    } finally {
+      failPreAppend = false;
+    }
+  }
 }

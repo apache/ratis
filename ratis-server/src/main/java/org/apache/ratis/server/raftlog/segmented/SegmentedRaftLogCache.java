@@ -32,6 +32,7 @@ import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AutoCloseableReadWriteLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -617,21 +618,14 @@ public class SegmentedRaftLogCache {
 
   TermIndex getLastTermIndex() {
     try (AutoCloseableLock readLock = closedSegments.readLock()) {
-      LogSegment tmpSegment = openSegment;
-      return (tmpSegment != null && tmpSegment.getLastTermIndex() != null) ?
-          tmpSegment.getLastTermIndex() :
+      return (openSegment != null && openSegment.numOfEntries() > 0) ?
+          openSegment.getLastTermIndex() :
           (closedSegments.isEmpty() ? null :
               closedSegments.get(closedSegments.size() - 1).getLastTermIndex());
     }
   }
 
-  void verifyAppendEntryIndex(LogEntryProto entry) {
-    // SegmentedRaftLog does the segment creation/rolling work.
-    Objects.requireNonNull(openSegment, "openSegment == null");
-    openSegment.verifyEntryIndex(entry.getIndex());
-  }
-
-  void appendEntry(LogEntryProto entry, LogSegment.Op op) {
+  void appendEntry(LogSegment.Op op, ReferenceCountedObject<LogEntryProto> entry) {
     // SegmentedRaftLog does the segment creation/rolling work. Here we just
     // simply append the entry into the open segment.
     Objects.requireNonNull(openSegment, "openSegment == null");

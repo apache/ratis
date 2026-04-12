@@ -72,8 +72,7 @@ public final class GrpcServicesImpl
   class AsyncService implements RaftServerAsynchronousProtocol {
 
     @Override
-    public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request)
-        throws IOException {
+    public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request) {
       throw new UnsupportedOperationException("This method is not supported");
     }
 
@@ -257,11 +256,6 @@ public final class GrpcServicesImpl
       return new GrpcServicesImpl(this);
     }
 
-    public Builder setTlsConfig(GrpcTlsConfig tlsConfig) {
-      this.tlsConfig = tlsConfig;
-      return this;
-    }
-
     public Builder setAdminTlsConfig(GrpcTlsConfig config) {
       this.adminTlsConfig = config;
       return this;
@@ -275,10 +269,6 @@ public final class GrpcServicesImpl
     public Builder setServerTlsConfig(GrpcTlsConfig config) {
       this.serverTlsConfig = config;
       return this;
-    }
-
-    public GrpcTlsConfig getTlsConfig() {
-      return tlsConfig;
     }
   }
 

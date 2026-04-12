@@ -102,18 +102,15 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = cluster.getLeader().getId();
 
-      try (final RaftClient client = cluster.createClient(leaderId)) {
-        for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-          RaftClientReply
-              reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
-          Assertions.assertTrue(reply.isSuccess());
-        }
-
-        client.getSnapshotManagementApi(leaderId).create(3000);
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+        RaftClientReply
+            reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+        Assertions.assertTrue(reply.isSuccess());
       }
 
-      final SnapshotInfo snapshot = cluster.getLeader().getStateMachine().getLatestSnapshot();
-      Assertions.assertEquals(3, snapshot.getFiles().size());
+      client.getSnapshotManagementApi(leaderId).create(3000);
+    }
 
     final SnapshotInfo snapshot = cluster.getLeader().getStateMachine().getLatestSnapshot();
     Assertions.assertEquals(3, snapshot.getFiles().size());
@@ -123,17 +120,75 @@ public abstract class InstallSnapshotFromLeaderTests<CLUSTER extends MiniRaftClu
     // trigger setConfiguration
     cluster.setConfiguration(change.getPeersInNewConf());
 
-      // Check the installed snapshot file number on each Follower matches with the
-      // leader snapshot.
-      JavaUtils.attempt(() -> {
-        for (RaftServer.Division follower : cluster.getFollowers()) {
-          final SnapshotInfo info = follower.getStateMachine().getLatestSnapshot();
-          Assertions.assertNotNull(info);
-          Assertions.assertEquals(3, info.getFiles().size());
-        }
-      }, 10, ONE_SECOND, "check snapshot", LOG);
-    } finally {
-      cluster.shutdown();
+    RaftServerTestUtil.waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
+
+    // Check the installed snapshot file number on each Follower matches with the
+    // leader snapshot.
+    JavaUtils.attempt(() -> {
+      for (RaftServer.Division follower : cluster.getFollowers()) {
+        final SnapshotInfo info = follower.getStateMachine().getLatestSnapshot();
+        Assertions.assertNotNull(info);
+        Assertions.assertEquals(3, info.getFiles().size());
+      }
+    }, 10, ONE_SECOND, "check snapshot", LOG);
+  }
+
+  private void testInstallSnapshotDuringLeaderSwitch(CLUSTER cluster) throws Exception {
+    RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId leaderId = cluster.getLeader().getId();
+
+    // perform operations and force all peers to take snapshot
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      for (int i = 0; i < SNAPSHOT_TRIGGER_THRESHOLD * 2; i++) {
+        final RaftClientReply
+            reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
+        Assertions.assertTrue(reply.isSuccess());
+      }
+
+      for (final RaftPeer peer: cluster.getPeers()) {
+        final RaftClientReply snapshotReply = client.getSnapshotManagementApi(leaderId).create(3000);
+        Assertions.assertTrue(snapshotReply.isSuccess());
+      }
+    }
+    final SnapshotInfo snapshot = cluster.getLeader().getStateMachine().getLatestSnapshot();
+    Assertions.assertNotNull(snapshot);
+
+    // isolate two followers (majority) in old configuration
+    final List<RaftServer.Division> oldFollowers = cluster.getFollowers();
+    for (RaftServer.Division f: oldFollowers) {
+      RaftTestUtil.isolate(cluster, f.getId());
+    }
+
+    // add two more peers and install snapshot from leaders
+    final PeerChanges change = cluster.addNewPeers(2, true);
+    try (final RaftClient client = cluster.createClient(leaderId, RetryPolicies.noRetry())) {
+      final RaftException e = Assertions.assertThrows(RaftException.class,
+               () -> client.admin().setConfiguration(change.getPeersInNewConf()));
+      Assertions.assertTrue( e instanceof RaftRetryFailureException
+              || e instanceof ReconfigurationTimeoutException,
+          () -> "Unexpected exception: " + e);
+    }
+
+    final SnapshotInfo snapshotInfo = cluster.getDivision(change.getAddedPeers().get(0).getId())
+         .getStateMachine().getLatestSnapshot();
+    Assertions.assertNotNull(snapshotInfo);
+
+    // recover the old followers and isolate the leader to force leader switch
+    RaftTestUtil.isolate(cluster, leaderId);
+    for (RaftServer.Division f: oldFollowers) {
+      RaftTestUtil.deIsolate(cluster, f.getId());
+    }
+    RaftTestUtil.waitForLeader(cluster);
+
+    try (final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
+      // successfully setConfiguration during leader switch
+      final RaftClientReply setConf = client.admin().setConfiguration(change.getPeersInNewConf());
+      Assertions.assertTrue(setConf.isSuccess());
+
+      RaftTestUtil.deIsolate(cluster, leaderId);
+      final RaftClientReply
+            reply = client.io().send(new RaftTestUtil.SimpleMessage("final"));
+      Assertions.assertTrue(reply.isSuccess());
     }
   }
 

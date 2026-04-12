@@ -39,7 +39,7 @@ import java.util.function.Consumer;
  * @param <T> the type to be cached.
  */
 public final class BiWeakValueCache<OUTER, INNER, T> {
-  private static <K, V> ConcurrentMap<K, V> newMap() {
+  static <K, V> ConcurrentMap<K, V> newMap() {
     return new MapMaker().weakValues().makeMap();
   }
 

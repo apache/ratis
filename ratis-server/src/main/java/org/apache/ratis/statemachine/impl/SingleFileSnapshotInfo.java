@@ -36,11 +36,6 @@ public class SingleFileSnapshotInfo extends FileListSnapshotInfo {
     this(fileInfo, TermIndex.valueOf(term, endIndex));
   }
 
-  /** @return true iff the MD5 exists. */
-  public boolean hasMd5() {
-    return getFile().getFileDigest() != null;
-  }
-
   /** @return the file associated with the snapshot. */
   public FileInfo getFile() {
     return getFiles().get(0);

@@ -48,8 +48,6 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 /** Server utilities for internal use. */
 public final class ServerImplUtils {
@@ -172,7 +170,6 @@ public final class ServerImplUtils {
       RaftPeerId id, RaftGroup group, RaftStorage.StartupOption option, StateMachine.Registry stateMachineRegistry,
       ThreadGroup threadGroup, RaftProperties properties, Parameters parameters) throws IOException {
     RaftServer.LOG.debug("newRaftServer: {}, {}", id, group);
-    Objects.requireNonNull(id, "id == null");
     if (group != null && !group.getPeers().isEmpty()) {
       Objects.requireNonNull(id, () -> "RaftPeerId " + id + " is not in RaftGroup " + group);
       Objects.requireNonNull(group.getPeer(id), () -> "RaftPeerId " + id + " is not in RaftGroup " + group);

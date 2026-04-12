@@ -51,6 +51,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 
@@ -231,7 +232,7 @@ public final class OrderedAsync {
   }
 
   private boolean logError(String prefix, RaftClientRequest request, Throwable e, Class<?> cause) {
-    if (JavaUtils.isCausedBy(e, cause)) {
+    if (JavaUtils.unwrapCompletionException(e).getClass().isAssignableFrom(cause)) {
       LOG.error("{} {}: Failed* {} due to {} caused by {}",
           prefix, client.getId(), request, e, cause.getSimpleName());
       return true;

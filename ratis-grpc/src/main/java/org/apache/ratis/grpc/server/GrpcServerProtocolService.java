@@ -81,8 +81,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     }
   }
 
-  abstract class ServerRequestStreamObserver<REQUEST, REPLY extends MessageOrBuilder>
-      implements StreamObserver<REQUEST> {
+  abstract class ServerRequestStreamObserver<REQUEST, REPLY> implements StreamObserver<REQUEST> {
     private final RaftServer.Op op;
     private final Supplier<String> nameSupplier;
     private final StreamObserver<REPLY> responseObserver;

@@ -89,8 +89,7 @@ public abstract class RaftLogBase implements RaftLog {
                     RaftProperties properties) {
     this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     this.memberId = memberId;
-    final long index = getSnapshotIndexFromStateMachine.getAsLong();
-    LOG.info("{}: snapshotIndexFromStateMachine = {}", name, index);
+    long index = getSnapshotIndexFromStateMachine.getAsLong();
     this.commitIndex = new RaftLogIndex("commitIndex", index);
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", index);
     this.purgeIndex = new RaftLogIndex("purgeIndex", LEAST_VALID_LOG_INDEX - 1);
@@ -116,12 +115,13 @@ public abstract class RaftLogBase implements RaftLog {
     state.assertOpen();
   }
 
-  @Override
+  /** Is this log already opened? */
   public boolean isOpened() {
     return state.isOpened();
   }
 
   @Override
+  @SuppressWarnings("try")
   public boolean updateCommitIndex(long majorityIndex, long currentTerm, boolean isLeader) {
     try(AutoCloseableLock writeLock = tryWriteLock(TimeDuration.ONE_SECOND)) {
       final long oldCommittedIndex = getLastCommittedIndex();
@@ -155,6 +155,7 @@ public abstract class RaftLogBase implements RaftLog {
   }
 
   @Override
+  @SuppressWarnings("try")
   public void updateSnapshotIndex(long newSnapshotIndex) {
     try(AutoCloseableLock writeLock = writeLock()) {
       final long oldSnapshotIndex = getSnapshotIndex();
@@ -173,6 +174,7 @@ public abstract class RaftLogBase implements RaftLog {
     return runner.runSequentially(() -> appendImpl(term, transaction));
   }
 
+  @SuppressWarnings("try")
   private long appendImpl(long term, TransactionContext operation) throws StateMachineException {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
@@ -222,6 +224,7 @@ public abstract class RaftLogBase implements RaftLog {
     return runner.runSequentially(() -> appendMetadataImpl(term, newCommitIndex));
   }
 
+  @SuppressWarnings("try")
   private long appendMetadataImpl(long term, long newCommitIndex) {
     checkLogState();
     if (!shouldAppendMetadata(newCommitIndex)) {
@@ -254,6 +257,7 @@ public abstract class RaftLogBase implements RaftLog {
     return runner.runSequentially(() -> appendImpl(term, configuration));
   }
 
+  @SuppressWarnings("try")
   private long appendImpl(long term, RaftConfiguration newConf) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {

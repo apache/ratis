@@ -24,7 +24,9 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ProtoUtils;
 
@@ -85,7 +87,7 @@ public final class ServerStringUtils {
         s = "notify:" + TermIndex.valueOf(notification.getFirstAvailableTermIndex());
         break;
       default:
-        throw new IllegalStateException("Unexpected InstallSnapshotRequestBodyCase in " + request);
+        throw new IllegalStateException("Unexpected body case in " + request);
     }
     return ProtoUtils.toString(request.getServerRequest())
         + "-t" + request.getLeaderTerm()
@@ -120,7 +122,11 @@ public final class ServerStringUtils {
         + "-last:" + TermIndex.valueOf(proto.getLastEntry());
   }
 
-  /** Generate the unified name for the given member and class. */
+  /**
+   * Used to generate the necessary unified name in the submodules under
+   * {@link org.apache.ratis.server.impl.RaftServerImpl}, which consists
+   * of {@link org.apache.ratis.server.impl.ServerState#memberId} and the specific class.
+   */
   public static String generateUnifiedName(RaftGroupMemberId memberId, Class<?> clazz) {
     return memberId + "-" + JavaUtils.getClassSimpleName(clazz);
   }

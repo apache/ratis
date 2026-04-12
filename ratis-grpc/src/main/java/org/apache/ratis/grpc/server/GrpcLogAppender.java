@@ -24,6 +24,7 @@ import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.retry.MultipleLinearRandomRetry;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -62,8 +63,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static org.apache.ratis.server.raftlog.LogProtoUtils.toLogEntryTermIndexString;
 
 /**
  * A new log appender implementation using grpc bi-directional stream API.
@@ -195,9 +194,8 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     lock = new AutoCloseableReadWriteLock(this);
     caller = LOG.isTraceEnabled()? JavaUtils.getCallerStackTraceElement(): null;
-    errorRetryWaitPolicy = RetryPolicy.parse(
-        RaftServerConfigKeys.Log.Appender.retryPolicy(properties),
-        RaftServerConfigKeys.Log.Appender.RETRY_POLICY_KEY);
+    errorRetryWaitPolicy = MultipleLinearRandomRetry.parseCommaSeparated(
+        RaftServerConfigKeys.Log.Appender.retryPolicy(properties));
   }
 
   @Override
@@ -236,7 +234,7 @@ public class GrpcLogAppender extends LogAppenderBase {
       }
       getFollower().computeNextIndex(getNextIndexForError(nextIndex));
     } catch (IOException ie) {
-      LOG.warn("{}: Failed to resetClient for {}", this, getFollowerId(), ie);
+      LOG.warn(this + ": Failed to getClient for " + getFollowerId(), ie);
     }
   }
 
@@ -299,8 +297,8 @@ public class GrpcLogAppender extends LogAppenderBase {
       getEventAwaitForSignal().await(getWaitTimeMs() + errorWaitTimeMs(),
           TimeUnit.MILLISECONDS);
     } catch (InterruptedException ie) {
+      LOG.warn(this + ": Wait interrupted by " + ie);
       Thread.currentThread().interrupt();
-      LOG.warn("{} is interrupted: {}", this, ie.toString());
     }
   }
 
@@ -517,8 +515,8 @@ public class GrpcLogAppender extends LogAppenderBase {
       try {
         onNextImpl(request, reply);
       } catch(Exception t) {
-        LOG.error("Failed onNext(reply), request={}, reply={}",
-            request, ServerStringUtils.toAppendEntriesReplyString(reply), t);
+        LOG.error("Failed onNext request=" + request
+            + ", reply=" + ServerStringUtils.toAppendEntriesReplyString(reply), t);
       }
     }
 
@@ -593,8 +591,8 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   private class InstallSnapshotResponseHandler implements StreamObserver<InstallSnapshotReplyProto> {
-    private final String name;
-    private final Queue<Integer> pending = new LinkedList<>();
+    private final String name = getFollower().getName() + "-" + JavaUtils.getClassSimpleName(getClass());
+    private final Queue<Integer> pending;
     private final CompletableFuture<Void> done = new CompletableFuture<>();
     private final boolean isNotificationOnly;
 
@@ -603,8 +601,8 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
 
     InstallSnapshotResponseHandler(boolean notifyOnly) {
+      pending = new LinkedList<>();
       this.isNotificationOnly = notifyOnly;
-      this.name = getFollower().getName() + "-InstallSnapshot" + (isNotificationOnly ? "Notification" : "");
     }
 
     void addPending(InstallSnapshotRequestProto request) {
@@ -632,11 +630,11 @@ public class GrpcLogAppender extends LogAppenderBase {
         if (isNotificationOnly) {
           Preconditions.assertSame(InstallSnapshotReplyBodyCase.SNAPSHOTINDEX,
                   reply.getInstallSnapshotReplyBodyCase(), "reply case");
-          Preconditions.assertSame(INSTALL_SNAPSHOT_NOTIFICATION_INDEX, index, "poll index");
+          Preconditions.assertSame(INSTALL_SNAPSHOT_NOTIFICATION_INDEX, (int) index, "poll index");
         } else {
           Preconditions.assertSame(InstallSnapshotReplyBodyCase.REQUESTINDEX,
                   reply.getInstallSnapshotReplyBodyCase(), "reply case");
-          Preconditions.assertSame(reply.getRequestIndex(), index, "poll index");
+          Preconditions.assertSame(reply.getRequestIndex(), (int) index, "poll index");
         }
       }
     }
@@ -646,8 +644,8 @@ public class GrpcLogAppender extends LogAppenderBase {
       final long leaderStartIndex = getRaftLog().getStartIndex();
       final long followerNextIndex = followerSnapshotIndex + 1;
       if (followerNextIndex >= leaderStartIndex) {
-        LOG.info("{}: follower nextIndex = {} >= leader startIndex = {}",
-            this, followerNextIndex, leaderStartIndex);
+        LOG.info("{}: Follower can catch up leader after install the snapshot, as leader's start index is {}",
+            this, followerNextIndex);
         notifyInstallSnapshotFinished(InstallSnapshotResult.SUCCESS, followerSnapshotIndex);
       }
     }
@@ -679,10 +677,10 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     @Override
     public void onNext(InstallSnapshotReplyProto reply) {
-      BatchLogger.print(BatchLogKey.INSTALL_SNAPSHOT_REPLY, name,
-          suffix -> LOG.info("{}: received {} reply {} {}", this,
-              replyState.isFirstReplyReceived() ? "a" : "the first",
-              ServerStringUtils.toInstallSnapshotReplyString(reply), suffix));
+      if (LOG.isInfoEnabled()) {
+        LOG.info("{}: received {} reply {}", this, replyState.isFirstReplyReceived()? "a" : "the first",
+            ServerStringUtils.toInstallSnapshotReplyString(reply));
+      }
 
       // update the last rpc time
       getFollower().updateLastRpcResponseTime();
@@ -691,13 +689,12 @@ public class GrpcLogAppender extends LogAppenderBase {
       final long followerSnapshotIndex;
       switch (reply.getResult()) {
         case SUCCESS:
-          LOG.info("{}: Completed", this);
+          LOG.info("{}: Completed InstallSnapshot. Reply: {}", this, reply);
           getFollower().setAttemptedToInstallSnapshot();
           removePending(reply);
           break;
         case IN_PROGRESS:
-          BatchLogger.print(BatchLogKey.INSTALL_SNAPSHOT_IN_PROGRESS,  name,
-              suffix -> LOG.info("{}: in progress, {}", this, suffix));
+          LOG.info("{}: InstallSnapshot in progress.", this);
           removePending(reply);
           break;
         case ALREADY_INSTALLED:
@@ -713,7 +710,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           onFollowerTerm(reply.getTerm());
           break;
         case CONF_MISMATCH:
-          LOG.error("{}: CONF_MISMATCH ({}): Leader {} has it set to {} but follower {} has it set to {}",
+          LOG.error("{}: Configuration Mismatch ({}): Leader {} has it set to {} but follower {} has it set to {}",
               this, RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
               getServer().getId(), installSnapshotEnabled, getFollowerId(), !installSnapshotEnabled);
           break;
@@ -728,19 +725,17 @@ public class GrpcLogAppender extends LogAppenderBase {
           removePending(reply);
           break;
         case SNAPSHOT_UNAVAILABLE:
-          BatchLogger.print(BatchLogKey.SNAPSHOT_UNAVAILABLE,  name,
-              suffix -> LOG.info("{}: Follower failed since the snapshot is unavailable {}", this, suffix));
+          LOG.info("{}: Follower could not install snapshot as it is not available.", this);
           getFollower().setAttemptedToInstallSnapshot();
           notifyInstallSnapshotFinished(InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, RaftLog.INVALID_LOG_INDEX);
           removePending(reply);
           break;
         case UNRECOGNIZED:
-          LOG.error("{}: Reply result {}, {}",
-              name, reply.getResult(), ServerStringUtils.toInstallSnapshotReplyString(reply));
+          LOG.error("Unrecognized the reply result {}: Leader is {}, follower is {}",
+              reply.getResult(), getServer().getId(), getFollowerId());
           break;
         case SNAPSHOT_EXPIRED:
-          LOG.warn("{}: Follower failed since the request expired, {}",
-              name, ServerStringUtils.toInstallSnapshotReplyString(reply));
+          LOG.warn("{}: Follower could not install snapshot as it is expired.", this);
         default:
           break;
       }
@@ -819,9 +814,8 @@ public class GrpcLogAppender extends LogAppenderBase {
    * @param firstAvailable the first available log's index on the Leader
    */
   private void notifyInstallSnapshot(TermIndex firstAvailable) {
-    BatchLogger.print(BatchLogKey.INSTALL_SNAPSHOT_NOTIFY, getFollower().getName(),
-        suffix -> LOG.info("{}: notifyInstallSnapshot with firstAvailable={}, followerNextIndex={} {}",
-            this, firstAvailable, getFollower().getNextIndex(), suffix));
+    LOG.info("{}: notifyInstallSnapshot with firstAvailable={}, followerNextIndex={}",
+        this, firstAvailable, getFollower().getNextIndex());
 
     final InstallSnapshotResponseHandler responseHandler = new InstallSnapshotResponseHandler(true);
     StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver = null;
@@ -848,6 +842,44 @@ public class GrpcLogAppender extends LogAppenderBase {
     responseHandler.waitForResponse();
   }
 
+  /**
+   * Should the Leader notify the Follower to install the snapshot through
+   * its own State Machine.
+   * @return the first available log's start term index
+   */
+  private TermIndex shouldNotifyToInstallSnapshot() {
+    final FollowerInfo follower = getFollower();
+    final long leaderNextIndex = getRaftLog().getNextIndex();
+    final boolean isFollowerBootstrapping = getLeaderState().isFollowerBootstrapping(follower);
+    final long leaderStartIndex = getRaftLog().getStartIndex();
+    final TermIndex firstAvailable = Optional.ofNullable(getRaftLog().getTermIndex(leaderStartIndex))
+        .orElseGet(() -> TermIndex.valueOf(getServer().getInfo().getCurrentTerm(), leaderNextIndex));
+    if (isFollowerBootstrapping && !follower.hasAttemptedToInstallSnapshot()) {
+      // If the follower is bootstrapping and has not yet installed any snapshot from leader, then the follower should
+      // be notified to install a snapshot. Every follower should try to install at least one snapshot during
+      // bootstrapping, if available.
+      LOG.debug("{}: follower is bootstrapping, notify to install snapshot to {}.", this, firstAvailable);
+      return firstAvailable;
+    }
+
+    final long followerNextIndex = follower.getNextIndex();
+    if (followerNextIndex >= leaderNextIndex) {
+      return null;
+    }
+
+    if (followerNextIndex < leaderStartIndex) {
+      // The Leader does not have the logs from the Follower's last log
+      // index onwards. And install snapshot is disabled. So the Follower
+      // should be notified to install the latest snapshot through its
+      // State Machine.
+      return firstAvailable;
+    } else if (leaderStartIndex == RaftLog.INVALID_LOG_INDEX) {
+      // Leader has no logs to check from, hence return next index.
+      return firstAvailable;
+    }
+
+    return null;
+  }
 
   static class AppendEntriesRequest {
     private final Timekeeper timer;
@@ -905,9 +937,13 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     @Override
     public String toString() {
+      final String entries = entriesCount == 0? ""
+          : entriesCount == 1? ",entry=" + firstEntry
+          : ",entries=" + firstEntry + "..." + lastEntry;
       return JavaUtils.getClassSimpleName(getClass())
           + ":cid=" + callId
-          + ":" + toLogEntryTermIndexString(entriesCount, firstEntry, lastEntry);
+          + ",entriesCount=" + entriesCount
+          + entries;
     }
   }
 

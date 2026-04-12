@@ -179,8 +179,8 @@ public class SnapshotManager {
       try {
         moved = FileUtils.move(stateMachineDir, TMP + StringUtils.currentDateTime());
       } catch(IOException e) {
-        LOG.warn("Failed to rename state machine directory {} to a " + TMP + " directory.  Try deleting it directly.",
-            stateMachineDir.getAbsolutePath(), e);
+        LOG.warn("Failed to rename state machine directory " + stateMachineDir.getAbsolutePath()
+            + " to a " + TMP + " directory.  Try deleting it directly.", e);
         FileUtils.deleteFully(stateMachineDir);
       }
       existingDir = moved;
@@ -201,7 +201,7 @@ public class SnapshotManager {
       try {
         FileUtils.deleteFully(existingDir);
       } catch (IOException e) {
-        LOG.warn("Failed to delete existing directory {}", existingDir.getAbsolutePath(), e);
+        LOG.warn("Failed to delete existing directory " + existingDir.getAbsolutePath(), e);
       }
     }
   }

@@ -408,7 +408,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
 
       // Make sure each new peer got one snapshot notification.
-      Assertions.assertEquals(2, numSnapshotRequests.get());
+      Assertions.assertEquals(numNewPeers, numSnapshotRequests.get());
 
     } finally {
       cluster.shutdown();
@@ -565,7 +565,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       }
 
       // Make sure each new peer got at least one snapshot notification.
-      Assertions.assertTrue(2 <= numSnapshotRequests.get());
+      Assertions.assertTrue(numNewPeers <= numSnapshotRequests.get());
     } finally {
       cluster.shutdown();
     }

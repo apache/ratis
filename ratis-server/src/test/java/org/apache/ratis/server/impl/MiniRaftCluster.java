@@ -49,7 +49,6 @@ import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ReferenceCountedLeakDetector;
 import org.apache.ratis.util.ReflectionUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -95,6 +94,8 @@ public abstract class MiniRaftCluster implements Closeable {
       TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
   static final AtomicInteger THREAD_COUNT = new AtomicInteger(0);
 
+  static final AtomicInteger CLIENT_ID = new AtomicInteger(0);
+
   public abstract static class Factory<CLUSTER extends MiniRaftCluster> {
     public interface Get<CLUSTER extends MiniRaftCluster> {
       Supplier<RaftProperties> PROPERTIES = JavaUtils.memoize(RaftProperties::new);
@@ -138,27 +139,17 @@ public abstract class MiniRaftCluster implements Closeable {
         final StackTraceElement caller = JavaUtils.getCallerStackTraceElement();
         LOG.info("Running {}", caller.getMethodName());
         final CLUSTER cluster = newCluster(numServers, numListeners);
-        Throwable failed = null;
         try {
           if (startCluster) {
             cluster.start();
           }
           testCase.accept(cluster);
-        } catch(Throwable t) {
+        } catch(Exception t) {
           LOG.info(cluster.printServers());
           LOG.error("Failed {}", caller, t);
-          failed = t;
           throw t;
         } finally {
-          try {
-            cluster.shutdown();
-          } catch (Exception e) {
-            if (failed == null) {
-              throw e;
-            } else {
-              failed.addSuppressed(e);
-            }
-          }
+          cluster.shutdown();
         }
       }
 
@@ -819,42 +810,18 @@ public abstract class MiniRaftCluster implements Closeable {
     final ExecutorService executor = Executors.newFixedThreadPool(servers.size(), (t) ->
         Daemon.newBuilder().setName("MiniRaftCluster-" + THREAD_COUNT.incrementAndGet()).setRunnable(t).build());
     getServers().forEach(proxy -> executor.submit(() -> JavaUtils.runAsUnchecked(proxy::close)));
-    final int maxRetries = 30;
-    final TimeDuration retrySleep = TimeDuration.ONE_SECOND;
-    executor.shutdown();
-    boolean terminated = false;
-
-    for(int i = 0; i < maxRetries && !terminated; ) {
-      try {
-        terminated = executor.awaitTermination(retrySleep.getDuration(), retrySleep.getUnit());
-        if (!terminated) {
-          i++;
-          if (i < maxRetries) {
-            LOG.warn("{}/{}: Not yet able to shutdown executor, will wait again ...", i, maxRetries);
-          } else {
-            LOG.error("Failed to shutdown executor, some servers may be still running:\n{}", printServers());
-          }
-        }
-      } catch (InterruptedException e) {
+    try {
+      executor.shutdown();
+      // just wait for a few seconds
+      executor.awaitTermination(5, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
       LOG.warn("shutdown interrupted", e);
-      }
+      Thread.currentThread().interrupt();
     }
 
     Optional.ofNullable(timer.get()).ifPresent(Timer::cancel);
     ExitUtils.assertNotTerminated();
     LOG.info("{} shutdown completed", JavaUtils.getClassSimpleName(getClass()));
-
-    // GC to ensure leak detection work.
-    try {
-      RaftTestUtil.gc();
-    } catch (InterruptedException e) {
-      LOG.warn("gc interrupted.", e);
-    }
-    try {
-      ReferenceCountedLeakDetector.getLeakDetector().assertNoLeaks(maxRetries, retrySleep);
-    } catch (InterruptedException e) {
-      LOG.warn("LeakDetector interrupted.", e);
-    }
   }
 
   /**

@@ -84,10 +84,9 @@ class RetryCacheImpl implements RetryCache {
       replyFuture.complete(reply);
     }
 
-    CompletableFuture<RaftClientReply> failWithException(Throwable t) {
+    void failWithException(Throwable t) {
       failed = true;
       replyFuture.completeExceptionally(t);
-      return replyFuture;
     }
 
     @Override
@@ -256,5 +255,25 @@ class RetryCacheImpl implements RetryCache {
   public synchronized void close() {
     cache.invalidateAll();
     statistics.set(null);
+  }
+
+  static CompletableFuture<RaftClientReply> failWithReply(
+      RaftClientReply reply, CacheEntry entry) {
+    if (entry != null) {
+      entry.failWithReply(reply);
+      return entry.getReplyFuture();
+    } else {
+      return CompletableFuture.completedFuture(reply);
+    }
+  }
+
+  static CompletableFuture<RaftClientReply> failWithException(
+      Throwable t, CacheEntry entry) {
+    if (entry != null) {
+      entry.failWithException(t);
+      return entry.getReplyFuture();
+    } else {
+      return JavaUtils.completeExceptionally(t);
+    }
   }
 }

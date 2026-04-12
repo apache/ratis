@@ -46,15 +46,14 @@ class WriteIndexCache {
         .build();
   }
 
-  void add(ClientId key, CompletableFuture<Long> current) {
+  void add(ClientId key, CompletableFuture<Long> future) {
     final AtomicReference<CompletableFuture<Long>> ref;
     try {
       ref = cache.get(key, AtomicReference::new);
     } catch (ExecutionException e) {
       throw new IllegalStateException(e);
     }
-    ref.updateAndGet(previous -> previous == null ? current
-        : previous.thenCombine(current, Math::max));
+    ref.set(future);
   }
 
   CompletableFuture<Long> getWriteIndexFuture(RaftClientRequest request) {

@@ -114,7 +114,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
       // trigger setConfiguration
       LOG.info("Start changing the configuration: {}", change.getPeersInNewConf());
       try (final RaftClient c2 = cluster.createClient(newLeader)) {
-        RaftClientReply reply = c2.admin().setConfiguration(change.allPeersInNewConf);
+        RaftClientReply reply = c2.admin().setConfiguration(change.getPeersInNewConf());
         Assertions.assertTrue(reply.isSuccess());
       }
       LOG.info(cluster.printServers());
@@ -138,7 +138,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testGroupMismatchException() throws Exception {
-    runWithNewCluster(NUM_PEERS, this::runTestGroupMismatchException);
+    runWithSameCluster(NUM_PEERS, this::runTestGroupMismatchException);
   }
 
   void runTestGroupMismatchException(CLUSTER cluster) throws Exception {
@@ -171,7 +171,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testStaleReadException() throws Exception {
-    runWithNewCluster(NUM_PEERS, this::runTestStaleReadException);
+    runWithSameCluster(NUM_PEERS, this::runTestStaleReadException);
   }
 
   void runTestStaleReadException(CLUSTER cluster) throws Exception {
@@ -186,7 +186,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testLogAppenderBufferCapacity() throws Exception {
-    runWithNewCluster(NUM_PEERS, this::runTestLogAppenderBufferCapacity);
+    runWithSameCluster(NUM_PEERS, this::runTestLogAppenderBufferCapacity);
   }
 
   void runTestLogAppenderBufferCapacity(CLUSTER cluster) throws Exception {

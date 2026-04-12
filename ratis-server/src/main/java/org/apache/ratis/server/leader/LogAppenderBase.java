@@ -50,6 +50,7 @@ import java.util.function.LongUnaryOperator;
 /**
  * An abstract implementation of {@link LogAppender}.
  */
+@SuppressWarnings({"deprecation", "try"})
 public abstract class LogAppenderBase implements LogAppender {
   /** For buffering log entries to create an {@link EntryList}. */
   private static class EntryBuffer {
@@ -202,14 +203,7 @@ public abstract class LogAppenderBase implements LogAppender {
 
   @Override
   public boolean isRunning() {
-    return daemon.isWorking()
-        && isLeaderAlive();
-  }
-
-  private boolean isLeaderAlive() {
-    return server.getInfo().isAlive()
-        && server.getInfo().isLeader()
-        && getRaftLog().isOpened();
+    return daemon.isWorking() && server.getInfo().isLeader();
   }
 
   @Override
@@ -218,12 +212,8 @@ public abstract class LogAppenderBase implements LogAppender {
   }
 
   void restart() {
-    if (daemon.isClosingOrClosed()) {
-      LOG.warn("{}: daemon is closing or closed, skipping restart", this);
-      return;
-    }
-    if (!isLeaderAlive()) {
-      LOG.warn("{}: leader is not ready, skipping restart", this);
+    if (!server.getInfo().isAlive()) {
+      LOG.warn("Failed to restart {}: server {} is not alive", this, server.getMemberId());
       return;
     }
     getLeaderState().restart(this);
@@ -251,6 +241,27 @@ public abstract class LogAppenderBase implements LogAppender {
     return false;
   }
 
+  private TermIndex getPrevious(long nextIndex) {
+    if (nextIndex == RaftLog.LEAST_VALID_LOG_INDEX) {
+      return null;
+    }
+
+    final long previousIndex = nextIndex - 1;
+    final TermIndex previous = getRaftLog().getTermIndex(previousIndex);
+    if (previous != null) {
+      return previous;
+    }
+
+    final SnapshotInfo snapshot = server.getStateMachine().getLatestSnapshot();
+    if (snapshot != null) {
+      final TermIndex snapshotTermIndex = snapshot.getTermIndex();
+      if (snapshotTermIndex.getIndex() == previousIndex) {
+        return snapshotTermIndex;
+      }
+    }
+
+    return null;
+  }
 
   protected long getNextIndexForInconsistency(long requestFirstIndex, long replyNextIndex) {
     long next = replyNextIndex;

@@ -117,7 +117,7 @@ class PendingRequests {
       raftServerMetrics.addNumPendingRequestsMegaByteSize(resource::getMegaByteSize);
     }
 
-    synchronized Permit tryAcquire(Message message) {
+    Permit tryAcquire(Message message) {
       final int messageSize = Message.getSize(message);
       final int messageSizeMb = roundUpMb(messageSize );
       final Acquired acquired = resource.tryAcquire(messageSizeMb);
@@ -139,7 +139,13 @@ class PendingRequests {
       if (messageSizeMb > diffMb) {
         resource.releaseExtraMb(messageSizeMb - diffMb);
       }
+      return putPermit();
+    }
 
+    private synchronized Permit putPermit() {
+      if (resource.isClosed()) {
+        return null;
+      }
       final Permit permit = new Permit();
       permits.put(permit, permit);
       return permit;
@@ -151,9 +157,9 @@ class PendingRequests {
       if (removed == null) {
         return null;
       }
-      Preconditions.assertSame(permit, removed, "permit");
+      Preconditions.assertTrue(removed == permit);
       final PendingRequest previous = map.put(p.getTermIndex(), p);
-      Preconditions.assertNull(previous, "previous");
+      Preconditions.assertTrue(previous == null);
       return p;
     }
 
@@ -264,13 +270,12 @@ class PendingRequests {
     return pendingRequest != null ? pendingRequest.getEntry() : null;
   }
 
-  /** @return the removed the {@link PendingRequest} for the given {@link TermIndex}. */
-  PendingRequest remove(TermIndex termIndex) {
+  void replyPendingRequest(TermIndex termIndex, RaftClientReply reply) {
     final PendingRequest pending = pendingRequests.remove(termIndex);
     if (pending != null) {
       Preconditions.assertEquals(termIndex, pending.getTermIndex(), "termIndex");
+      pending.setReply(reply);
     }
-    return pending;
   }
 
   /**

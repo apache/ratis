@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.retry;
 
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 
 import java.util.Objects;

@@ -32,15 +32,11 @@ import org.apache.ratis.server.ServerFactory;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.MemoizedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 public class GrpcFactory implements ServerFactory, ClientFactory {
 
@@ -76,28 +72,11 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   private final GrpcTlsConfig clientTlsConfig;
   private final GrpcTlsConfig serverTlsConfig;
 
-  static final BiFunction<GrpcTlsConfig, SslContext, SslContext> BUILD_SSL_CONTEXT_FOR_CLIENT
-      = (tlsConf, defaultContext) -> tlsConf == null ? defaultContext : GrpcUtil.buildSslContextForClient(tlsConf);
-
-  static final class SslContexts {
-    private final SslContext adminSslContext;
-    private final SslContext clientSslContext;
-    private final SslContext serverSslContext;
-
-    private SslContexts(GrpcTlsConfig tlsConfig, GrpcTlsConfig adminTlsConfig,
-        GrpcTlsConfig clientTlsConfig, GrpcTlsConfig serverTlsConfig,
-        BiFunction<GrpcTlsConfig, SslContext, SslContext> buildMethod) {
-      final SslContext defaultSslContext = buildMethod.apply(tlsConfig, null);
-      this.adminSslContext = buildMethod.apply(adminTlsConfig, defaultSslContext);
-      this.clientSslContext = buildMethod.apply(clientTlsConfig, defaultSslContext);
-      this.serverSslContext = buildMethod.apply(serverTlsConfig, defaultSslContext);
-    }
+  public static Parameters newRaftParameters(GrpcTlsConfig conf) {
+    final Parameters p = new Parameters();
+    GrpcConfigKeys.TLS.setConf(p, conf);
+    return p;
   }
-
-  private final GrpcServices.Customizer servicesCustomizer;
-
-  private final Supplier<SslContexts> forServerSupplier;
-  private final Supplier<SslContexts> forClientSupplier;
 
   public GrpcFactory(Parameters parameters) {
     this(GrpcConfigKeys.Server.servicesCustomizer(parameters),
@@ -123,10 +102,20 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
     this.serverTlsConfig = serverTlsConfig;
   }
 
-    this.forServerSupplier = MemoizedSupplier.valueOf(() -> new SslContexts(
-        tlsConfig, adminTlsConfig, clientTlsConfig, serverTlsConfig, BUILD_SSL_CONTEXT_FOR_SERVER));
-    this.forClientSupplier = MemoizedSupplier.valueOf(() -> new SslContexts(
-        tlsConfig, adminTlsConfig, clientTlsConfig, serverTlsConfig, BUILD_SSL_CONTEXT_FOR_CLIENT));
+  public GrpcTlsConfig getTlsConfig() {
+    return tlsConfig;
+  }
+
+  public GrpcTlsConfig getAdminTlsConfig() {
+    return adminTlsConfig != null ? adminTlsConfig : tlsConfig;
+  }
+
+  public GrpcTlsConfig getClientTlsConfig() {
+    return clientTlsConfig != null ? clientTlsConfig : tlsConfig;
+  }
+
+  public GrpcTlsConfig getServerTlsConfig() {
+    return serverTlsConfig != null ? serverTlsConfig : tlsConfig;
   }
 
   @Override
@@ -154,8 +143,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   @Override
   public GrpcClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties) {
     checkPooledByteBufAllocatorUseCacheForAllThreads(LOG::debug);
-
-    final SslContexts forClient = forClientSupplier.get();
-    return new GrpcClientRpc(clientId, properties, forClient.adminSslContext, forClient.clientSslContext);
+    return new GrpcClientRpc(clientId, properties,
+        getAdminTlsConfig(), getClientTlsConfig());
   }
 }

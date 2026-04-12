@@ -43,6 +43,7 @@ import java.util.function.LongSupplier;
 /**
  * A simple RaftLog implementation in memory. Used only for testing.
  */
+@SuppressWarnings({"deprecation", "try"})
 public class MemoryRaftLog extends RaftLogBase {
   static class EntryList {
     private final List<LogEntryProto> entries = new ArrayList<>();

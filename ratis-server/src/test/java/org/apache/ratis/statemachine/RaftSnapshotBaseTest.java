@@ -21,7 +21,6 @@ import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHIN
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS_DESC;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_TAKE_SNAPSHOT_TIMER;
 import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
-import static org.apache.ratis.server.storage.RaftStorageTestUtils.getLogUnsafe;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.metrics.LongCounter;
@@ -51,9 +50,7 @@ import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Slf4jUtils;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,13 +99,13 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
   public static void checkMetadataEntry(RaftServer.Division server) throws Exception {
     final RaftLog log = server.getRaftLog();
     final long lastIndex = log.getLastEntryTermIndex().getIndex();
-    final LogEntryProto e = getLogUnsafe(log, lastIndex);
+    final LogEntryProto e = log.get(lastIndex);
     Assertions.assertTrue(e.hasMetadataEntry());
+    Assertions.assertEquals(log.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
+  }
 
-    JavaUtils.attemptRepeatedly(() -> {
-      Assertions.assertEquals(log.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
-      return null;
-    }, 50, BaseTest.HUNDRED_MILLIS, "CheckMetadataEntry", LOG);
+  public static void assertLogContent(RaftServer.Division server, boolean isLeader) throws Exception {
+    JavaUtils.attempt(() -> checkMetadataEntry(server), 50, HUNDRED_MILLIS, "checkMetadataEntry", LOG);
 
     SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(server);
     if (isLeader) {
@@ -123,29 +120,6 @@ public abstract class RaftSnapshotBaseTest<CLUSTER extends MiniRaftCluster>
         Assertions.assertArrayEquals(m.getContent().toByteArray(),
             entries[i].getStateMachineLogEntry().getLogData().toByteArray());
       }
-    }
-  }
-
-  private MiniRaftCluster cluster;
-
-  public abstract MiniRaftCluster.Factory<?> getFactory();
-
-  @BeforeEach
-  public void setup() throws IOException {
-    final RaftProperties prop = new RaftProperties();
-    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        SimpleStateMachine4Testing.class, StateMachine.class);
-    RaftServerConfigKeys.Snapshot.setAutoTriggerThreshold(
-        prop, SNAPSHOT_TRIGGER_THRESHOLD);
-    RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(prop, true);
-    this.cluster = getFactory().newCluster(1, prop);
-    cluster.start();
-  }
-
-  @AfterEach
-  public void tearDown() {
-    if (cluster != null) {
-      cluster.shutdown();
     }
   }
 

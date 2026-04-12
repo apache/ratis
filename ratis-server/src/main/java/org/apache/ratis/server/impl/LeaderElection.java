@@ -260,7 +260,7 @@ final class LeaderElection implements Runnable {
     }
 
     void shutdown() {
-      executor.shutdown();
+      executor.shutdownNow();
     }
 
     void submit(Callable<RequestVoteReplyProto> task) {
@@ -370,6 +370,7 @@ final class LeaderElection implements Runnable {
     }
   }
 
+  @SuppressWarnings("try")
   private void runImpl() {
     if (!lifeCycle.compareAndTransition(STARTING, RUNNING)) {
       final LifeCycle.State state = lifeCycle.getCurrentState();
@@ -425,7 +426,7 @@ final class LeaderElection implements Runnable {
     if (others.isEmpty()) {
       r = new ResultAndTerm(Result.PASSED, electionTerm);
     } else {
-      final TermIndex lastEntry = server.getState().getLastEntry();
+      final TermIndex lastEntry = server.getLastEntry();
       final Executor voteExecutor = new Executor(this, others.size());
       try {
         final int submitted = submitRequests(phase, electionTerm, lastEntry, others, voteExecutor);
@@ -488,7 +489,7 @@ final class LeaderElection implements Runnable {
     for (final RaftPeer peer : others) {
       final RequestVoteRequestProto r = ServerProtoUtils.toRequestVoteRequestProto(
           server.getMemberId(), peer.getId(), electionTerm, lastEntry, phase == Phase.PRE_VOTE);
-      voteExecutor.submit(() -> server.getServerRpc().requestVote(r));
+      voteExecutor.submit(() -> server.requestVote(r));
       submitted++;
     }
     return submitted;
@@ -513,6 +514,9 @@ final class LeaderElection implements Runnable {
     Collection<RaftPeerId> rejectedPeers = new ArrayList<>();
     Set<RaftPeerId> higherPriorityPeers = getHigherPriorityPeers(conf);
     final boolean singleMode = conf.isSingleMode(server.getId());
+
+    // true iff this server does not have any commits
+    final boolean emptyCommit = server.getLastCommittedIndex() < RaftLog.LEAST_VALID_LOG_INDEX;
 
     while (waitForNum > 0 && shouldRun(electionTerm)) {
       final TimeDuration waitTime = timeout.elapsedTime().apply(n -> -n);
