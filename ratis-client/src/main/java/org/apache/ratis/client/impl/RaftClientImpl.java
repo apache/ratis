@@ -26,6 +26,7 @@ import org.apache.ratis.client.api.SnapshotManagementApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import io.opentelemetry.context.Context;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
@@ -290,6 +291,9 @@ public final class RaftClientImpl implements RaftClient {
     } else {
       b.setLeaderId(getLeaderId())
        .setRepliedCallIds(repliedCallIds.get(callId));
+    }
+    if (TraceUtils.getGlobalTracer() != null) {
+      b.setSpanContext(TraceUtils.injectContextToProto(Context.current()));
     }
     return b.setClientId(clientId)
         .setGroupId(groupId)
