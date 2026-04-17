@@ -705,6 +705,16 @@ public interface RaftServerConfigKeys {
         setTimeDuration(properties::setTimeDuration, WAIT_TIME_MIN_KEY, minDuration);
       }
 
+      String COMPLETE_GRACE_PERIOD_KEY = PREFIX + ".complete.grace.period";
+      TimeDuration COMPLETE_GRACE_PERIOD_DEFAULT = TimeDuration.ONE_SECOND;
+      static TimeDuration completeGracePeriod(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(COMPLETE_GRACE_PERIOD_DEFAULT.getUnit()),
+            COMPLETE_GRACE_PERIOD_KEY, COMPLETE_GRACE_PERIOD_DEFAULT, getDefaultLog());
+      }
+      static void setCompleteGracePeriod(RaftProperties properties, TimeDuration duration) {
+        setTimeDuration(properties::setTimeDuration, COMPLETE_GRACE_PERIOD_KEY, duration);
+      }
+
       String RETRY_POLICY_KEY = PREFIX + ".retry.policy";
       /**
        * The min wait time as 1ms (0 is not allowed) for first 10,
