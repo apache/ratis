@@ -62,6 +62,39 @@ public final class OrderedAsync {
     SEND_REQUEST_EXCEPTION
   }
 
+  static final class DummyBootstrap {
+    private boolean noopSent = false;
+    private boolean watchFallbackPending = false;
+    private boolean watchFallbackSent = false;
+
+    RaftClientRequest.Type nextRequestType() {
+      if (!noopSent) {
+        noopSent = true;
+        return RaftClientRequest.noopRequestType();
+      }
+      if (watchFallbackPending && !watchFallbackSent) {
+        watchFallbackPending = false;
+        watchFallbackSent = true;
+        return RaftClientRequest.watchRequestType();
+      }
+      return null;
+    }
+
+    boolean handleFailure(Throwable throwable) {
+      if (!noopSent || watchFallbackSent) {
+        return false;
+      }
+      final Throwable e = JavaUtils.unwrapCompletionException(throwable);
+      if (e instanceof IllegalArgumentException
+          && e.getMessage() != null
+          && e.getMessage().contains("Unexpected request type")) {
+        watchFallbackPending = true;
+        return true;
+      }
+      return false;
+    }
+  }
+
   static class PendingOrderedRequest extends PendingClientRequest
       implements SlidingWindow.ClientSideRequest<RaftClientReply> {
     private final long callId;
@@ -118,10 +151,10 @@ public final class OrderedAsync {
 
   static OrderedAsync newInstance(RaftClientImpl client, RaftProperties properties) {
     final OrderedAsync ordered = new OrderedAsync(client, properties);
-    // send a dummy watch request to establish the connection
+    // send a dummy request to establish the connection
     // TODO: this is a work around, it is better to fix the underlying RPC implementation
     if (RaftClientConfigKeys.Async.Experimental.sendDummyRequest(properties)) {
-      ordered.send(RaftClientRequest.watchRequestType(), null, null);
+      ordered.sendDummyRequest(new DummyBootstrap());
     }
     return ordered;
   }
@@ -154,8 +187,25 @@ public final class OrderedAsync {
     getSlidingWindow(request).fail(request.getSlidingWindowEntry().getSeqNum(), t);
   }
 
+  private void sendDummyRequest(DummyBootstrap bootstrap) {
+    final RaftClientRequest.Type type = bootstrap.nextRequestType();
+    if (type == null) {
+      return;
+    }
+
+    send(type, null, null).whenComplete((reply, throwable) -> {
+      if (throwable == null || !bootstrap.handleFailure(throwable)) {
+        return;
+      }
+
+      final Throwable unwrapped = JavaUtils.unwrapCompletionException(throwable);
+      client.getClientRpc().handleException(client.getLeaderId(), unwrapped, true);
+      sendDummyRequest(bootstrap);
+    });
+  }
+
   CompletableFuture<RaftClientReply> send(RaftClientRequest.Type type, Message message, RaftPeerId server) {
-    if (!type.is(TypeCase.WATCH) && !type.is(TypeCase.MESSAGESTREAM)) {
+    if (!type.is(TypeCase.WATCH) && !type.is(TypeCase.MESSAGESTREAM) && !type.is(TypeCase.NOOP)) {
       Objects.requireNonNull(message, "message == null");
     }
     try {

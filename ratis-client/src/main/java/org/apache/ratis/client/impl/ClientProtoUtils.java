@@ -144,6 +144,8 @@ public interface ClientProtoUtils {
         return RaftClientRequest.Type.valueOf(p.getDataStream());
       case FORWARD:
         return RaftClientRequest.Type.valueOf(p.getForward());
+      case NOOP:
+        return RaftClientRequest.Type.valueOf(p.getNoop());
       case MESSAGESTREAM:
         return RaftClientRequest.Type.valueOf(p.getMessageStream());
       case READ:
@@ -228,6 +230,9 @@ public interface ClientProtoUtils {
         break;
       case FORWARD:
         b.setForward(type.getForward());
+        break;
+      case NOOP:
+        b.setNoop(type.getNoop());
         break;
       case MESSAGESTREAM:
         b.setMessageStream(type.getMessageStream());

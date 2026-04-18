@@ -299,6 +299,9 @@ message DataStreamRequestTypeProto {
 message ForwardRequestTypeProto {
 }
 
+message NoopRequestTypeProto {
+}
+
 message ReadRequestTypeProto {
   bool preferNonLinearizable = 1;
   bool readAfterWriteConsistent = 2;
@@ -335,6 +338,7 @@ message RaftClientRequestProto {
     MessageStreamRequestTypeProto messageStream = 7;
     DataStreamRequestTypeProto dataStream = 8;
     ForwardRequestTypeProto forward = 9;
+    NoopRequestTypeProto noop = 10;
   }
 }
 

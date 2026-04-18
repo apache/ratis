@@ -1005,6 +1005,8 @@ class RaftServerImpl implements RaftServer.Division,
     switch (type) {
       case STALEREAD:
         return staleReadAsync(request);
+      case NOOP:
+        return CompletableFuture.completedFuture(newSuccessReply(request));
       case READ:
         return readAsync(request);
       case WATCH:

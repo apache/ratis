@@ -20,6 +20,7 @@ package org.apache.ratis.protocol;
 import org.apache.ratis.proto.RaftProtos.DataStreamRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.ForwardRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.MessageStreamRequestTypeProto;
+import org.apache.ratis.proto.RaftProtos.NoopRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReadRequestTypeProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
@@ -43,6 +44,7 @@ import java.util.Optional;
 public class RaftClientRequest extends RaftClientMessage {
   private static final Type DATA_STREAM_DEFAULT = new Type(DataStreamRequestTypeProto.getDefaultInstance());
   private static final Type FORWARD_DEFAULT = new Type(ForwardRequestTypeProto.getDefaultInstance());
+  private static final Type NOOP_DEFAULT = new Type(NoopRequestTypeProto.getDefaultInstance());
   private static final Type WATCH_DEFAULT = new Type(
       WatchRequestTypeProto.newBuilder().setIndex(0L).setReplication(ReplicationLevel.MAJORITY).build());
 
@@ -81,6 +83,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public static Type forwardRequestType() {
     return FORWARD_DEFAULT;
+  }
+
+  public static Type noopRequestType() {
+    return NOOP_DEFAULT;
   }
 
   public static Type messageStreamRequestType(long streamId, long messageId, boolean endOfRequest) {
@@ -129,6 +135,10 @@ public class RaftClientRequest extends RaftClientMessage {
       return FORWARD_DEFAULT;
     }
 
+    public static Type valueOf(NoopRequestTypeProto noop) {
+      return NOOP_DEFAULT;
+    }
+
     public static Type valueOf(ReadRequestTypeProto read) {
       return read.getPreferNonLinearizable()? READ_NONLINEARIZABLE_DEFAULT
           : read.getReadAfterWriteConsistent()? READ_AFTER_WRITE_CONSISTENT_DEFAULT
@@ -173,6 +183,10 @@ public class RaftClientRequest extends RaftClientMessage {
       this(TypeCase.FORWARD, forward);
     }
 
+    private Type(NoopRequestTypeProto noop) {
+      this(TypeCase.NOOP, noop);
+    }
+
     private Type(MessageStreamRequestTypeProto messageStream) {
       this(TypeCase.MESSAGESTREAM, messageStream);
     }
@@ -198,6 +212,7 @@ public class RaftClientRequest extends RaftClientMessage {
         case READ:
         case STALEREAD:
         case WATCH:
+        case NOOP:
           return true;
         case WRITE:
         case MESSAGESTREAM:
@@ -237,6 +252,11 @@ public class RaftClientRequest extends RaftClientMessage {
       return (MessageStreamRequestTypeProto)proto;
     }
 
+    public NoopRequestTypeProto getNoop() {
+      assertType(TypeCase.NOOP);
+      return (NoopRequestTypeProto) proto;
+    }
+
     public ReadRequestTypeProto getRead() {
       assertType(TypeCase.READ);
       return (ReadRequestTypeProto)proto;
@@ -273,6 +293,8 @@ public class RaftClientRequest extends RaftClientMessage {
           return "DataStream";
         case FORWARD:
           return "Forward";
+        case NOOP:
+          return "Noop";
         case MESSAGESTREAM:
           return toString(getMessageStream());
         case READ:

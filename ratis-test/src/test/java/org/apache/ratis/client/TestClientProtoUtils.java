@@ -22,6 +22,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -98,5 +99,24 @@ public class TestClientProtoUtils extends BaseTest {
       }
       return out.toByteString();
     }
+  }
+
+  @Test
+  public void testNoopTypeRoundTripAndStringForm() {
+    final RaftClientRequest request = RaftClientRequest.newBuilder()
+        .setClientId(ClientId.randomId())
+        .setServerId(RaftPeerId.valueOf("s0"))
+        .setGroupId(RaftGroupId.randomId())
+        .setCallId(1L)
+        .setMessage(Message.EMPTY)
+        .setType(RaftClientRequest.noopRequestType())
+        .build();
+
+    final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
+    Assertions.assertEquals(RaftClientRequestProto.TypeCase.NOOP, proto.getTypeCase());
+    Assertions.assertEquals("Noop", request.getType().toString());
+    Assertions.assertTrue(request.getType().isReadOnly());
+    Assertions.assertEquals(RaftClientRequest.noopRequestType(),
+        ClientProtoUtils.toRaftClientRequestType(proto));
   }
 }

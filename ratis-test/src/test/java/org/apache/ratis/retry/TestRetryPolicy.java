@@ -80,12 +80,14 @@ public class TestRetryPolicy extends BaseTest {
     final RetryPolicies.RetryLimited writePolicy = RetryPolicies.retryUpToMaximumCountWithFixedSleep(n, writeSleep);
     b.setRetryPolicy(RaftClientRequestProto.TypeCase.WRITE, writePolicy);
     b.setRetryPolicy(RaftClientRequestProto.TypeCase.WATCH, RetryPolicies.noRetry());
+    b.setRetryPolicy(RaftClientRequestProto.TypeCase.NOOP, RetryPolicies.noRetry());
     final RetryPolicy policy = b.build();
     LOG.info("policy = {}", policy);
 
     final RaftClientRequest staleReadRequest = newRaftClientRequest(RaftClientRequest.staleReadRequestType(1));
     final RaftClientRequest readRequest = newRaftClientRequest(RaftClientRequest.readRequestType());
     final RaftClientRequest writeRequest = newRaftClientRequest(RaftClientRequest.writeRequestType());
+    final RaftClientRequest noopRequest = newRaftClientRequest(RaftClientRequest.noopRequestType());
     final RaftClientRequest watchRequest = newRaftClientRequest(
         RaftClientRequest.watchRequestType(1, ReplicationLevel.MAJORITY));
     for(int i = 1; i < 2*n; i++) {
@@ -118,6 +120,13 @@ public class TestRetryPolicy extends BaseTest {
 
       { //watch has no retry
         final ClientRetryEvent event = newClientRetryEvent(i, watchRequest, null);
+        final RetryPolicy.Action action = policy.handleAttemptFailure(event);
+        Assertions.assertFalse(action.shouldRetry());
+        Assertions.assertEquals(0L, action.getSleepTime().getDuration());
+      }
+
+      { //noop has no retry
+        final ClientRetryEvent event = newClientRetryEvent(i, noopRequest, null);
         final RetryPolicy.Action action = policy.handleAttemptFailure(event);
         Assertions.assertFalse(action.shouldRetry());
         Assertions.assertEquals(0L, action.getSleepTime().getDuration());
