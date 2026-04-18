@@ -130,7 +130,7 @@ public final class OrderedAsync {
       // fallback to the previous dummy request implementation (send WATCH(0))
       // to preserve the original behavior and performance.
       // However, this might causes client to immediately failover to the leader
-      // which causes follower read to not work. 
+      // which causes follower read to not work.
       if (watchFallbackPending && !watchFallbackSent) {
         watchFallbackPending = false;
         watchFallbackSent = true;
