@@ -62,39 +62,6 @@ public final class OrderedAsync {
     SEND_REQUEST_EXCEPTION
   }
 
-  static final class DummyBootstrap {
-    private boolean noopSent = false;
-    private boolean watchFallbackPending = false;
-    private boolean watchFallbackSent = false;
-
-    RaftClientRequest.Type nextRequestType() {
-      if (!noopSent) {
-        noopSent = true;
-        return RaftClientRequest.noopRequestType();
-      }
-      if (watchFallbackPending && !watchFallbackSent) {
-        watchFallbackPending = false;
-        watchFallbackSent = true;
-        return RaftClientRequest.watchRequestType();
-      }
-      return null;
-    }
-
-    boolean handleFailure(Throwable throwable) {
-      if (!noopSent || watchFallbackSent) {
-        return false;
-      }
-      final Throwable e = JavaUtils.unwrapCompletionException(throwable);
-      if (e instanceof IllegalArgumentException
-          && e.getMessage() != null
-          && e.getMessage().contains("Unexpected request type")) {
-        watchFallbackPending = true;
-        return true;
-      }
-      return false;
-    }
-  }
-
   static class PendingOrderedRequest extends PendingClientRequest
       implements SlidingWindow.ClientSideRequest<RaftClientReply> {
     private final long callId;
@@ -146,6 +113,44 @@ public final class OrderedAsync {
     @Override
     public String toString() {
       return "[cid=" + callId + ", seq=" + getSeqNum() + "]";
+    }
+  }
+
+  static final class DummyBootstrap {
+    private boolean noopSent = false;
+    private boolean watchFallbackPending = false;
+    private boolean watchFallbackSent = false;
+
+    RaftClientRequest.Type nextRequestType() {
+      if (!noopSent) {
+        noopSent = true;
+        return RaftClientRequest.noopRequestType();
+      }
+      // If the server-side does not support the noop request
+      // fallback to the previous dummy request implementation (send WATCH(0))
+      // to preserve the original behavior and performance.
+      // However, this might causes client to immediately failover to the leader
+      // which causes follower read to not work. 
+      if (watchFallbackPending && !watchFallbackSent) {
+        watchFallbackPending = false;
+        watchFallbackSent = true;
+        return RaftClientRequest.watchRequestType();
+      }
+      return null;
+    }
+
+    boolean handleFailure(Throwable throwable) {
+      if (!noopSent || watchFallbackSent) {
+        return false;
+      }
+      final Throwable e = JavaUtils.unwrapCompletionException(throwable);
+      if (e instanceof IllegalArgumentException
+          && e.getMessage() != null
+          && e.getMessage().contains("Unexpected request type")) {
+        watchFallbackPending = true;
+        return true;
+      }
+      return false;
     }
   }
 
