@@ -1680,9 +1680,14 @@ class RaftServerImpl implements RaftServer.Division,
       state.updateConfiguration(entries);
     }
     future.join();
-    final CompletableFuture<Void> appendFuture = entries.isEmpty()? CompletableFuture.completedFuture(null)
-        : appendLogTermIndices != null ? appendLogTermIndices.append(entries, this::appendLog)
-        : appendLog(entries);
+    final CompletableFuture<Void> appendFuture;
+    if (entries.isEmpty()) {
+      appendFuture = CompletableFuture.completedFuture(null);
+    } else if (appendLogTermIndices != null) {
+      appendFuture = appendLogTermIndices.append(entries, this::appendLog);
+    } else {
+      appendFuture = JavaUtils.allOf(state.getLog().append(entries));
+    }
 
     proto.getCommitInfosList().forEach(commitInfoCache::update);
 
@@ -1714,6 +1719,7 @@ class RaftServerImpl implements RaftServer.Division,
       return reply;
     });
   }
+
   private CompletableFuture<Void> appendLog(List<LogEntryProto> entries) {
     return CompletableFuture.completedFuture(null)
         .thenComposeAsync(dummy -> JavaUtils.allOf(state.getLog().append(entries)), serverExecutor);
