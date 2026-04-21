@@ -126,8 +126,6 @@ final class FileStoreWriter implements Closeable {
 
       final ByteBuffer b = randomBytes(length, r);
 
-      LOG.trace("write {}, offset={}, length={}, close? {}",
-          fileName, offset, length, close);
       final long written = client.write(fileName, offset, close, b, sync);
       Assertions.assertEquals(length, written);
       offset += length;
@@ -221,6 +219,8 @@ final class FileStoreWriter implements Closeable {
       verify(read, offset, n, expected);
       offset += n;
     }
+
+    LOG.info("Verify successful: {}", fileName);
     return this;
   }
 

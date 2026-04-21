@@ -31,6 +31,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachineStorage;
@@ -44,8 +45,23 @@ import org.apache.ratis.util.FileUtils;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class FileStoreStateMachine extends BaseStateMachine {
+  static class SimulateFailure {
+    static final String PATH_TO_FAIL = "path-to-fail";
+    private static final AtomicReference<RaftPeerId> CHOSEN = new AtomicReference<>();
+
+    static boolean chooseServer(RaftPeerId serverId) {
+      if (SimulateFailure.CHOSEN.compareAndSet(null, serverId)) {
+        LOG.info("Server {} is chosen", serverId);
+        return true;
+      } else {
+        return serverId.equals(SimulateFailure.CHOSEN.get());
+      }
+    }
+  }
+
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
 
   private final FileStore files;
@@ -120,6 +136,15 @@ public class FileStoreStateMachine extends BaseStateMachine {
         .build();
   }
 
+  void simulateFailure(String path) throws Exception {
+    final RaftServer.Division division = getServer().get().getDivision(getGroupId());
+    if (path.equals(SimulateFailure.PATH_TO_FAIL)
+        && division.getInfo().isFollower()
+        && SimulateFailure.chooseServer(division.getId())) {
+      throw new IOException(getId() + ": Simulated failure for path " + path);
+    }
+  }
+
   @Override
   public CompletableFuture<Integer> write(LogEntryProto entry, TransactionContext context) {
     final FileStoreRequestProto proto = getProto(context, entry);
@@ -128,6 +153,12 @@ public class FileStoreStateMachine extends BaseStateMachine {
     }
 
     final WriteRequestHeaderProto h = proto.getWriteHeader();
+    try {
+      simulateFailure(h.getPath().toStringUtf8());
+    } catch (Exception e) {
+      return FileStoreCommon.completeExceptionally(entry.getIndex(), getId() + ": Failed simulateFailure", e);
+    }
+
     final CompletableFuture<Integer> f = files.write(entry.getIndex(),
         h.getPath().toStringUtf8(), h.getClose(),  h.getSync(), h.getOffset(),
         entry.getStateMachineLogEntry().getStateMachineEntry().getStateMachineData());

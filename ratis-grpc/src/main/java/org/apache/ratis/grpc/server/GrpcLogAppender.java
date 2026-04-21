@@ -129,16 +129,11 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
   }
 
-  static class ReplyState {
+  class ReplyState {
     private boolean firstReplyReceived = false;
-    private int errorCount = 0;
 
     synchronized boolean isFirstReplyReceived() {
       return firstReplyReceived;
-    }
-
-    synchronized int getErrorCount() {
-      return errorCount;
     }
 
     int process(AppendResult result) {
@@ -148,12 +143,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     synchronized int process(Event event) {
       firstReplyReceived = event.updateFirstReplyReceived(firstReplyReceived);
-      if (event.isError()) {
-        errorCount++;
-      } else {
-        errorCount = 0;
-      }
-      return errorCount;
+      return getFollower().getErrorState().updateErrorCount(event.isError());
     }
   }
 
@@ -300,17 +290,25 @@ public class GrpcLogAppender extends LogAppenderBase {
   private void mayWait() {
     // use lastSend time instead of lastResponse time
     try {
-      getEventAwaitForSignal().await(getWaitTimeMs() + errorWaitTimeMs(),
-          TimeUnit.MILLISECONDS);
+      // sleepForErrors won't be waked up by signal
+      sleepForErrors();
+      // await can be waked up by signal
+      getEventAwaitForSignal().await(getWaitTimeMs(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException ie) {
       Thread.currentThread().interrupt();
       LOG.warn("{} is interrupted: {}", this, ie.toString());
     }
   }
 
-  private long errorWaitTimeMs() {
-    return errorRetryWaitPolicy.handleAttemptFailure(replyState::getErrorCount)
-        .getSleepTime().toLong(TimeUnit.MILLISECONDS);
+  private void sleepForErrors() throws InterruptedException {
+    final int errorCount = getFollower().getErrorState().getErrorCountToDelay();
+    if (errorCount < 1) {
+      return;
+    }
+
+    final TimeDuration sleepTime = errorRetryWaitPolicy.handleAttemptFailure(() -> errorCount).getSleepTime();
+    LOG.debug("{}: sleepForErrors {}, errorCount={}", this, sleepTime, errorCount);
+    sleepTime.sleep();
   }
 
   @Override
