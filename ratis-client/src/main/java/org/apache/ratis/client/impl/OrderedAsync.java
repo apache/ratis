@@ -116,12 +116,12 @@ public final class OrderedAsync {
     }
   }
 
-  static OrderedAsync newInstance(RaftClientImpl client, RaftProperties properties) {
+  static OrderedAsync newInstance(RaftClientImpl client, RaftPeerId server, RaftProperties properties) {
     final OrderedAsync ordered = new OrderedAsync(client, properties);
     // send a dummy watch request to establish the connection
     // TODO: this is a work around, it is better to fix the underlying RPC implementation
     if (RaftClientConfigKeys.Async.Experimental.sendDummyRequest(properties)) {
-      ordered.send(RaftClientRequest.watchRequestType(), null, null);
+      ordered.send(RaftClientRequest.watchRequestType(), null, server);
     }
     return ordered;
   }

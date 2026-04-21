@@ -40,7 +40,7 @@ class AsyncImpl implements AsyncRpcApi {
   CompletableFuture<RaftClientReply> send(
       RaftClientRequest.Type type, Message message, RaftPeerId server) {
     return TraceClient.asyncSend(
-        () -> client.getOrderedAsync().send(type, message, server), type, server);
+        () -> client.getOrderedAsync(server).send(type, message, server), type, server);
   }
 
   @Override

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -25,13 +25,14 @@ import java.util.Objects;
  * A memoized supplier is a {@link CheckedSupplier}
  * which gets a value by invoking its initializer once.
  * and then keeps returning the same value as its supplied results.
- *
+ * <p>
  * This class is thread safe.
  *
  * @param <RETURN> The return type of the supplier.
  * @param <THROW> The throwable type of the supplier.
  */
 public final class MemoizedCheckedSupplier<RETURN, THROW extends Throwable>
+    extends MemoizedBase<RETURN, THROW>
     implements CheckedSupplier<RETURN, THROW> {
   /**
    * @param supplier to supply at most one non-null value.
@@ -45,9 +46,6 @@ public final class MemoizedCheckedSupplier<RETURN, THROW extends Throwable>
 
   private final CheckedSupplier<RETURN, THROW> initializer;
 
-  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
-  private volatile RETURN value = null;
-
   /**
    * Create a memoized supplier.
    * @param initializer to supply at most one non-null value.
@@ -60,16 +58,7 @@ public final class MemoizedCheckedSupplier<RETURN, THROW extends Throwable>
   /** @return the lazily initialized object. */
   @Override
   public RETURN get() throws THROW {
-    RETURN v = value;
-    if (v == null) {
-      synchronized (this) {
-        v = value;
-        if (v == null) {
-          v = value = Objects.requireNonNull(initializer.get(), "initializer.get() returns null");
-        }
-      }
-    }
-    return v;
+    return init(initializer);
   }
 
   /**
@@ -77,16 +66,6 @@ public final class MemoizedCheckedSupplier<RETURN, THROW extends Throwable>
    * @throws NullPointerException if the object is uninitialized.
    */
   public RETURN getUnchecked() {
-    return Objects.requireNonNull(value, "value == null");
-  }
-
-  /** @return is the object initialized? */
-  public boolean isInitialized() {
-    return value != null;
-  }
-
-  @Override
-  public String toString() {
-    return isInitialized()? "Memoized:" + value: "UNINITIALIZED";
+    return getInitializedValue();
   }
 }
