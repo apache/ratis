@@ -58,6 +58,8 @@ import java.util.function.LongFunction;
 public final class OrderedAsync {
   public static final Logger LOG = LoggerFactory.getLogger(OrderedAsync.class);
 
+  public static final Message DUMMY = Message.valueOf("DUMMY");
+
   private enum BatchLogKey implements BatchLogger.Key {
     SEND_REQUEST_EXCEPTION
   }
@@ -121,7 +123,7 @@ public final class OrderedAsync {
     // send a dummy watch request to establish the connection
     // TODO: this is a work around, it is better to fix the underlying RPC implementation
     if (RaftClientConfigKeys.Async.Experimental.sendDummyRequest(properties)) {
-      ordered.send(RaftClientRequest.watchRequestType(), null, server);
+      ordered.send(RaftClientRequest.watchRequestType(), DUMMY, server);
     }
     return ordered;
   }

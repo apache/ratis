@@ -58,7 +58,7 @@ public final class MemoizedFunction<PARAMETER, RETURN>
   /**
    * @param parameter for passing to the initializer.
    *                  Since the returned function is memoized, the parameter is only used at the first call.
-   *                  The parameter in the subsequent calls is ignored.
+   *                  The parameter is ignored in the subsequent calls.
    *
    * @return the lazily initialized object.
    */
