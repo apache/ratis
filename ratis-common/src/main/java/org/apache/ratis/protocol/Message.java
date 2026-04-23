@@ -19,6 +19,7 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.thirdparty.com.google.protobuf.AbstractMessage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.StringUtils;
 
@@ -47,11 +48,11 @@ public interface Message {
   }
 
   static Message valueOf(AbstractMessage abstractMessage) {
-    return valueOf(abstractMessage.toByteString(), abstractMessage::toString);
+    return valueOf(abstractMessage.toByteString(), () -> TextFormat.shortDebugString(abstractMessage));
   }
 
   static Message valueOf(ByteString bytes) {
-    return valueOf(bytes, () -> "Message:" + StringUtils.bytes2HexShortString(bytes));
+    return valueOf(bytes, () -> "Message:" + StringUtils.bytes2ShortString(bytes));
   }
 
   static Message valueOf(String string) {

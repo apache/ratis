@@ -29,7 +29,8 @@ import org.apache.ratis.rpc.CallId;
 /** Interface for testing raft client. */
 public interface RaftClientTestUtil {
   static void assertAsyncRequestSemaphore(RaftClient client, int expectedAvailablePermits, int expectedQueueLength) {
-    ((RaftClientImpl) client).getOrderedAsync().assertRequestSemaphore(expectedAvailablePermits, expectedQueueLength);
+    ((RaftClientImpl) client).getOrderedAsync(null)
+        .assertRequestSemaphore(expectedAvailablePermits, expectedQueueLength);
   }
 
   static ClientInvocationId getClientInvocationId(RaftClient client) {

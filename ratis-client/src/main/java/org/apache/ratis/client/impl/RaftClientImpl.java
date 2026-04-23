@@ -47,6 +47,7 @@ import org.apache.ratis.trace.TraceUtils;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedFunction;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
@@ -180,7 +181,7 @@ public final class RaftClientImpl implements RaftClient {
 
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
-  private final Supplier<OrderedAsync> orderedAsync;
+  private final MemoizedFunction<RaftPeerId, OrderedAsync> orderedAsync;
   private final Supplier<AsyncImpl> asyncApi;
   private final Supplier<BlockingImpl> blockingApi;
   private final Supplier<MessageStreamImpl> messageStreamApi;
@@ -209,7 +210,7 @@ public final class RaftClientImpl implements RaftClient {
     clientRpc.addRaftPeers(group.getPeers());
     this.clientRpc = clientRpc;
 
-    this.orderedAsync = JavaUtils.memoize(() -> OrderedAsync.newInstance(this, properties));
+    this.orderedAsync = MemoizedFunction.valueOf(server -> OrderedAsync.newInstance(this, server, properties));
     this.messageStreamApi = JavaUtils.memoize(() -> MessageStreamImpl.newInstance(this, properties));
     this.asyncApi = JavaUtils.memoize(() -> new AsyncImpl(this));
     this.blockingApi = JavaUtils.memoize(() -> new BlockingImpl(this));
@@ -277,8 +278,8 @@ public final class RaftClientImpl implements RaftClient {
     return scheduler;
   }
 
-  OrderedAsync getOrderedAsync() {
-    return orderedAsync.get();
+  OrderedAsync getOrderedAsync(RaftPeerId server) {
+    return orderedAsync.apply(server);
   }
 
   RaftClientRequest newRaftClientRequest(

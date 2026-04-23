@@ -67,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -92,6 +93,8 @@ public abstract class MiniRaftCluster implements Closeable {
   private static final TimeDuration RETRY_INTERVAL_DEFAULT =
       TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
   static final AtomicInteger THREAD_COUNT = new AtomicInteger(0);
+
+  static final AtomicInteger CLIENT_ID = new AtomicInteger(0);
 
   public abstract static class Factory<CLUSTER extends MiniRaftCluster> {
     public interface Get<CLUSTER extends MiniRaftCluster> {
@@ -747,6 +750,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public RaftClient createClient(RaftPeerId leaderId, RaftGroup raftGroup, RetryPolicy retryPolicy, RaftPeer primaryServer) {
     RaftClient.Builder builder = RaftClient.newBuilder()
+        .setClientId(ClientId.valueOf(new UUID(0, CLIENT_ID.incrementAndGet())))
         .setRaftGroup(raftGroup)
         .setLeaderId(leaderId)
         .setProperties(properties)
