@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -24,12 +24,14 @@ import java.util.function.Supplier;
  * A memoized supplier is a {@link Supplier}
  * which gets a value by invoking its initializer once
  * and then keeps returning the same value as its supplied results.
- *
+ * <p>
  * This class is thread safe.
  *
  * @param <T> The supplier result type.
  */
-public final class MemoizedSupplier<T> implements Supplier<T> {
+public final class MemoizedSupplier<T>
+    extends MemoizedBase<T, RuntimeException>
+    implements Supplier<T> {
   /**
    * @param supplier to supply at most one non-null value.
    * @return a {@link MemoizedSupplier} with the given supplier.
@@ -40,8 +42,6 @@ public final class MemoizedSupplier<T> implements Supplier<T> {
   }
 
   private final Supplier<T> initializer;
-  @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
-  private volatile T value = null;
 
   /**
    * Create a memoized supplier.
@@ -55,26 +55,6 @@ public final class MemoizedSupplier<T> implements Supplier<T> {
   /** @return the lazily initialized object. */
   @Override
   public T get() {
-    T v = value;
-    if (v == null) {
-      synchronized (this) {
-        v = value;
-        if (v == null) {
-          v = value = Objects.requireNonNull(initializer.get(),
-              "initializer.get() returns null");
-        }
-      }
-    }
-    return v;
-  }
-
-  /** @return is the object initialized? */
-  public boolean isInitialized() {
-    return value != null;
-  }
-
-  @Override
-  public String toString() {
-    return isInitialized()? "Memoized:" + get(): "UNINITIALIZED";
+    return init(initializer::get);
   }
 }

@@ -81,6 +81,23 @@ public final class StringUtils {
     return String.format(Locale.ENGLISH, format, objects);
   }
 
+  public static String bytes2ShortString(ByteString bytes) {
+    return bytes.isValidUtf8() ? bytes2ShortUtf8String(bytes) : StringUtils.bytes2HexShortString(bytes);
+  }
+
+  public static String bytes2ShortUtf8String(ByteString bytes) {
+    final String utf8 = bytes.toStringUtf8();
+    if (utf8.isEmpty()) {
+      return "<EMPTY_UTF8>";
+    }
+    final int length = utf8.length();
+    if (length <= 10) {
+      return utf8;
+    }
+    // return only the first 10 characters
+    return utf8.substring(0, 10) + "...(length=" + length + ")";
+  }
+
   public static String bytes2HexShortString(ByteString bytes) {
     final int size = bytes.size();
     if (size == 0) {

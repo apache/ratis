@@ -88,10 +88,9 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     RaftServerConfigKeys.Read.setOption(p, LINEARIZABLE);
     RaftServerConfigKeys.Read.setLeaderLeaseEnabled(p, isLeaderLeaseEnabled());
     RaftServerConfigKeys.Read.ReadIndex.setType(p, readIndexType());
-    // Disable dummy request since currently the request is implemented as a watch request
-    // which can cause follower client to trigger failover to leader which will cause the
-    // all reads to be sent to the leader, making the follower read moot.
-    RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(p, false);
+
+    // Enable dummy request so linearizable-read tests exercise the default ordered-async bootstrap path.
+    RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(p, true);
   }
 
   @Test
@@ -151,13 +150,16 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     final int n = 100;
     final List<Reply> f0Replies = new ArrayList<>(n);
     final List<Reply> f1Replies = new ArrayList<>(n);
-    try (RaftClient client = cluster.createClient(leaderId)) {
+    try (RaftClient client = cluster.createClient(leaderId);
+         RaftClient c0 = cluster.createClient(f0);
+         RaftClient c1 = cluster.createClient(f1);
+         ) {
       for (int i = 0; i < n; i++) {
         final int count = i + 1;
         assertReplyExact(count, client.io().send(INCREMENT));
 
-        f0Replies.add(new Reply(count, client.async().sendReadOnly(QUERY, f0)));
-        f1Replies.add(new Reply(count, client.async().sendReadOnly(QUERY, f1)));
+        f0Replies.add(new Reply(count, c0.async().sendReadOnly(QUERY, f0)));
+        f1Replies.add(new Reply(count, c1.async().sendReadOnly(QUERY, f1)));
       }
 
       for (int i = 0; i < n; i++) {
