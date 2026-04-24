@@ -150,6 +150,7 @@ import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexReplyProt
 import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexRequestProto;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toRequestVoteReplyProto;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toStartLeaderElectionReplyProto;
+import static org.apache.ratis.server.raftlog.LogProtoUtils.toLogEntryTermIndexString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesReplyString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesRequestString;
 import static org.apache.ratis.server.util.ServerStringUtils.toRequestVoteReplyString;
@@ -1703,6 +1704,11 @@ class RaftServerImpl implements RaftServer.Division,
     final long commitIndex = effectiveCommitIndex(proto.getLeaderCommit(), previous, entries.size());
     final long matchIndex = isHeartbeat? RaftLog.INVALID_LOG_INDEX: entries.get(entries.size() - 1).getIndex();
     return appendFuture.whenCompleteAsync((r, t) -> {
+      if  (t != null) {
+        LOG.warn("{}: appendEntries* failed: {}", getMemberId(), toLogEntryTermIndexString(entries), t);
+      } else if (LOG.isDebugEnabled()) {
+        LOG.debug("{}: appendEntries* succeeded {}", getMemberId(), toLogEntryTermIndexString(entries));
+      }
       followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
       timer.stop();
     }, getServerExecutor()).thenApply(v -> {
@@ -1753,7 +1759,7 @@ class RaftServerImpl implements RaftServer.Division,
         && !(appendLogTermIndices != null && appendLogTermIndices.contains(previous))
         && !state.containsTermIndex(previous)) {
       final long replyNextIndex = Math.min(state.getNextIndex(), previous.getIndex());
-      LOG.info("{}: Failed appendEntries as previous log entry ({}) is not found", getMemberId(), previous);
+      LOG.info("{}: Failed appendEntries, previous log entry {} not found", getMemberId(), previous);
       return replyNextIndex;
     }
 
