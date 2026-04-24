@@ -264,15 +264,13 @@ public final class SegmentedRaftLog extends RaftLogBase {
         }
       }
 
-      // if the largest index is smaller than the last index in snapshot, we do
-      // not load the log to avoid holes between log segments. This may happen
-      // when the local I/O worker is too slow to persist log (slower than
-      // committing the log and taking snapshot)
+      // If the end index is smaller than lastIndexInSnapshot, it means the state machine state is inconsistent
+      // with raft log state, fail the RaftServerImpl.start() to keep the state untacked.
       if (!cache.isEmpty() && cache.getEndIndex() < lastIndexInSnapshot) {
-        LOG.warn("End log index {} is smaller than last index in snapshot {}",
-            cache.getEndIndex(), lastIndexInSnapshot);
-        purgeImpl(lastIndexInSnapshot).whenComplete((purged, e) -> updatePurgeIndex(purged));
+        throw new RaftLogIOException("End log index " + cache.getEndIndex() +
+            " is smaller than last index in snapshot " + lastIndexInSnapshot);
       }
+      purgeImpl(lastIndexInSnapshot).whenComplete((purged, e) -> updatePurgeIndex(purged));
     }
   }
 
