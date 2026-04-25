@@ -150,6 +150,7 @@ import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexReplyProt
 import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexRequestProto;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toRequestVoteReplyProto;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toStartLeaderElectionReplyProto;
+import static org.apache.ratis.server.raftlog.LogProtoUtils.toLogEntryTermIndexString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesReplyString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesRequestString;
 import static org.apache.ratis.server.util.ServerStringUtils.toRequestVoteReplyString;
@@ -239,18 +240,16 @@ class RaftServerImpl implements RaftServer.Division,
   private final RetryCacheImpl retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
   private final WriteIndexCache writeIndexCache;
+  private final NavigableIndices appendLogTermIndices;
 
   private final RaftServerJmxAdapter jmxAdapter = new RaftServerJmxAdapter(this);
   private final LeaderElectionMetrics leaderElectionMetrics;
   private final RaftServerMetricsImpl raftServerMetrics;
-  private final CountDownLatch closeFinishedLatch = new CountDownLatch(1);
 
-  // To avoid append entry before complete start() method
-  // For example, if thread1 start(), but before thread1 startAsFollower(), thread2 receive append entry
-  // request, and change state to RUNNING by lifeCycle.compareAndTransition(STARTING, RUNNING),
-  // then thread1 execute lifeCycle.transition(RUNNING) in startAsFollower(),
-  // So happens IllegalStateException: ILLEGAL TRANSITION: RUNNING -> RUNNING,
-  private final AtomicBoolean startComplete;
+  // Disallow appendEntries before start() complete; otherwise, it could fail with illegal lifeCycle transition
+  private final AtomicBoolean startComplete = new AtomicBoolean(false);
+  private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
+  private final CountDownLatch closeFinishedLatch = new CountDownLatch(1);
 
   private final TransferLeadership transferLeadership;
   private final SnapshotManagementRequestHandler snapshotRequestHandler;
@@ -258,11 +257,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
-
-  private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
   private final ThreadGroup threadGroup;
-
-  private final NavigableIndices appendLogTermIndices;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
@@ -292,9 +287,6 @@ class RaftServerImpl implements RaftServer.Division,
     this.raftServerMetrics = RaftServerMetricsImpl.computeIfAbsentRaftServerMetrics(
         getMemberId(), this::getCommitIndex, retryCache::getStatistics);
 
-    this.startComplete = new AtomicBoolean(false);
-    this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
-
     this.transferLeadership = new TransferLeadership(this, properties);
     this.snapshotRequestHandler = new SnapshotManagementRequestHandler(this);
     this.snapshotInstallationHandler = new SnapshotInstallationHandler(this, properties);
@@ -309,6 +301,7 @@ class RaftServerImpl implements RaftServer.Division,
         RaftServerConfigKeys.ThreadPool.clientCached(properties),
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
         id + "-client");
+    this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
   }
 
   private long getCommitIndex(RaftPeerId id) {
@@ -1703,6 +1696,11 @@ class RaftServerImpl implements RaftServer.Division,
     final long commitIndex = effectiveCommitIndex(proto.getLeaderCommit(), previous, entries.size());
     final long matchIndex = isHeartbeat? RaftLog.INVALID_LOG_INDEX: entries.get(entries.size() - 1).getIndex();
     return appendFuture.whenCompleteAsync((r, t) -> {
+      if  (t != null) {
+        LOG.warn("{}: appendEntries* failed: {}", getMemberId(), toLogEntryTermIndexString(entries), t);
+      } else if (LOG.isDebugEnabled()) {
+        LOG.debug("{}: appendEntries* succeeded {}", getMemberId(), toLogEntryTermIndexString(entries));
+      }
       followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
       timer.stop();
     }, getServerExecutor()).thenApply(v -> {
@@ -1753,7 +1751,7 @@ class RaftServerImpl implements RaftServer.Division,
         && !(appendLogTermIndices != null && appendLogTermIndices.contains(previous))
         && !state.containsTermIndex(previous)) {
       final long replyNextIndex = Math.min(state.getNextIndex(), previous.getIndex());
-      LOG.info("{}: Failed appendEntries as previous log entry ({}) is not found", getMemberId(), previous);
+      LOG.info("{}: Failed appendEntries, previous log entry {} not found", getMemberId(), previous);
       return replyNextIndex;
     }
 
