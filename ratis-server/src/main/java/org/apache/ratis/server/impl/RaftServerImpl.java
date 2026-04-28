@@ -1699,7 +1699,7 @@ class RaftServerImpl implements RaftServer.Division,
       if  (t != null) {
         LOG.warn("{}: appendEntries* failed: {}", getMemberId(), toLogEntryTermIndexString(entries), t);
       } else if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: appendEntries* succeeded {}", getMemberId(), toLogEntryTermIndexString(entries));
+        LOG.debug("{}: appendEntries* succeeded: {}", getMemberId(), toLogEntryTermIndexString(entries));
       }
       followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
       timer.stop();

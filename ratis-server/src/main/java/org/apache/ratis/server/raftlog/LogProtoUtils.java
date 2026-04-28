@@ -102,8 +102,8 @@ public final class LogProtoUtils {
 
   public static String toLogEntryTermIndexString(int n, TermIndex first, TermIndex last) {
     return n == 0 ? "HEARTBEAT"
-        : n == 1 ? "entry" + first
-        : n + " entries:" + first + "..." + last;
+        : n == 1 ? "entry=" + first
+        : n + " entries=" + first + "..." + last;
   }
 
   public static LogEntryProto toLogEntryProto(RaftConfiguration conf, Long term, long index) {
