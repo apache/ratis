@@ -353,9 +353,9 @@ public final class LogSegment {
     return CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
   }
 
-  void appendToOpenSegment(LogEntryProto entry, Op op) {
+  void appendToOpenSegment(LogEntryProto entry, Op op, boolean verifyEntryIndex) {
     Preconditions.assertTrue(isOpen(), "The log segment %s is not open for append", this);
-    append(true, entry, op, false);
+    append(true, entry, op, verifyEntryIndex);
   }
 
   public static final String APPEND_RECORD = LogSegment.class.getSimpleName() + ".append";

@@ -206,7 +206,7 @@ public class TestLogSegment extends BaseTest {
       SimpleOperation op = new SimpleOperation("m" + i);
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i++ + start);
       size += getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
-      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
     }
 
     Assertions.assertTrue(segment.getTotalFileSize() >= max);
@@ -238,18 +238,18 @@ public class TestLogSegment extends BaseTest {
     final StateMachineLogEntryProto m = op.getLogEntryContent();
     try {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m, 0, 1001);
-      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
       Assertions.fail("should fail since the entry's index needs to be 1000");
     } catch (IllegalStateException e) {
       // the exception is expected.
     }
 
     LogEntryProto entry = LogProtoUtils.toLogEntryProto(m, 0, 1000);
-    segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+    segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
 
     try {
       entry = LogProtoUtils.toLogEntryProto(m, 0, 1002);
-      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
       Assertions.fail("should fail since the entry's index needs to be 1001");
     } catch (IllegalStateException e) {
       // the exception is expected.
@@ -264,7 +264,7 @@ public class TestLogSegment extends BaseTest {
     for (int i = 0; i < 100; i++) {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(
           new SimpleOperation("m" + i).getLogEntryContent(), term, i + start);
-      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
     }
 
     // truncate an open segment (remove 1080~1099)
