@@ -157,9 +157,13 @@ final class ServerProtoUtils {
   static AppendEntriesRequestProto toAppendEntriesRequestProto(
       RaftGroupMemberId requestorId, RaftPeerId replyId, long leaderTerm,
       List<LogEntryProto> entries, long leaderCommit, boolean initializing,
-      TermIndex previous, Collection<CommitInfoProto> commitInfos, long callId) {
+      TermIndex previous, Collection<CommitInfoProto> commitInfos, long callId,
+      SpanContextProto tracingContext) {
     final RaftRpcRequestProto.Builder rpcRequest = ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId, replyId)
         .setCallId(callId);
+    if (tracingContext != null && !tracingContext.getContextMap().isEmpty()) {
+      rpcRequest.setSpanContext(tracingContext);
+    }
     final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto
         .newBuilder()
         .setServerRequest(rpcRequest)
