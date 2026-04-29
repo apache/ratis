@@ -1563,7 +1563,9 @@ class RaftServerImpl implements RaftServer.Division,
       assertGroup(getMemberId(), leaderId, leaderGroupId);
       assertEntries(r, previous, state);
 
-      return appendEntriesAsync(leaderId, request.getCallId(), previous, r);
+      return TraceServer.traceAppendEntriesAsync(
+        () -> appendEntriesAsync(leaderId, request.getCallId(), previous, r),
+          r, getMemberId().toString());
     } catch(Exception t) {
       LOG.error("{}: Failed appendEntries* {}", getMemberId(),
           toAppendEntriesRequestString(r, stateMachine::toStateMachineLogEntryString), t);

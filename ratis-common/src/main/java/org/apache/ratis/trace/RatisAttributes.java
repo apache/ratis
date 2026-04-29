@@ -33,6 +33,8 @@ public final class RatisAttributes {
   public static final AttributeKey<String> OPERATION_NAME = AttributeKey.stringKey("raft.operation.name");
   public static final AttributeKey<String> OPERATION_TYPE = AttributeKey.stringKey("raft.operation.type");
 
+  /** Number of log entries in a single {@code AppendEntries} RPC (0 for heartbeat). */
+  public static final AttributeKey<Long> APPEND_ENTRIES_COUNT = AttributeKey.longKey("raft.append.entries.count");
 
   private RatisAttributes() {
   }

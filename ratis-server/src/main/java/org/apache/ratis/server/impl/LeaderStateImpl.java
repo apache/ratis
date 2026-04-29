@@ -26,6 +26,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -52,6 +53,7 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.trace.TraceUtils;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.Daemon;
@@ -354,6 +356,13 @@ class LeaderStateImpl implements LeaderState {
   private final long followerMaxGapThreshold;
   private final PendingStepDown pendingStepDown;
 
+  /**
+   * Client-originated trace context keyed by log index; attached to {@link AppendEntriesRequestProto}
+   * so follower {@code appendEntries} spans join the same trace as the client write.
+   */
+  private final ConcurrentHashMap<Long, SpanContextProto> replicationTraceByLogIndex =
+      new ConcurrentHashMap<>();
+
   private final ReadIndexHeartbeats readIndexHeartbeats;
   private final RaftServerConfigKeys.Read.ReadIndex.Type readIndexType;
   private final Supplier<Long> readIndexSupplier;
@@ -459,6 +468,7 @@ class LeaderStateImpl implements LeaderState {
       LOG.info("{} is already stopped", this);
       return CompletableFuture.completedFuture(null);
     }
+    replicationTraceByLogIndex.clear();
     // do not interrupt event processor since it may be in the middle of logSync
     final CompletableFuture<Void> f = senders.stopAll();
     final NotLeaderException nle = server.generateNotLeaderException();
@@ -558,7 +568,28 @@ class LeaderStateImpl implements LeaderState {
       LOG.debug("{}: addPendingRequest at {}, entry={}", this, request,
           LogProtoUtils.toLogEntryString(entry.getLogEntry()));
     }
-    return pendingRequests.add(permit, request, entry);
+    final PendingRequest pending = pendingRequests.add(permit, request, entry);
+    if (pending != null && TraceUtils.isEnabled()) {
+      final SpanContextProto spanContext = request.getSpanContext();
+      if (spanContext != null && !spanContext.getContextMap().isEmpty()) {
+        replicationTraceByLogIndex.put(pending.getTermIndex().getIndex(), spanContext);
+      }
+    }
+    return pending;
+  }
+
+  private static SpanContextProto tracingContextForReplication(List<LogEntryProto> entries,
+      ConcurrentHashMap<Long, SpanContextProto> traceByIndex) {
+    if (entries == null || entries.isEmpty()) {
+      return null;
+    }
+    for (LogEntryProto e : entries) {
+      final SpanContextProto sc = traceByIndex.get(e.getIndex());
+      if (sc != null && !sc.getContextMap().isEmpty()) {
+        return sc;
+      }
+    }
+    return null;
   }
 
   CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
@@ -645,9 +676,10 @@ class LeaderStateImpl implements LeaderState {
       List<LogEntryProto> entries, TermIndex previous, long callId) {
     final boolean initializing = !isCaughtUp(follower);
     final RaftPeerId targetId = follower.getId();
+    final SpanContextProto tracing = tracingContextForReplication(entries, replicationTraceByLogIndex);
     return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, getCurrentTerm(), entries,
         ServerImplUtils.effectiveCommitIndex(readIndexSupplier.get(), previous, entries.size()),
-        initializing, previous, server.getCommitInfos(), callId);
+        initializing, previous, server.getCommitInfos(), callId, tracing);
   }
 
   /**
@@ -733,6 +765,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   private void stepDown(long term, StepDownReason reason) {
+    replicationTraceByLogIndex.clear();
     try {
       lease.getAndSetEnabled(false);
       server.changeToFollowerAndPersistMetadata(term, false, reason)
@@ -1242,6 +1275,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void replyPendingRequest(TermIndex termIndex, RaftClientReply reply, RetryCacheImpl.CacheEntry cacheEntry) {
+    replicationTraceByLogIndex.remove(termIndex.getIndex());
     final PendingRequest pending = pendingRequests.remove(termIndex);
 
     final LongSupplier replyMethod = () -> {
