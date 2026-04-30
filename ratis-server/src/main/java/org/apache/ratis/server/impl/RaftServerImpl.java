@@ -1093,10 +1093,6 @@ class RaftServerImpl implements RaftServer.Division,
     return processQueryFuture(stateMachine.queryStale(request.getMessage(), minIndex), request);
   }
 
-  ReadRequests getReadRequests() {
-    return getState().getReadRequests();
-  }
-
   private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync(RaftClientRequest clientRequest) {
     final RaftPeerId leaderId = getInfo().getLeaderId();
     if (leaderId == null) {
@@ -1146,7 +1142,8 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       return replyFuture
-          .thenCompose(readIndex -> getReadRequests().waitToAdvance(readIndex))
+          .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
+              snapshotInstallationHandler::getInProgressInstallSnapshotReadException))
           .thenCompose(readIndex -> queryStateMachine(request))
           .exceptionally(e -> readException2Reply(request, e));
     } else {

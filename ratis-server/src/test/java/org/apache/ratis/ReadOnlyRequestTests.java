@@ -40,11 +40,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
@@ -142,19 +144,28 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  private static void setReadRequestsFailure(RaftServer.Division server, Throwable failure) throws Exception {
-    final Method getReadRequests = server.getClass().getDeclaredMethod("getReadRequests");
+  private static void setInProgressInstallSnapshotIndex(RaftServer.Division server, long index) throws Exception {
+    final Field snapshotInstallationHandler = server.getClass().getDeclaredField("snapshotInstallationHandler");
+    snapshotInstallationHandler.setAccessible(true);
+    final Object handler = snapshotInstallationHandler.get(server);
+    final Field inProgressInstallSnapshotIndex = handler.getClass()
+        .getDeclaredField("inProgressInstallSnapshotIndex");
+    inProgressInstallSnapshotIndex.setAccessible(true);
+    ((AtomicLong) inProgressInstallSnapshotIndex.get(handler)).set(index);
+  }
+
+  private static void startSnapshotInstallation(RaftServer.Division server, long index) throws Exception {
+    setInProgressInstallSnapshotIndex(server, index);
+    final Method getState = server.getClass().getDeclaredMethod("getState");
+    getState.setAccessible(true);
+    final Object state = getState.invoke(server);
+    final Method getReadRequests = state.getClass().getDeclaredMethod("getReadRequests");
     getReadRequests.setAccessible(true);
-    final Object readRequests = getReadRequests.invoke(server);
-    final Method method = failure != null
-        ? readRequests.getClass().getDeclaredMethod("failAndBlock", Throwable.class)
-        : readRequests.getClass().getDeclaredMethod("clearFailure");
-    method.setAccessible(true);
-    if (failure != null) {
-      method.invoke(readRequests, failure);
-    } else {
-      method.invoke(readRequests);
-    }
+    final Object readRequests = getReadRequests.invoke(state);
+    final Method fail = readRequests.getClass().getDeclaredMethod("fail", Throwable.class);
+    fail.setAccessible(true);
+    fail.invoke(readRequests, new ReadException(server.getMemberId()
+        + ": Failed read as snapshot (" + index + ") installation is in progress"));
   }
 
   static void assertSnapshotInstallationReadException(Throwable exception) {
@@ -185,8 +196,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
       final CompletableFuture<RaftClientReply> pendingRead = followerClient.async().sendReadOnly(QUERY, followerId);
       Assertions.assertFalse(pendingRead.isDone(), () -> "pendingRead=" + pendingRead);
 
-      final String message = follower.getMemberId() + ": Failed read as snapshot (1) installation is in progress";
-      setReadRequestsFailure(follower, new ReadException(message));
+      startSnapshotInstallation(follower, 1);
       try {
         final CompletionException pendingException = Assertions.assertThrows(CompletionException.class,
             pendingRead::join);
@@ -196,10 +206,11 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
             () -> followerClient.io().sendReadOnly(QUERY, followerId));
         assertSnapshotInstallationReadException(readException);
       } finally {
-        setReadRequestsFailure(follower, null);
+        setInProgressInstallSnapshotIndex(follower, -1);
       }
 
       assertReplyExact(2, writeReply.join());
+      assertReplyExact(2, followerClient.io().sendReadOnly(QUERY, followerId));
     }
   }
 

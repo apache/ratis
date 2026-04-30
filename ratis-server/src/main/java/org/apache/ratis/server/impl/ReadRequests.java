@@ -33,6 +33,7 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongConsumer;
+import java.util.function.Supplier;
 
 /** For supporting linearizable read. */
 class ReadRequests {
@@ -54,17 +55,17 @@ class ReadRequests {
     private final NavigableMap<Long, CompletableFuture<Long>> sorted = new TreeMap<>();
 
     private final TimeDuration readTimeout;
-    private Throwable failure;
 
     ReadIndexQueue(long lastAppliedIndex, TimeDuration readTimeout) {
       this.lastAppliedIndex = lastAppliedIndex;
       this.readTimeout = readTimeout;
     }
 
-    CompletableFuture<Long> add(long readIndex) {
+    CompletableFuture<Long> add(long readIndex, Supplier<Throwable> failureSupplier) {
       final CompletableFuture<Long> returned;
       final boolean create;
       synchronized (this) {
+        final Throwable failure = failureSupplier.get();
         if (failure != null) {
           return JavaUtils.completeExceptionally(failure);
         }
@@ -109,15 +110,6 @@ class ReadRequests {
       futures.forEach(f -> f.completeExceptionally(cause));
     }
 
-    synchronized void clearFailure() {
-      failure = null;
-    }
-
-    synchronized void failAndBlock(Throwable cause) {
-      failure = cause;
-      fail(cause);
-    }
-
     /** Complete all the entries less than or equal to the given applied index. */
     synchronized void complete(long appliedIndex) {
       if (appliedIndex > lastAppliedIndex) {
@@ -148,19 +140,11 @@ class ReadRequests {
     return readIndexQueue::complete;
   }
 
-  CompletableFuture<Long> waitToAdvance(long readIndex) {
-    return readIndexQueue.add(readIndex);
+  CompletableFuture<Long> waitToAdvance(long readIndex, Supplier<Throwable> failureSupplier) {
+    return readIndexQueue.add(readIndex, failureSupplier);
   }
 
   void fail(Throwable cause) {
     readIndexQueue.fail(cause);
-  }
-
-  void failAndBlock(Throwable cause) {
-    readIndexQueue.failAndBlock(cause);
-  }
-
-  void clearFailure() {
-    readIndexQueue.clearFailure();
   }
 }
