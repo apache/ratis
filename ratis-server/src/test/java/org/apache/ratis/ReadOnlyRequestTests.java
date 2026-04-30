@@ -40,8 +40,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
@@ -136,6 +139,67 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
       // readOnly will success after re-election
       assertReplyExact(1, client.io().sendReadOnly(QUERY));
+    }
+  }
+
+  private static void setReadRequestsFailure(RaftServer.Division server, Throwable failure) throws Exception {
+    final Method getReadRequests = server.getClass().getDeclaredMethod("getReadRequests");
+    getReadRequests.setAccessible(true);
+    final Object readRequests = getReadRequests.invoke(server);
+    final Method method = failure != null
+        ? readRequests.getClass().getDeclaredMethod("failAndBlock", Throwable.class)
+        : readRequests.getClass().getDeclaredMethod("clearFailure");
+    method.setAccessible(true);
+    if (failure != null) {
+      method.invoke(readRequests, failure);
+    } else {
+      method.invoke(readRequests);
+    }
+  }
+
+  static void assertSnapshotInstallationReadException(Throwable exception) {
+    final Throwable cause = exception instanceof CompletionException && exception.getCause() != null
+        ? exception.getCause() : exception;
+    Assertions.assertInstanceOf(ReadException.class, cause);
+    Assertions.assertTrue(cause.getMessage().contains("snapshot (1) installation is in progress"),
+        () -> "Unexpected exception: " + exception);
+  }
+
+  static <C extends MiniRaftCluster> void runTestFollowerLinearizableReadFailsWhenInstallingSnapshot(C cluster)
+      throws Exception {
+    final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+
+    final List<RaftServer.Division> followers = cluster.getFollowers();
+    Assertions.assertEquals(2, followers.size());
+
+    final RaftServer.Division follower = followers.get(0);
+    final RaftPeerId followerId = follower.getId();
+
+    try (RaftClient leaderClient = cluster.createClient(leaderId);
+         RaftClient followerClient = cluster.createClient(followerId, RetryPolicies.noRetry())) {
+      assertReplyExact(1, leaderClient.io().send(INCREMENT));
+      assertReplyExact(1, followerClient.io().sendReadOnly(QUERY, followerId));
+
+      final CompletableFuture<RaftClientReply> writeReply = leaderClient.async().send(WAIT_AND_INCREMENT);
+      Thread.sleep(100);
+      final CompletableFuture<RaftClientReply> pendingRead = followerClient.async().sendReadOnly(QUERY, followerId);
+      Assertions.assertFalse(pendingRead.isDone(), () -> "pendingRead=" + pendingRead);
+
+      final String message = follower.getMemberId() + ": Failed read as snapshot (1) installation is in progress";
+      setReadRequestsFailure(follower, new ReadException(message));
+      try {
+        final CompletionException pendingException = Assertions.assertThrows(CompletionException.class,
+            pendingRead::join);
+        assertSnapshotInstallationReadException(pendingException);
+
+        final ReadException readException = Assertions.assertThrows(ReadException.class,
+            () -> followerClient.io().sendReadOnly(QUERY, followerId));
+        assertSnapshotInstallationReadException(readException);
+      } finally {
+        setReadRequestsFailure(follower, null);
+      }
+
+      assertReplyExact(2, writeReply.join());
     }
   }
 

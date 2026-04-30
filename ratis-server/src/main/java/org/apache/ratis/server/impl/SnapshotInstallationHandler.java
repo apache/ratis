@@ -276,6 +276,7 @@ class SnapshotInstallationHandler {
               InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
           return future.thenApply(dummy -> reply);
         }
+        server.getReadRequests().failAndBlock(ReadRequests.newException(getMemberId(), firstAvailableLogIndex));
 
         final RaftPeerProto leaderProto;
         if (!request.hasLastRaftConfigurationLogEntryProto()) {
@@ -314,6 +315,7 @@ class SnapshotInstallationHandler {
                 LOG.error("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
                     getMemberId(), exception.getMessage());
                 inProgressInstallSnapshotIndex.compareAndSet(firstAvailableLogIndex, INVALID_LOG_INDEX);
+                server.getReadRequests().clearFailure();
                 return;
               }
 
@@ -349,6 +351,7 @@ class SnapshotInstallationHandler {
         LOG.info("{}: InstallSnapshot notification result: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE);
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
+        server.getReadRequests().clearFailure();
         server.getStateMachine().event().notifySnapshotInstalled(
             InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, INVALID_LOG_INDEX, server.getPeer());
         final InstallSnapshotReplyProto reply =  toInstallSnapshotReplyProto(leaderId, getMemberId(),
@@ -366,6 +369,7 @@ class SnapshotInstallationHandler {
         LOG.info("{}: InstallSnapshot notification result: {}, at index: {}", getMemberId(),
             InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledSnapshotTermIndex);
         inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
+        server.getReadRequests().clearFailure();
         final long latestInstalledIndex = latestInstalledSnapshotTermIndex.getIndex();
         server.getStateMachine().event().notifySnapshotInstalled(
             InstallSnapshotResult.SNAPSHOT_INSTALLED, latestInstalledIndex, server.getPeer());
