@@ -171,12 +171,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testFollowerLinearizableReadFailsWhenInstallingSnapshot() throws Exception {
-    RaftServerConfigKeys.Read.setTimeout(getProperties(), TimeDuration.valueOf(200, TimeUnit.MILLISECONDS));
-    try {
-      runWithNewCluster(ReadOnlyRequestTests::runTestFollowerLinearizableReadFailsWhenInstallingSnapshot);
-    } finally {
-      RaftServerConfigKeys.Read.setTimeout(getProperties(), RaftServerConfigKeys.Read.TIMEOUT_DEFAULT);
-    }
+    runWithNewCluster(ReadOnlyRequestTests::runTestFollowerLinearizableReadFailsWhenInstallingSnapshot);
   }
 
   @Test
