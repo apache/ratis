@@ -202,7 +202,7 @@ public final class LogSegment {
     final CorruptionPolicy corruptionPolicy = CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
     final boolean isOpen = startEnd.isOpen();
     final int entryCount = readSegmentFile(file, startEnd, maxOpSize, corruptionPolicy, raftLogMetrics, entry -> {
-      segment.append(keepEntryInCache || isOpen, entry, Op.LOAD_SEGMENT_FILE);
+      segment.append(keepEntryInCache || isOpen, entry, Op.LOAD_SEGMENT_FILE, true);
       if (logConsumer != null) {
         logConsumer.accept(entry);
       }
@@ -353,24 +353,17 @@ public final class LogSegment {
     return CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
   }
 
-  void appendToOpenSegment(LogEntryProto entry, Op op) {
+  void appendToOpenSegment(LogEntryProto entry, Op op, boolean verifyEntryIndex) {
     Preconditions.assertTrue(isOpen(), "The log segment %s is not open for append", this);
-    append(true, entry, op);
+    append(true, entry, op, verifyEntryIndex);
   }
 
   public static final String APPEND_RECORD = LogSegment.class.getSimpleName() + ".append";
-  private void append(boolean keepEntryInCache, LogEntryProto entry, Op op) {
+  private void append(boolean keepEntryInCache, LogEntryProto entry, Op op, boolean verifyEntryIndex) {
     Objects.requireNonNull(entry, "entry == null");
-    final LogRecord currentLast = records.getLast();
-    if (currentLast == null) {
-      Preconditions.assertTrue(entry.getIndex() == startIndex,
-          "gap between start index %s and first entry to append %s",
-          startIndex, entry.getIndex());
-    } else {
-      Preconditions.assertTrue(entry.getIndex() == currentLast.getTermIndex().getIndex() + 1,
-          "gap between entries %s and %s", entry.getIndex(), currentLast.getTermIndex().getIndex());
+    if (verifyEntryIndex) {
+      verifyEntryIndex(entry.getIndex());
     }
-
     final LogRecord record = new LogRecord(totalFileSize, entry);
     if (keepEntryInCache) {
       // It is important to put the entry into the cache before appending the
@@ -383,6 +376,18 @@ public final class LogSegment {
 
     totalFileSize += getEntrySize(entry, op);
     endIndex = entry.getIndex();
+  }
+
+  void verifyEntryIndex(long entryIndex) {
+    final LogRecord currentLast = records.getLast();
+    if (currentLast == null) {
+      Preconditions.assertTrue(entryIndex == startIndex,
+          "gap between start index %s and first entry to append %s",
+          startIndex, entryIndex);
+    } else {
+      Preconditions.assertTrue(entryIndex == currentLast.getTermIndex().getIndex() + 1,
+          "gap between entries %s and %s", entryIndex, currentLast.getTermIndex().getIndex());
+    }
   }
 
   LogEntryProto getEntryFromCache(TermIndex ti) {
