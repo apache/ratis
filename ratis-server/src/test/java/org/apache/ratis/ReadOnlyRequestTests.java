@@ -40,8 +40,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
@@ -136,6 +141,76 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
       // readOnly will success after re-election
       assertReplyExact(1, client.io().sendReadOnly(QUERY));
+    }
+  }
+
+  private static void setInProgressInstallSnapshotIndex(RaftServer.Division server, long index) throws Exception {
+    final Field snapshotInstallationHandler = server.getClass().getDeclaredField("snapshotInstallationHandler");
+    snapshotInstallationHandler.setAccessible(true);
+    final Object handler = snapshotInstallationHandler.get(server);
+    final Field inProgressInstallSnapshotIndex = handler.getClass()
+        .getDeclaredField("inProgressInstallSnapshotIndex");
+    inProgressInstallSnapshotIndex.setAccessible(true);
+    ((AtomicLong) inProgressInstallSnapshotIndex.get(handler)).set(index);
+  }
+
+  private static void startSnapshotInstallation(RaftServer.Division server, long index) throws Exception {
+    setInProgressInstallSnapshotIndex(server, index);
+    final Method getState = server.getClass().getDeclaredMethod("getState");
+    getState.setAccessible(true);
+    final Object state = getState.invoke(server);
+    final Method getReadRequests = state.getClass().getDeclaredMethod("getReadRequests");
+    getReadRequests.setAccessible(true);
+    final Object readRequests = getReadRequests.invoke(state);
+    final Method fail = readRequests.getClass().getDeclaredMethod("fail", Throwable.class);
+    fail.setAccessible(true);
+    fail.invoke(readRequests, new ReadException(server.getMemberId()
+        + ": Failed read as snapshot (" + index + ") installation is in progress"));
+  }
+
+  static void assertSnapshotInstallationReadException(Throwable exception) {
+    final Throwable cause = exception instanceof CompletionException && exception.getCause() != null
+        ? exception.getCause() : exception;
+    Assertions.assertInstanceOf(ReadException.class, cause);
+    Assertions.assertTrue(cause.getMessage().contains("snapshot (1) installation is in progress"),
+        () -> "Unexpected exception: " + exception);
+  }
+
+  static <C extends MiniRaftCluster> void runTestFollowerLinearizableReadFailsWhenInstallingSnapshot(C cluster)
+      throws Exception {
+    final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+
+    final List<RaftServer.Division> followers = cluster.getFollowers();
+    Assertions.assertEquals(2, followers.size());
+
+    final RaftServer.Division follower = followers.get(0);
+    final RaftPeerId followerId = follower.getId();
+
+    try (RaftClient leaderClient = cluster.createClient(leaderId);
+         RaftClient followerClient = cluster.createClient(followerId, RetryPolicies.noRetry())) {
+      assertReplyExact(1, leaderClient.io().send(INCREMENT));
+      assertReplyExact(1, followerClient.io().sendReadOnly(QUERY, followerId));
+
+      final CompletableFuture<RaftClientReply> writeReply = leaderClient.async().send(WAIT_AND_INCREMENT);
+      Thread.sleep(100);
+      final CompletableFuture<RaftClientReply> pendingRead = followerClient.async().sendReadOnly(QUERY, followerId);
+      Assertions.assertFalse(pendingRead.isDone(), () -> "pendingRead=" + pendingRead);
+
+      startSnapshotInstallation(follower, 1);
+      try {
+        final CompletionException pendingException = Assertions.assertThrows(CompletionException.class,
+            pendingRead::join);
+        assertSnapshotInstallationReadException(pendingException);
+
+        final ReadException readException = Assertions.assertThrows(ReadException.class,
+            () -> followerClient.io().sendReadOnly(QUERY, followerId));
+        assertSnapshotInstallationReadException(readException);
+      } finally {
+        setInProgressInstallSnapshotIndex(follower, -1);
+      }
+
+      assertReplyExact(2, writeReply.join());
+      assertReplyExact(2, followerClient.io().sendReadOnly(QUERY, followerId));
     }
   }
 

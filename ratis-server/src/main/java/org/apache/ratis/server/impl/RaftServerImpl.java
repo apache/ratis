@@ -1092,12 +1092,11 @@ class RaftServerImpl implements RaftServer.Division,
     }
     return processQueryFuture(stateMachine.queryStale(request.getMessage(), minIndex), request);
   }
-
-  ReadRequests getReadRequests() {
-    return getState().getReadRequests();
-  }
-
   private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync(RaftClientRequest clientRequest) {
+    final Throwable snapshotInstallation = snapshotInstallationHandler.getInProgressInstallSnapshotReadException();
+    if (snapshotInstallation != null) {
+      return JavaUtils.completeExceptionally(snapshotInstallation);
+    }
     final RaftPeerId leaderId = getInfo().getLeaderId();
     if (leaderId == null) {
       return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
@@ -1146,7 +1145,8 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       return replyFuture
-          .thenCompose(readIndex -> getReadRequests().waitToAdvance(readIndex))
+          .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
+              snapshotInstallationHandler::getInProgressInstallSnapshotReadException))
           .thenCompose(readIndex -> queryStateMachine(request))
           .exceptionally(e -> readException2Reply(request, e));
     } else {
