@@ -19,10 +19,16 @@ package org.apache.ratis.server.impl;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
+import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroup;
@@ -32,13 +38,20 @@ import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
+import org.apache.ratis.trace.RatisAttributes;
 import org.apache.ratis.trace.TraceConfigKeys;
+import org.apache.ratis.trace.TraceServer;
 import org.apache.ratis.trace.TraceUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -82,6 +95,114 @@ public class RaftServerImplTracingTests {
         spans.stream().anyMatch(s -> s.getKind() == SpanKind.CLIENT && s.getName().equals("client-span")),
         "Expected at least one span with SpanKind.CLIENT"
     );
+  }
+
+  @Test
+  public void testTraceAppendEntriesAsyncCreatesInternalSpan() throws Exception {
+    long callId = randomCallId();
+    int entriesCount = 3;
+    final List<SpanData> spans = traceAppendEntriesAndCollectNewSpans(true, newAppendEntriesRequest(
+        RaftPeerId.valueOf("leader1"), callId, entriesCount, injectedSpanContext()));
+    final SpanData appendSpan = spans.stream()
+        .filter(s -> s.getKind() == SpanKind.INTERNAL && s.getName().equals("raft.server.appendEntriesAsync"))
+        .findFirst()
+        .orElseThrow(() -> new IllegalStateException("Expected INTERNAL raft.server.appendEntriesAsync span"));
+    assertEquals("n1", appendSpan.getAttributes().get(RatisAttributes.MEMBER_ID));
+    assertEquals("leader1", appendSpan.getAttributes().get(RatisAttributes.PEER_ID));
+    assertEquals(entriesCount, appendSpan.getAttributes().get(RatisAttributes.APPEND_ENTRIES_COUNT));
+  }
+
+  @Test
+  public void testTraceAppendEntriesAsyncTracingDisabled() throws Exception {
+    int entriesCount = 1;
+    final List<SpanData> spans = traceAppendEntriesAndCollectNewSpans(false, newAppendEntriesRequest(
+        RaftPeerId.valueOf("leader1"), randomCallId(), entriesCount, injectedSpanContext()));
+    assertTrue(
+        spans.stream().noneMatch(s -> s.getName().equals("raft.server.appendEntriesAsync")),
+        "Expected no appendEntries span when tracing disabled, got: " + spans);
+  }
+
+  @Test
+  public void testTraceAppendEntriesAsyncSkipsWhenSpanContextEmpty() throws Exception {
+    int entriesCount = 1;
+    final AppendEntriesRequestProto request = newAppendEntriesRequest(
+        RaftPeerId.valueOf("leader1"), randomCallId(), entriesCount, SpanContextProto.getDefaultInstance());
+    final List<SpanData> spans = traceAppendEntriesAndCollectNewSpans(true, request);
+    assertEquals(1,
+        spans.stream().filter(s -> s.getName().equals("raft.server.appendEntriesAsync")).count());
+  }
+
+  @Test
+  public void testTraceAppendEntriesAsyncSpanRecordsErrorOnFailure() throws Exception {
+    int entriesCount = 0;
+    final List<SpanData> spans = traceAppendEntriesAndCollectNewSpans(true, newAppendEntriesRequest(
+        RaftPeerId.valueOf("leader1"), randomCallId(), entriesCount, injectedSpanContext()),
+        () -> JavaUtils.completeExceptionally(new IOException("Planned record error")));
+    assertEquals(1,
+        spans.stream().filter(s -> s.getName().equals("raft.server.appendEntriesAsync")).count());
+    final SpanData appendSpan = spans.stream()
+        .filter(s -> s.getKind() == SpanKind.INTERNAL && s.getName().equals("raft.server.appendEntriesAsync"))
+        .findFirst()
+        .orElseThrow(() -> new IllegalStateException("Expected INTERNAL raft.server.appendEntriesAsync span"));
+    assertEquals(StatusCode.ERROR, appendSpan.getStatus().getStatusCode());
+  }
+
+  private static List<SpanData> traceAppendEntriesAndCollectNewSpans(
+      boolean enableTracing, AppendEntriesRequestProto request) throws Exception {
+    return traceAppendEntriesAndCollectNewSpans(enableTracing, request,
+        () -> CompletableFuture.completedFuture(AppendEntriesReplyProto.getDefaultInstance()));
+  }
+
+  private static List<SpanData> traceAppendEntriesAndCollectNewSpans(
+      boolean enableTracing,
+      AppendEntriesRequestProto request,
+      Supplier<CompletableFuture<AppendEntriesReplyProto>> action)
+      throws Exception {
+    final int before = openTelemetryExtension.getSpans().size();
+    try {
+      TraceUtils.setTracerWhenEnabled(enableTracing);
+      final CompletableFuture<AppendEntriesReplyProto> traced =
+          TraceServer.traceAppendEntriesAsync(action::get, request, "n1");
+      try {
+        traced.join();
+      } catch (CompletionException e) {
+        // allowed for failure-path test
+      }
+    } finally {
+      TraceUtils.setTracerWhenEnabled(false);
+    }
+    final List<SpanData> after = openTelemetryExtension.getSpans();
+    return new ArrayList<>(after.subList(before, after.size()));
+  }
+
+  private static SpanContextProto injectedSpanContext() {
+    final Span remoteParent = openTelemetryExtension.getOpenTelemetry().getTracer("test")
+        .spanBuilder("remote-parent")
+        .setSpanKind(SpanKind.CLIENT)
+        .startSpan();
+    try {
+      return TraceUtils.injectContextToProto(Context.current().with(remoteParent));
+    } finally {
+      remoteParent.end();
+    }
+  }
+
+  private static AppendEntriesRequestProto newAppendEntriesRequest(
+      RaftPeerId leaderId, long callId, int entriesCount, SpanContextProto spanContext) {
+    final RaftRpcRequestProto.Builder rpc = RaftRpcRequestProto.newBuilder()
+        .setRequestorId(leaderId.toByteString())
+        .setCallId(callId);
+    if (spanContext != null && !spanContext.getContextMap().isEmpty()) {
+      rpc.setSpanContext(spanContext);
+    }
+    final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto.newBuilder()
+        .setServerRequest(rpc.build())
+        .setLeaderTerm(1L)
+        .setLeaderCommit(0L);
+    for (int i = 0; i < entriesCount; i++) {
+      b.addEntries(LogEntryProto.newBuilder().setTerm(1L).setIndex(i + 1L).build());
+    }
+    return b.build();
   }
 
   private static List<SpanData> submitClientRequestAndCollectNewSpans(boolean enableTracing)
@@ -137,5 +258,10 @@ public class RaftServerImplTracingTests {
       clientSpan.end();
     }
   }
+
+  private long randomCallId() {
+    return (long) (Math.random() * 100);
+  }
+
 }
 

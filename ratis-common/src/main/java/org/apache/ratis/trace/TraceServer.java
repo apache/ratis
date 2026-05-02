@@ -20,9 +20,14 @@ package org.apache.ratis.trace;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.context.Context;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
+import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.function.CheckedSupplier;
 
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /** Server-side OpenTelemetry helpers. */
@@ -55,5 +60,35 @@ public final class TraceServer {
     span.setAttribute(RatisAttributes.CALL_ID, String.valueOf(request.getCallId()));
     span.setAttribute(RatisAttributes.MEMBER_ID, memberId);
     return span;
+  }
+
+  /**
+   * Traces follower handling of {@link AppendEntriesRequestProto} when the leader attached trace
+   * context (client-originated) for replication.
+   */
+  public static <T> CompletableFuture<T> traceAppendEntriesAsync(
+      CheckedSupplier<CompletableFuture<T>, IOException> action,
+      AppendEntriesRequestProto request, String memberId) throws IOException {
+    if (!TraceUtils.isEnabled()) {
+      return action.get();
+    }
+    final RaftRpcRequestProto rpc = request.getServerRequest();
+    final SpanContextProto spanContext = rpc.getSpanContext();
+    // If the leader sent no parent span context, still trace as a root span
+    // rather than skipping tracing entirely.
+    final Context remoteContext = (spanContext == null || spanContext.getContextMap().isEmpty())
+        ? Context.root()
+        : TraceUtils.extractContextFromProto(spanContext);
+    return TraceUtils.traceAsyncMethod(action, () -> {
+      final Span span = TraceUtils.getGlobalTracer()
+          .spanBuilder("raft.server.appendEntriesAsync")
+          .setParent(remoteContext)
+          .setSpanKind(SpanKind.INTERNAL)
+          .startSpan();
+      span.setAttribute(RatisAttributes.MEMBER_ID, memberId);
+      span.setAttribute(RatisAttributes.PEER_ID, String.valueOf(RaftPeerId.valueOf(rpc.getRequestorId())));
+      span.setAttribute(RatisAttributes.APPEND_ENTRIES_COUNT, (long) request.getEntriesCount());
+      return span;
+    });
   }
 }
