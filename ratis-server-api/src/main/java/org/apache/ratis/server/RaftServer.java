@@ -24,12 +24,16 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.ReadRequestTypeProto;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.AdminProtocol;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftClientProtocol;
 import org.apache.ratis.protocol.RaftGroup;
@@ -101,6 +105,21 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link StateMachine} for this division. */
     StateMachine getStateMachine();
+
+    /**
+     * Execute a local read-only query after applying the configured
+     * {@link RaftServerConfigKeys.Read.Option} consistency checks.
+     *
+     * <p>This API is intended for embedded users that already have a local
+     * server division and want to avoid serializing application read requests
+     * and responses through {@link org.apache.ratis.protocol.Message}. Remote
+     * clients should continue to use
+     * {@link org.apache.ratis.client.api.AsyncApi#sendReadOnly(org.apache.ratis.protocol.Message)}.
+     */
+    default <T> CompletableFuture<T> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
+        Supplier<CompletableFuture<T>> query) throws IOException {
+      throw new UnsupportedOperationException("readOnlyAsync is not supported");
+    }
 
     /** @return the raft log of this division. */
     RaftLog getRaftLog();
