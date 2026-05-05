@@ -278,6 +278,10 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     return builder.build();
   }
 
+  void close() {
+    zeroCopyRequestMarshaller.close();
+  }
+
   @Override
   public void requestVote(RequestVoteRequestProto request,
       StreamObserver<RequestVoteReplyProto> responseObserver) {

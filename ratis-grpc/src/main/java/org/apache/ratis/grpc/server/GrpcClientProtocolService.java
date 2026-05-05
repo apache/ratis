@@ -165,6 +165,10 @@ class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
     zeroCopyMetrics.addUnreleased("client_protocol", zeroCopyRequestMarshaller::getUnclosedCount);
   }
 
+  void close() {
+    zeroCopyRequestMarshaller.close();
+  }
+
   RaftPeerId getId() {
     return idSupplier.get();
   }

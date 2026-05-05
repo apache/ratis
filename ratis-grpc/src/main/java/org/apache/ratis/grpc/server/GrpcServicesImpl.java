@@ -235,11 +235,12 @@ public final class GrpcServicesImpl
       return clientPort > 0 && clientPort != serverPort;
     }
 
-    Server newServer(GrpcClientProtocolService client, ZeroCopyMetrics zeroCopyMetrics, ServerInterceptor interceptor) {
+    Server newServer(GrpcClientProtocolService client, GrpcServerProtocolService service,
+        ServerInterceptor interceptor) {
       final EnumSet<GrpcServices.Type> types = EnumSet.of(GrpcServices.Type.SERVER);
       final NettyServerBuilder serverBuilder = newNettyServerBuilderForServer();
-      final ServerServiceDefinition service = newGrpcServerProtocolService(zeroCopyMetrics).bindServiceWithZeroCopy();
-      serverBuilder.addService(ServerInterceptors.intercept(service, interceptor));
+      final ServerServiceDefinition serviceDefinition = service.bindServiceWithZeroCopy();
+      serverBuilder.addService(ServerInterceptors.intercept(serviceDefinition, interceptor));
 
       if (!separateAdminServer()) {
         types.add(GrpcServices.Type.ADMIN);
@@ -285,6 +286,7 @@ public final class GrpcServicesImpl
 
   private final ExecutorService executor;
   private final GrpcClientProtocolService clientProtocolService;
+  private final GrpcServerProtocolService serverProtocolService;
 
   private final MetricServerInterceptor serverInterceptor;
   private final ZeroCopyMetrics zeroCopyMetrics = new ZeroCopyMetrics();
@@ -294,8 +296,9 @@ public final class GrpcServicesImpl
 
     this.executor = b.newExecutor();
     this.clientProtocolService = b.newGrpcClientProtocolService(executor, zeroCopyMetrics);
+    this.serverProtocolService = b.newGrpcServerProtocolService(zeroCopyMetrics);
     this.serverInterceptor = b.newMetricServerInterceptor();
-    final Server server = b.newServer(clientProtocolService, zeroCopyMetrics, serverInterceptor);
+    final Server server = b.newServer(clientProtocolService, serverProtocolService, serverInterceptor);
 
     servers.put(GrpcServerProtocolService.class.getSimpleName(), server);
     addressSupplier = newAddressSupplier(b.serverPort, server);
@@ -373,6 +376,8 @@ public final class GrpcServicesImpl
 
     serverInterceptor.close();
     ConcurrentUtils.shutdownAndWait(executor);
+    clientProtocolService.close();
+    serverProtocolService.close();
     zeroCopyMetrics.unregister();
   }
 
