@@ -87,9 +87,23 @@ public final class LogProtoUtils {
 
   public static String toLogEntriesShortString(List<LogEntryProto> entries,
       Function<StateMachineLogEntryProto, String> stateMachineToString) {
-    return entries == null ? null
-        : entries.isEmpty()? "<empty>"
-        : "size=" + entries.size() + ", first=" + toLogEntryString(entries.get(0), stateMachineToString);
+    if (entries == null) {
+      return null;
+    }
+    return toLogEntryTermIndexString(entries)
+        + (entries.isEmpty() ? "" : ", first=" + toLogEntryString(entries.get(0), stateMachineToString));
+  }
+
+  public static String toLogEntryTermIndexString(List<LogEntryProto> entries) {
+    final int n = entries.size();
+    return n == 0 ? toLogEntryTermIndexString(n, null, null)
+        : toLogEntryTermIndexString(n, TermIndex.valueOf(entries.get(0)), TermIndex.valueOf(entries.get(n - 1)));
+  }
+
+  public static String toLogEntryTermIndexString(int n, TermIndex first, TermIndex last) {
+    return n == 0 ? "HEARTBEAT"
+        : n == 1 ? "entry=" + first
+        : n + " entries=" + first + "..." + last;
   }
 
   public static LogEntryProto toLogEntryProto(RaftConfiguration conf, Long term, long index) {

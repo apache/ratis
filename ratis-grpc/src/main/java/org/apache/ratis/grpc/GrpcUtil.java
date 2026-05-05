@@ -97,7 +97,7 @@ public interface GrpcUtil {
         return unwrapped;
       }
     }
-    return t;
+    return JavaUtils.unwrapCompletionException(t);
   }
 
   static IOException unwrapException(StatusRuntimeException se) {

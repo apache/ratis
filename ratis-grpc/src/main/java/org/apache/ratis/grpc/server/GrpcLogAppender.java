@@ -63,6 +63,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.apache.ratis.server.raftlog.LogProtoUtils.toLogEntryTermIndexString;
+
 /**
  * A new log appender implementation using grpc bi-directional stream API.
  */
@@ -301,8 +303,8 @@ public class GrpcLogAppender extends LogAppenderBase {
       getEventAwaitForSignal().await(getWaitTimeMs() + errorWaitTimeMs(),
           TimeUnit.MILLISECONDS);
     } catch (InterruptedException ie) {
-      LOG.warn(this + ": Wait interrupted by " + ie);
       Thread.currentThread().interrupt();
+      LOG.warn("{} is interrupted: {}", this, ie.toString());
     }
   }
 
@@ -616,11 +618,11 @@ public class GrpcLogAppender extends LogAppenderBase {
         if (isNotificationOnly) {
           Preconditions.assertSame(InstallSnapshotReplyBodyCase.SNAPSHOTINDEX,
                   reply.getInstallSnapshotReplyBodyCase(), "reply case");
-          Preconditions.assertSame(INSTALL_SNAPSHOT_NOTIFICATION_INDEX, (int) index, "poll index");
+          Preconditions.assertSame(INSTALL_SNAPSHOT_NOTIFICATION_INDEX, index, "poll index");
         } else {
           Preconditions.assertSame(InstallSnapshotReplyBodyCase.REQUESTINDEX,
                   reply.getInstallSnapshotReplyBodyCase(), "reply case");
-          Preconditions.assertSame(reply.getRequestIndex(), (int) index, "poll index");
+          Preconditions.assertSame(reply.getRequestIndex(), index, "poll index");
         }
       }
     }
@@ -889,13 +891,9 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     @Override
     public String toString() {
-      final String entries = entriesCount == 0? ""
-          : entriesCount == 1? ",entry=" + firstEntry
-          : ",entries=" + firstEntry + "..." + lastEntry;
       return JavaUtils.getClassSimpleName(getClass())
           + ":cid=" + callId
-          + ",entriesCount=" + entriesCount
-          + entries;
+          + ":" + toLogEntryTermIndexString(entriesCount, firstEntry, lastEntry);
     }
   }
 

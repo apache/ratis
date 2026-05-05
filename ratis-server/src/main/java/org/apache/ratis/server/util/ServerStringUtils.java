@@ -21,17 +21,16 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ProtoUtils;
 
-import java.util.List;
 import java.util.function.Function;
+
+import static org.apache.ratis.server.raftlog.LogProtoUtils.toLogEntriesShortString;
 
 /**
  *  This class provides convenient utilities for converting Protocol Buffers messages to strings.
@@ -50,14 +49,12 @@ public final class ServerStringUtils {
     if (request == null) {
       return null;
     }
-    final List<LogEntryProto> entries = request.getEntriesList();
     return ProtoUtils.toString(request.getServerRequest())
         + "-t" + request.getLeaderTerm()
         + ",previous=" + TermIndex.valueOf(request.getPreviousLog())
         + ",leaderCommit=" + request.getLeaderCommit()
         + ",initializing? " + request.getInitializing()
-        + "," + (entries.isEmpty()? "HEARTBEAT" : "entries: " +
-        LogProtoUtils.toLogEntriesShortString(entries, stateMachineToString));
+        + "," + toLogEntriesShortString(request.getEntriesList(), stateMachineToString);
   }
 
   public static String toAppendEntriesReplyString(AppendEntriesReplyProto reply) {
@@ -87,7 +84,7 @@ public final class ServerStringUtils {
         s = "notify:" + TermIndex.valueOf(notification.getFirstAvailableTermIndex());
         break;
       default:
-        throw new IllegalStateException("Unexpected body case in " + request);
+        throw new IllegalStateException("Unexpected InstallSnapshotRequestBodyCase in " + request);
     }
     return ProtoUtils.toString(request.getServerRequest())
         + "-t" + request.getLeaderTerm()
@@ -122,11 +119,7 @@ public final class ServerStringUtils {
         + "-last:" + TermIndex.valueOf(proto.getLastEntry());
   }
 
-  /**
-   * Used to generate the necessary unified name in the submodules under
-   * {@link org.apache.ratis.server.impl.RaftServerImpl}, which consists
-   * of {@link org.apache.ratis.server.impl.ServerState#memberId} and the specific class.
-   */
+  /** Generate the unified name for the given member and class. */
   public static String generateUnifiedName(RaftGroupMemberId memberId, Class<?> clazz) {
     return memberId + "-" + JavaUtils.getClassSimpleName(clazz);
   }
