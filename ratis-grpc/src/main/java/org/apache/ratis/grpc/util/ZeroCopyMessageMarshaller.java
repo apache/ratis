@@ -243,9 +243,10 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
       if (unclosedStreams.isEmpty()) {
         return;
       }
-      for (InputStream stream : unclosedStreams.values()) {
+      for (Map.Entry<T, InputStream> entry : unclosedStreams.entrySet()) {
         try {
-          stream.close();
+          entry.getValue().close();
+          releasedCount.accept(entry.getKey());
         } catch (IOException e) {
           LOG.warn("{}: Failed to close leaked stream.", name, e);
         }
