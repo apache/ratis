@@ -613,21 +613,42 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
             + "leaderSnapshotInfo={}\n{}\n{}",
         phase, Arrays.asList(peersInNewConf), numSnapshotRequests.get(), numNotifyInstallSnapshotFinished.get(),
         Optional.ofNullable(leaderSnapshotInfo).map(SnapshotInfo::getTermIndex).orElse(null),
-        cluster.printServers(), cluster.printAllLogs(), cause);
+        safeToString(cluster::printServers), safeToString(cluster::printAllLogs), cause);
 
     for (RaftServer.Division division : cluster.iterateDivisions()) {
-      final SnapshotInfo snapshot = division.getStateMachine().getLatestSnapshot();
+      final SnapshotInfo snapshot = safeGet(() -> division.getStateMachine().getLatestSnapshot());
       LOG.error("{}: divisionState id={}, role={}, leaderId={}, leaderReady={}, alive={}, term={}, "
               + "lastAppliedIndex={}, snapshot={}, logStartIndex={}, logNextIndex={}, commitIndex={}, conf={}, "
               + "followerNextIndices={}, followerMatchIndices={}",
-          phase, division.getId(), division.getInfo().getCurrentRole(), division.getInfo().getLeaderId(),
-          division.getInfo().isLeaderReady(), division.getInfo().isAlive(), division.getInfo().getCurrentTerm(),
-          division.getInfo().getLastAppliedIndex(),
+          phase, division.getId(), safeToString(() -> division.getInfo().getCurrentRole()),
+          safeToString(() -> division.getInfo().getLeaderId()),
+          safeToString(() -> division.getInfo().isLeaderReady()), safeToString(() -> division.getInfo().isAlive()),
+          safeToString(() -> division.getInfo().getCurrentTerm()), safeToString(() -> division.getInfo()
+              .getLastAppliedIndex()),
           Optional.ofNullable(snapshot).map(SnapshotInfo::getTermIndex).orElse(null),
-          division.getRaftLog().getStartIndex(), division.getRaftLog().getNextIndex(),
-          division.getRaftLog().getLastCommittedIndex(), division.getRaftConf(),
-          Arrays.toString(division.getInfo().getFollowerNextIndices()),
-          Arrays.toString(division.getInfo().getFollowerMatchIndices()));
+          safeToString(() -> division.getRaftLog().getStartIndex()),
+          safeToString(() -> division.getRaftLog().getNextIndex()),
+          safeToString(() -> division.getRaftLog().getLastCommittedIndex()),
+          safeToString(division::getRaftConf),
+          safeToString(() -> Arrays.toString(division.getInfo().getFollowerNextIndices())),
+          safeToString(() -> Arrays.toString(division.getInfo().getFollowerMatchIndices())));
+    }
+  }
+
+  private static <T> T safeGet(Supplier<T> supplier) {
+    try {
+      return supplier.get();
+    } catch (RuntimeException e) {
+      LOG.warn("Failed to collect diagnostic state", e);
+      return null;
+    }
+  }
+
+  private static Object safeToString(Supplier<?> supplier) {
+    try {
+      return supplier.get();
+    } catch (RuntimeException e) {
+      return "unavailable: " + e;
     }
   }
 
