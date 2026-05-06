@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -25,10 +25,13 @@ import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static org.apache.ratis.util.LifeCycle.State.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -101,4 +104,68 @@ public class TestLifeCycle {
     }
   }
 
+  @Test
+  public void testStartAndTransition() throws Exception {
+    final SimulatedServer simulatedServer = new SimulatedServer();
+    assertEquals(NEW, simulatedServer.getLifeCycleState());
+
+    final CompletableFuture<Throwable> f = CompletableFuture.supplyAsync(() -> {
+      try {
+        simulatedServer.start();
+        throw new AssertionError("start() should fail");
+      } catch (Exception e) {
+        return e.getCause();
+      }
+    });
+
+    Thread.sleep(100);
+    assertEquals(STARTING, simulatedServer.getLifeCycleState());
+
+    // call close() during STARTING, start() should throw the simulated exception
+    CompletableFuture.supplyAsync(simulatedServer::close);
+    assertSame(simulatedServer.getSimulatedException(), f.get());
+
+    assertEquals(CLOSING, simulatedServer.getLifeCycleState());
+    simulatedServer.getCloseFuture().complete(null);
+    Thread.sleep(100);
+    assertEquals(CLOSED, simulatedServer.getLifeCycleState());
+  }
+
+  private static final class SimulatedServer {
+    private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
+    private final Exception simulatedException = new Exception("Simulated exception");
+    private final CompletableFuture<Void> startFuture = new CompletableFuture<>();
+    private final CompletableFuture<Void> closeFuture = new CompletableFuture<>();
+
+    LifeCycle.State getLifeCycleState() {
+      return lifeCycle.getCurrentState();
+    }
+
+    Exception getSimulatedException() {
+      return simulatedException;
+    }
+
+    CompletableFuture<Void> getCloseFuture() {
+      return closeFuture;
+    }
+
+    void start() throws Exception {
+      lifeCycle.startAndTransition(this::startImpl);
+    }
+
+    void startImpl() throws Exception {
+      startFuture.get();
+    }
+
+    Void close() {
+      // simulate close and then cause start() to fail.
+      lifeCycle.checkStateAndClose(this::closeImpl);
+      return null;
+    }
+
+    void closeImpl() {
+      startFuture.completeExceptionally(simulatedException);
+      closeFuture.join();
+    }
+  }
 }
