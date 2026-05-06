@@ -245,6 +245,11 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     return server.readOnlyAsync(ClientId.emptyClientId(), RaftClientRequest.readRequestType().getRead(), query);
   }
 
+  static <T> CompletableFuture<T> readOnlyAsyncPreferNonLinearizable(
+      RaftServer.Division server, Supplier<CompletableFuture<T>> query) throws IOException {
+    return server.readOnlyAsync(ClientId.emptyClientId(), RaftClientRequest.readRequestType(true).getRead(), query);
+  }
+
   public static void assertReplyExact(int expectedCount, RaftClientReply reply) {
     Assertions.assertTrue(reply.isSuccess());
     final int retrieved = retrieve(reply);

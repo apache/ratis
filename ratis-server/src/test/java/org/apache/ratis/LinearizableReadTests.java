@@ -41,7 +41,9 @@ import org.slf4j.event.Level;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.ratis.ReadOnlyRequestTests.CounterStateMachine;
 import static org.apache.ratis.ReadOnlyRequestTests.INCREMENT;
@@ -53,6 +55,7 @@ import static org.apache.ratis.ReadOnlyRequestTests.assertReplyAtLeast;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyExact;
 import static org.apache.ratis.ReadOnlyRequestTests.getCount;
 import static org.apache.ratis.ReadOnlyRequestTests.readOnlyAsync;
+import static org.apache.ratis.ReadOnlyRequestTests.readOnlyAsyncPreferNonLinearizable;
 import static org.apache.ratis.server.RaftServerConfigKeys.Read.Option.LINEARIZABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -173,6 +176,15 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
         f1Replies.get(i).assertAtLeast();
         assertLongAtLeast(i + 1, f0LocalReplies.get(i).join());
       }
+
+      final AtomicBoolean callbackInvoked = new AtomicBoolean();
+      final CompletableFuture<Long> preferNonLinearizable = readOnlyAsyncPreferNonLinearizable(
+          followers.get(0), () -> {
+            callbackInvoked.set(true);
+            return CompletableFuture.completedFuture(getCount(followers.get(0)));
+          });
+      Assertions.assertThrows(CompletionException.class, preferNonLinearizable::join);
+      Assertions.assertFalse(callbackInvoked.get());
     }
   }
 

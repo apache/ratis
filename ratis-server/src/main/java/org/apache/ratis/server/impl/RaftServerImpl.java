@@ -1171,7 +1171,7 @@ class RaftServerImpl implements RaftServer.Division,
     Objects.requireNonNull(readRequestType, "readRequestType == null");
     Objects.requireNonNull(query, "query == null");
     assertLifeCycleState(LifeCycle.States.RUNNING);
-    if (readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
+    if (readRequestType.getPreferNonLinearizable() || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
       final CompletableFuture<T> reply = checkLeaderStateForReadOnly();
       return reply != null ? reply : supplyReadOnly(query);
     } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
