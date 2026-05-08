@@ -56,6 +56,7 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedFunction;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.Preconditions;
@@ -84,36 +85,30 @@ import static org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer.EMPTY_
 public class NettyClientStreamRpc implements DataStreamClientRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyClientStreamRpc.class);
 
-  private static class WorkerGroupGetter implements Supplier<EventLoopGroup> {
-
-    private static final AtomicReference<CompletableFuture<ReferenceCountedObject<EventLoopGroup>>> SHARED_WORKER_GROUP
-        = new AtomicReference<>();
+  private static class WorkerGroupGetter {
+    private static final MemoizedFunction<RaftProperties, ReferenceCountedObject<EventLoopGroup>> SHARED
+        = MemoizedFunction.valueOf(properties -> ReferenceCountedObject.<EventLoopGroup>newBuilder()
+          .setConstructor(() -> newWorkerGroup(properties))
+          .setReleaseMethod(eventLoopGroup -> {
+            if (eventLoopGroup != null) {
+              eventLoopGroup.shutdownGracefully();
+            }
+          })
+          .build());
 
     static WorkerGroupGetter newInstance(RaftProperties properties) {
       final boolean shared = NettyConfigKeys.DataStream.Client.workerGroupShare(properties);
-      if (shared) {
-        final CompletableFuture<ReferenceCountedObject<EventLoopGroup>> created = new CompletableFuture<>();
-        final CompletableFuture<ReferenceCountedObject<EventLoopGroup>> current
-            = SHARED_WORKER_GROUP.updateAndGet(g -> g != null ? g : created);
-        if (current == created) {
-          created.complete(ReferenceCountedObject.wrap(newWorkerGroup(properties)));
-        }
-        return new WorkerGroupGetter(current.join().retain()) {
-          @Override
-          void shutdownGracefully() {
-            final CompletableFuture<ReferenceCountedObject<EventLoopGroup>> returned
-                = SHARED_WORKER_GROUP.updateAndGet(previous -> {
-              Preconditions.assertSame(current, previous, "SHARED_WORKER_GROUP");
-              return previous.join().release() ? null : previous;
-            });
-            if (returned == null) {
-              get().shutdownGracefully();
-            }
-          }
-        };
-      } else {
+      if (!shared) {
         return new WorkerGroupGetter(newWorkerGroup(properties));
       }
+
+      final ReferenceCountedObject<EventLoopGroup> ref = SHARED.apply(properties);
+      return new WorkerGroupGetter(ref.retain()) {
+        @Override
+        void shutdownGracefully() {
+          ref.release();
+        }
+      };
     }
 
     static EventLoopGroup newWorkerGroup(RaftProperties properties) {
@@ -129,7 +124,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       this.workerGroup = workerGroup;
     }
 
-    @Override
     public final EventLoopGroup get() {
       return workerGroup;
     }

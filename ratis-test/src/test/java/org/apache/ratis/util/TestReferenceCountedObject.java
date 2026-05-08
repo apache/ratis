@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 public class TestReferenceCountedObject {
   static void assertValues(
       AtomicInteger retained, int expectedRetained,
@@ -35,20 +37,13 @@ public class TestReferenceCountedObject {
   static void assertRelease(ReferenceCountedObject<?> ref,
       AtomicInteger retained, int expectedRetained,
       AtomicInteger released, int expectedReleased) {
-    final boolean returned = ref.release();
+    final boolean completelyReleased = ref.release();
     assertValues(retained, expectedRetained, released, expectedReleased);
-    Assertions.assertEquals(expectedRetained == expectedReleased, returned);
+    Assertions.assertEquals(expectedRetained == expectedReleased, completelyReleased);
   }
 
-  @Test
-  @Timeout(value = 1)
-  public void testWrap() {
-    final String value = "testWrap";
-    final AtomicInteger retained = new AtomicInteger();
-    final AtomicInteger released = new AtomicInteger();
-    final ReferenceCountedObject<String> ref = ReferenceCountedObject.wrap(
-        value, retained::getAndIncrement, released::getAndIncrement);
-
+  static void runTestWrapper(String value, ReferenceCountedObject<String> ref,
+      AtomicInteger retained, AtomicInteger released) {
     assertValues(retained, 0, released, 0);
     try {
       ref.get();
@@ -94,6 +89,24 @@ public class TestReferenceCountedObject {
       e.printStackTrace(System.out);
     }
 
+    assertValues(retained, 4, released, 4);
+  }
+
+  @Test
+  @Timeout(value = 1)
+  public void testValueWrapper() {
+    final String value = "testValue";
+    final AtomicInteger retained = new AtomicInteger();
+    final AtomicInteger released = new AtomicInteger();
+    final ReferenceCountedObject<String> ref = ReferenceCountedObject.<String>newBuilder()
+        .setValue(value)
+        .setRetainMethod(retained::getAndIncrement)
+        .setReleaseMethod(released::getAndIncrement)
+        .build();
+
+    runTestWrapper(value, ref, retained, released);
+
+    // for the ValueWrapper, it cannot be retained/released after it is completely released
     try {
       ref.retain();
       Assertions.fail();
@@ -117,8 +130,44 @@ public class TestReferenceCountedObject {
 
   @Test
   @Timeout(value = 1)
+  public void testConstructorWrapper() {
+    final String prefix = "constructor";
+    final AtomicInteger valueCount = new AtomicInteger();
+    final AtomicInteger retained = new AtomicInteger();
+    final AtomicInteger released = new AtomicInteger();
+    final ReferenceCountedObject<String> ref = ReferenceCountedObject.<String>newBuilder()
+        .setConstructor(() -> prefix + valueCount.getAndIncrement())
+        .setRetainMethod(retained::getAndIncrement)
+        .setReleaseMethod(released::getAndIncrement)
+        .build();
+    Assertions.assertEquals(0, valueCount.get());
+    runTestWrapper(prefix + valueCount, ref, retained, released);
+    Assertions.assertEquals(1, valueCount.get());
+
+    // for the ConstructorWrapper, it can be retained/released after it is completely released
+    retained.set(0);
+    released.set(0);
+    runTestWrapper(prefix + valueCount, ref, retained, released);
+    Assertions.assertEquals(2, valueCount.get());
+  }
+
+  @Test
+  @Timeout(value = 1)
+  public void testBuilder() {
+    // Do not set value and constructor
+    assertThrows(NullPointerException.class, () -> ReferenceCountedObject.newBuilder().build());
+
+    // Set both value and constructor
+    assertThrows(IllegalStateException.class, () -> ReferenceCountedObject.newBuilder()
+        .setValue("")
+        .setConstructor(() -> "")
+        .build());
+  }
+
+  @Test
+  @Timeout(value = 1)
   public void testReleaseWithoutRetaining() {
-    final ReferenceCountedObject<String> ref = ReferenceCountedObject.wrap("");
+    final ReferenceCountedObject<Object> ref = ReferenceCountedObject.newBuilder().setValue("").build();
 
     try {
       ref.release();

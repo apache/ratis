@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * A reference-counted object can be retained for later use
@@ -39,12 +40,19 @@ import java.util.function.Consumer;
  *   it must be released the same number of times.
  * <p>
  * - If the object has been retained and then completely released (i.e. the reference count becomes 0),
- *   it must not be retained/released/accessed anymore since it may have been allocated for other use.
+ *   calling {@link #get()} will lead to an {@link IllegalStateException}.
+ *   Depending on how the {@link ReferenceCountedObject} is built,
+ *   calling {@link #retain()} may or may not be allowed;
+ * @see Builder#setValue(Object)
+ * @see Builder#setConstructor(Supplier)
  *
  * @param <T> The object type.
  */
 public interface ReferenceCountedObject<T> {
-  /** @return the object. */
+  /**
+   * @return the object.
+   * @throws IllegalStateException when the object has not been retained.
+   */
   T get();
 
   /**
@@ -74,7 +82,7 @@ public interface ReferenceCountedObject<T> {
       @Override
       public T get() {
         if (closed.get()) {
-          throw new IllegalStateException("Already closed");
+          throw new IllegalStateException("Failed to get: already closed");
         }
         return retained;
       }
@@ -96,36 +104,148 @@ public interface ReferenceCountedObject<T> {
    */
   boolean release();
 
-  /** The same as wrap(value, EMPTY, EMPTY), where EMPTY is an empty method. */
+  /**
+   * The same as newBuilder().setValue(value).build();
+   *
+   * @deprecated use {@link Builder}
+   */
+  @Deprecated
   static <V> ReferenceCountedObject<V> wrap(V value) {
-    return wrap(value, () -> {}, ignored -> {});
+    return ReferenceCountedObject.<V>newBuilder().setValue(value).build();
   }
 
   /**
-   * Wrap the given value as a {@link ReferenceCountedObject}.
+   * The same as newBuilder()
+   *   .setValue(value)
+   *   .setRetainMethod(retainMethod)
+   *   .setBooleanReleaseMethod(releaseMethod)
+   *   .build();
    *
-   * @param value the value being wrapped.
-   * @param retainMethod a method to run when {@link #retain()} is invoked.
-   * @param releaseMethod a method to run when {@link #release()} is invoked,
-   *                      where the method takes a boolean which is the same as the one returned by {@link #release()}.
-   * @param <V> The value type.
-   * @return the wrapped reference-counted object.
+   * @deprecated use {@link Builder}
    */
+  @Deprecated
   static <V> ReferenceCountedObject<V> wrap(V value, Runnable retainMethod, Consumer<Boolean> releaseMethod) {
-    Objects.requireNonNull(value, "value == null");
-    Objects.requireNonNull(retainMethod, "retainMethod == null");
-    Objects.requireNonNull(releaseMethod, "releaseMethod == null");
+    return ReferenceCountedObject.<V>newBuilder()
+        .setValue(value)
+        .setRetainMethod(retainMethod)
+        .setBooleanReleaseMethod(releaseMethod)
+        .build();
+  }
 
-    return new ReferenceCountedObject<V>() {
+  static <V> Builder<V> newBuilder() {
+    return new Builder<>();
+  }
+
+  /**
+   * To build {@link ReferenceCountedObject},
+   * where it may use either a fixed value or a constructor (but not both).
+   * @see Builder#setValue(Object)
+   * @see Builder#setConstructor(Supplier)
+   *
+   * @param <V> The type of the {@link ReferenceCountedObject} being built.
+   */
+  class Builder<V> {
+    private V value = null;
+    private Supplier<V> constructor = null;
+    private Runnable retainMethod = () -> {};
+    private Consumer<V> releaseMethod = v -> {};
+
+    /**
+     * Set a fixed value for the {@link ReferenceCountedObject} being built.
+     * Once it has been completely released, calling {@link #retain()} is not allowed.
+     *
+     * @param value a fixed value.
+     */
+    public Builder<V> setValue(V value) {
+      this.value = value;
+      return this;
+    }
+
+    /**
+     * Set a constructor for the {@link ReferenceCountedObject} being built.
+     * The value is constructed at the first {@link #retain()} call,
+     * After it has been completely released by {@link #release()},
+     * a new value will be constructed when {@link #retain()} is called again.
+     *
+     * @param constructor to construct the object.
+     */
+    public Builder<V> setConstructor(Supplier<V> constructor) {
+      this.constructor = constructor;
+      return this;
+    }
+
+    /**
+     * @param retainMethod a method to run when {@link #retain()} is invoked.
+     */
+    public Builder<V> setRetainMethod(Runnable retainMethod) {
+      this.retainMethod = retainMethod != null ? retainMethod : () -> {};
+      return this;
+    }
+
+    /**
+     * @param releaseMethod a method to run when {@link #release()} is invoked,
+     *                      where the method has a parameter,
+     *                      where the actual parameter is the value when it is completely released;
+     *                            otherwise, the actual parameter is null.
+     *                      The method may clean up the value when it is completely released.
+     */
+    public Builder<V> setReleaseMethod(Consumer<V> releaseMethod) {
+      this.releaseMethod = releaseMethod != null ? releaseMethod : ignored -> {};
+      return this;
+    }
+
+    /**
+     * @param booleanReleaseMethod a method to run when {@link #release()} is invoked,
+     *                      where the method takes the boolean returned from {@link #release()}.
+     */
+    public Builder<V> setBooleanReleaseMethod(Consumer<Boolean> booleanReleaseMethod) {
+      this.releaseMethod = booleanReleaseMethod != null ? v -> booleanReleaseMethod.accept(v != null) : ignored -> {};
+      return this;
+    }
+
+    /**
+     * @param releaseMethod a method to run when {@link #release()} is invoked,
+     */
+    public Builder<V> setReleaseMethod(Runnable releaseMethod) {
+      this.releaseMethod = releaseMethod != null ? ignored -> releaseMethod.run() : ignored -> {};
+      return this;
+    }
+
+    public ReferenceCountedObject<V> build() {
+      if (value == null) {
+        Objects.requireNonNull(constructor, "Both value == null and constructor == null");
+        return new ConstructorWrapper<>(constructor, retainMethod, releaseMethod);
+      } else {
+        Preconditions.assertNull(constructor, "Both value != null and constructor != null");
+        return new ValueWrapper<>(value, retainMethod, releaseMethod);
+      }
+    }
+
+    /**
+     * Wrap a fixed value as a {@link ReferenceCountedObject}.
+     * When it is completely released, it cannot be retained again.
+     *
+     * @param <V> The value type.
+     */
+    private static final class ValueWrapper<V> implements ReferenceCountedObject<V> {
+      private final V value;
+      private final Runnable retainMethod;
+      private final Consumer<V> releaseMethod;
       private final AtomicInteger count = new AtomicInteger();
+
+      private ValueWrapper(V value, Runnable retainMethod, Consumer<V> releaseMethod) {
+        this.value = Objects.requireNonNull(value, "value == null");
+        this.retainMethod = Objects.requireNonNull(retainMethod, "retainMethod == null");
+        this.releaseMethod = Objects.requireNonNull(releaseMethod, "releaseMethod == null");
+      }
 
       @Override
       public V get() {
         final int previous = count.get();
         if (previous < 0) {
-          throw new IllegalStateException("Failed to get: object has already been completely released.");
+          throw new IllegalStateException("Failed to get: already completely released.");
         } else if (previous == 0) {
-          throw new IllegalStateException("Failed to get: object has not yet been retained.");
+          throw new IllegalStateException("Failed to get: not yet retained.");
         }
         return value;
       }
@@ -135,7 +255,7 @@ public interface ReferenceCountedObject<T> {
         // n <  0: exception
         // n >= 0: n++
         if (count.getAndUpdate(n -> n < 0? n : n + 1) < 0) {
-          throw new IllegalStateException("Failed to retain: object has already been completely released.");
+          throw new IllegalStateException("Failed to retain: already completely released.");
         }
 
         retainMethod.run();
@@ -149,19 +269,78 @@ public interface ReferenceCountedObject<T> {
         // n == 1: n = -1
         final int previous = count.getAndUpdate(n -> n <= 1? -1: n - 1);
         if (previous < 0) {
-          throw new IllegalStateException("Failed to release: object has already been completely released.");
+          throw new IllegalStateException("Failed to release: already completely released.");
         } else if (previous == 0) {
-          throw new IllegalStateException("Failed to release: object has not yet been retained.");
+          throw new IllegalStateException("Failed to release: not yet retained.");
         }
-        final boolean completedReleased = previous == 1;
-        releaseMethod.accept(completedReleased);
-        return completedReleased;
+        final boolean completelyReleased = previous == 1;
+        releaseMethod.accept(completelyReleased ? value : null);
+        return completelyReleased;
       }
-    };
+    }
+
+    /**
+     * Wrap a constructor as a {@link ReferenceCountedObject}.
+     *
+     * @see Builder#setConstructor(Supplier)
+     */
+    private static final class ConstructorWrapper<V> implements ReferenceCountedObject<V> {
+      private final Supplier<V> constructor;
+      private final Runnable retainMethod;
+      private final Consumer<V> releaseMethod;
+      private ValueWrapper<V> valueWrapper;
+
+      private ConstructorWrapper(Supplier<V> constructor, Runnable retainMethod, Consumer<V> releaseMethod) {
+        this.constructor = Objects.requireNonNull(constructor, "constructor == null");
+        this.retainMethod = Objects.requireNonNull(retainMethod, "retainMethod == null");
+        this.releaseMethod = Objects.requireNonNull(releaseMethod, "releaseMethod == null");
+      }
+
+      @Override
+      public synchronized V get() {
+        if (valueWrapper == null) {
+          throw new IllegalStateException("Failed to get: not yet retained.");
+        }
+        return valueWrapper.get();
+      }
+
+      @Override
+      public synchronized V retain() {
+        if (valueWrapper == null) {
+          valueWrapper = new ValueWrapper<>(constructor.get(), retainMethod, releaseMethod);
+        }
+        return valueWrapper.retain();
+      }
+
+      @Override
+      public synchronized boolean release() {
+        if (valueWrapper == null) {
+          throw new IllegalStateException("Failed to release: not yet retained.");
+        }
+        if (valueWrapper.release()) {
+          valueWrapper = null;
+          return true;
+        }
+        return false;
+      }
+    }
   }
 
-  /** The same as wrap(value, retainMethod, ignored -> releaseMethod.run()). */
+  /**
+   * The same as newBuilder()
+   *   .setValue(value)
+   *   .setRetainMethod(retainMethod)
+   *   .setReleaseMethod(releaseMethod)
+   *   .build();
+   *
+   * @deprecated use {@link Builder}
+   */
+  @Deprecated
   static <V> ReferenceCountedObject<V> wrap(V value, Runnable retainMethod, Runnable releaseMethod) {
-    return wrap(value, retainMethod, ignored -> releaseMethod.run());
+    return ReferenceCountedObject.<V>newBuilder()
+        .setValue(value)
+        .setRetainMethod(retainMethod)
+        .setReleaseMethod(releaseMethod)
+        .build();
   }
 }
