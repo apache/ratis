@@ -326,10 +326,10 @@ public interface RaftServerConfigKeys {
         TimeDuration BATCH_INTERVAL_DEFAULT = TimeDuration.valueOf(500, TimeUnit.MICROSECONDS);
         static TimeDuration batchInterval(RaftProperties properties) {
           return getTimeDuration(properties.getTimeDuration(BATCH_INTERVAL_DEFAULT.getUnit()),
-              BATCH_INTERVAL_KEY, BATCH_INTERVAL_DEFAULT, getDefaultLog());
+              BATCH_INTERVAL_KEY, BATCH_INTERVAL_DEFAULT, getDefaultLog(), requirePositive());
         }
         static void setBatchInterval(RaftProperties properties, TimeDuration interval) {
-          setTimeDuration(properties::setTimeDuration, BATCH_INTERVAL_KEY, interval);
+          setTimeDuration(properties::setTimeDuration, BATCH_INTERVAL_KEY, interval, requirePositive());
         }
 
         String BATCH_SIZE_KEY = PREFIX + ".size";

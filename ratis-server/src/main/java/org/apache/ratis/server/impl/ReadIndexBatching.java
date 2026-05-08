@@ -127,6 +127,7 @@ class ReadIndexBatching {
 
   private static class Batch {
     private final AtomicBoolean sealed = new AtomicBoolean();
+    /** Appended only while this batch is {@code open}; sealing first removes it from {@code open}. */
     private final List<Pending> pending = new ArrayList<>();
 
     void add(RaftClientRequest request, CompletableFuture<ReadIndexReplyProto> future) {

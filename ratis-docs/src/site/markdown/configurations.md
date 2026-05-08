@@ -261,7 +261,7 @@ but there are tradeoffs (e.g. Write and Read performance) between different type
 
 | **Property**    | `raft.server.read.read-index.batch.interval`        |
 |:----------------|:----------------------------------------------------|
-| **Description** | maximum time to collect reads into one ReadIndex batch |
+| **Description** | positive maximum time to collect reads into one ReadIndex batch |
 | **Type**        | TimeDuration                                       |
 | **Default**     | 500us                                              |
 
