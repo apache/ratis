@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.proto.RaftProtos.ReadIndexReplyProto;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
@@ -35,16 +36,24 @@ import java.util.function.Function;
 class ReadIndexBatching {
   private static final Logger LOG = LoggerFactory.getLogger(ReadIndexBatching.class);
 
-  private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
+  private final TimeoutExecutor scheduler;
   private final TimeDuration batchInterval;
   private final int batchSize;
   private final Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl;
 
   /** Guarded by {@code this}; the monitor provides visibility, so volatile is not needed. */
   private Batch open;
+  /** Guarded by {@code this}. */
+  private boolean closed;
 
   ReadIndexBatching(TimeDuration batchInterval, int batchSize,
       Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl) {
+    this(TimeoutExecutor.getInstance(), batchInterval, batchSize, readIndexAsyncImpl);
+  }
+
+  ReadIndexBatching(TimeoutExecutor scheduler, TimeDuration batchInterval, int batchSize,
+      Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl) {
+    this.scheduler = scheduler;
     this.batchInterval = batchInterval;
     this.batchSize = batchSize;
     this.readIndexAsyncImpl = readIndexAsyncImpl;
@@ -56,6 +65,9 @@ class ReadIndexBatching {
     final boolean schedule;
     final boolean seal;
     synchronized (this) {
+      if (closed) {
+        return JavaUtils.completeExceptionally(newClosedException());
+      }
       schedule = open == null;
       if (schedule) {
         open = new Batch();
@@ -76,6 +88,22 @@ class ReadIndexBatching {
       batch.seal(readIndexAsyncImpl);
     }
     return future;
+  }
+
+  void close() {
+    final Batch batch;
+    synchronized (this) {
+      closed = true;
+      batch = open;
+      open = null;
+    }
+    if (batch != null) {
+      batch.cancel(newClosedException());
+    }
+  }
+
+  private static ReadIndexException newClosedException() {
+    return new ReadIndexException("ReadIndex batching is closed.");
   }
 
   private void seal(Batch batch) {
@@ -135,6 +163,12 @@ class ReadIndexBatching {
           pending.forEach(p -> p.future.complete(reply));
         }
       });
+    }
+
+    private void cancel(Throwable throwable) {
+      if (sealed.compareAndSet(false, true)) {
+        completeExceptionally(throwable);
+      }
     }
 
     private void completeExceptionally(Throwable throwable) {

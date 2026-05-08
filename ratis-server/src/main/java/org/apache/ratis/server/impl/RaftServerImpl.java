@@ -530,6 +530,11 @@ class RaftServerImpl implements RaftServer.Division,
     lifeCycle.checkStateAndClose(() -> {
       LOG.info("{}: shutdown", getMemberId());
       try {
+        Optional.ofNullable(readIndexBatching).ifPresent(ReadIndexBatching::close);
+      } catch (Exception e) {
+        LOG.warn("{}: Failed to close ReadIndexBatching", getMemberId(), e);
+      }
+      try {
         jmxAdapter.unregister();
       } catch (Exception e) {
         LOG.warn("{}: Failed to un-register RaftServer JMX bean", getMemberId(), e);
