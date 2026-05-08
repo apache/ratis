@@ -119,6 +119,9 @@ class ReadIndexBatching {
 
       final CompletableFuture<ReadIndexReplyProto> replyFuture;
       try {
+        // Plain reads only need one ReadIndex RPC for the batch.  Read-after-write requests
+        // bypass batching before reaching this class, since their client request carries
+        // per-client write-index state.
         replyFuture = readIndexAsyncImpl.apply(pending.get(0).request);
       } catch (Throwable t) {
         completeExceptionally(t);
