@@ -271,6 +271,31 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     }, count -> Assertions.assertEquals(n, count.get()));
   }
 
+  @Test
+  public void testFollowerReadIndexBatchingBecomesLeader() throws Exception {
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setEnabled(getProperties(), true);
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setBatchInterval(
+        getProperties(), TimeDuration.valueOf(1, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setBatchSize(getProperties(), 64);
+
+    runWithReadIndexCounting(cluster -> {
+      final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+      final RaftPeerId followerId = cluster.getFollowers().get(0).getId();
+
+      try (RaftClient leaderClient = cluster.createClient(leaderId);
+           RaftClient followerClient = cluster.createClient(followerId)) {
+        assertReplyExact(1, leaderClient.io().send(INCREMENT));
+
+        final Reply reply = new Reply(1, followerClient.async().sendReadOnly(QUERY, followerId));
+        final RaftClientReply transferReply = leaderClient.admin().transferLeadership(followerId, 20000);
+        Assertions.assertTrue(transferReply.isSuccess());
+        Assertions.assertEquals(followerId, RaftTestUtil.waitForLeader(cluster).getId());
+
+        reply.assertAtLeast();
+      }
+    }, count -> Assertions.assertEquals(0, count.get()));
+  }
+
   private void runWithReadIndexCounting(CheckedConsumer<CLUSTER, Exception> testCase,
       CheckedConsumer<AtomicInteger, Exception> assertion) throws Exception {
     final AtomicInteger count = new AtomicInteger();

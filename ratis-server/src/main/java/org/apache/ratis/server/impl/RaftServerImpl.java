@@ -1106,6 +1106,12 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsyncImpl(RaftClientRequest clientRequest) {
+    final LeaderStateImpl leader = role.getLeaderState().orElse(null);
+    if (leader != null) {
+      return getReadIndex(clientRequest, leader)
+          .thenApply(index -> toReadIndexReplyProto(getId(), getMemberId(), true, index));
+    }
+
     final RaftPeerId leaderId = getInfo().getLeaderId();
     if (leaderId == null) {
       return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
