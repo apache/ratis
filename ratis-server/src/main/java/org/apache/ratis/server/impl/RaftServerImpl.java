@@ -163,6 +163,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
   static final String APPEND_TRANSACTION = CLASS_NAME + ".appendTransaction";
+  static final String READ_INDEX = CLASS_NAME + ".readIndexAsync";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
   static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
   static final String START_COMPLETE = CLASS_NAME + ".startComplete";
@@ -241,6 +242,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
   private final WriteIndexCache writeIndexCache;
   private final NavigableIndices appendLogTermIndices;
+  private final ReadIndexBatching readIndexBatching;
 
   private final RaftServerJmxAdapter jmxAdapter = new RaftServerJmxAdapter(this);
   private final LeaderElectionMetrics leaderElectionMetrics;
@@ -279,6 +281,11 @@ class RaftServerImpl implements RaftServer.Division,
     this.dataStreamMap = new DataStreamMapImpl(id);
     this.readOption = RaftServerConfigKeys.Read.option(properties);
     this.writeIndexCache = new WriteIndexCache(properties);
+    this.readIndexBatching = RaftServerConfigKeys.Read.ReadIndex.Batch.enabled(properties) ?
+        new ReadIndexBatching(
+            RaftServerConfigKeys.Read.ReadIndex.Batch.batchInterval(properties),
+            RaftServerConfigKeys.Read.ReadIndex.Batch.batchSize(properties),
+            this::sendReadIndexAsyncUnbatched) : null;
     this.transactionManager = new TransactionManager(id);
     TraceUtils.setTracerWhenEnabled(properties);
 
@@ -1091,6 +1098,14 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync(RaftClientRequest clientRequest) {
+    if (readIndexBatching != null
+        && !clientRequest.getType().getRead().getReadAfterWriteConsistent()) {
+      return readIndexBatching.submit(clientRequest);
+    }
+    return sendReadIndexAsyncUnbatched(clientRequest);
+  }
+
+  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsyncUnbatched(RaftClientRequest clientRequest) {
     final RaftPeerId leaderId = getInfo().getLeaderId();
     if (leaderId == null) {
       return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
@@ -1569,6 +1584,7 @@ class RaftServerImpl implements RaftServer.Division,
     assertLifeCycleState(LifeCycle.States.RUNNING);
 
     final RaftPeerId peerId = RaftPeerId.valueOf(request.getServerRequest().getRequestorId());
+    CodeInjectionForTesting.execute(READ_INDEX, getId(), peerId, request);
 
     final LeaderStateImpl leader = role.getLeaderState().orElse(null);
     if (leader == null) {

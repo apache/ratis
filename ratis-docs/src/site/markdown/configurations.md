@@ -253,6 +253,31 @@ but there are tradeoffs (e.g. Write and Read performance) between different type
 | **Type**        | TimeDuration                                                                                                                                |
 | **Default**     | 10ms                                                                                                                                        |
 
+| **Property**    | `raft.server.read.read-index.batch.enabled`                                       |
+|:----------------|:----------------------------------------------------------------------------------|
+| **Description** | whether to batch follower-to-leader ReadIndex RPCs for plain linearizable reads    |
+| **Type**        | boolean                                                                           |
+| **Default**     | false                                                                             |
+
+| **Property**    | `raft.server.read.read-index.batch.interval`        |
+|:----------------|:----------------------------------------------------|
+| **Description** | maximum time to collect reads into one ReadIndex batch |
+| **Type**        | TimeDuration                                       |
+| **Default**     | 500us                                              |
+
+| **Property**    | `raft.server.read.read-index.batch.size` |
+|:----------------|:----------------------------------------------------|
+| **Description** | maximum number of reads in one ReadIndex batch      |
+| **Type**        | int                                                 |
+| **Default**     | 64                                                  |
+
+When ReadIndex batching is enabled, a follower batches plain linearizable read
+requests and sends a single ReadIndex request for each sealed batch. A batch is
+sealed when either `batch.interval` expires or `batch.size` is reached. New
+reads after sealing are assigned to a later batch. Read-after-write requests
+bypass batching so that the leader can evaluate each request's client-specific
+write index.
+
 | **Property**    | `raft.server.read.leader.heartbeat-check.enabled` |
 |:----------------|:--------------------------------------------------|
 | **Description** | whether to check heartbeat for read index.        |

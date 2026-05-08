@@ -30,6 +30,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -42,6 +43,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.ratis.ReadOnlyRequestTests.CounterStateMachine;
 import static org.apache.ratis.ReadOnlyRequestTests.INCREMENT;
@@ -88,6 +90,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     RaftServerConfigKeys.Read.setOption(p, LINEARIZABLE);
     RaftServerConfigKeys.Read.setLeaderLeaseEnabled(p, isLeaderLeaseEnabled());
     RaftServerConfigKeys.Read.ReadIndex.setType(p, readIndexType());
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setEnabled(p, false);
 
     // Enable dummy request so linearizable-read tests exercise the default ordered-async bootstrap path.
     RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(p, true);
@@ -206,6 +209,80 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
         writeReplies.get(i).assertExact();
         f1Replies.get(i).assertAtLeast();
       }
+    }
+  }
+
+  @Test
+  public void testFollowerReadIndexBatching() throws Exception {
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setEnabled(getProperties(), true);
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setBatchInterval(
+        getProperties(), TimeDuration.valueOf(1, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setBatchSize(getProperties(), 64);
+
+    runWithReadIndexCounting(cluster -> {
+      final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+      final RaftPeerId followerId = cluster.getFollowers().get(0).getId();
+
+      try (RaftClient leaderClient = cluster.createClient(leaderId);
+           RaftClient followerClient = cluster.createClient(followerId)) {
+        assertReplyExact(1, leaderClient.io().send(INCREMENT));
+
+        final int n = 8;
+        final List<Reply> replies = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+          replies.add(new Reply(1, followerClient.async().sendReadOnly(QUERY, followerId)));
+        }
+
+        for (Reply reply : replies) {
+          reply.assertAtLeast();
+        }
+      }
+    }, count -> {
+      Assertions.assertTrue(count.get() > 0, () -> "ReadIndex count = " + count);
+      Assertions.assertTrue(count.get() < 8, () -> "ReadIndex count = " + count);
+    });
+  }
+
+  @Test
+  public void testFollowerReadAfterWriteBypassesReadIndexBatching() throws Exception {
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setEnabled(getProperties(), true);
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setBatchInterval(
+        getProperties(), TimeDuration.valueOf(1, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setBatchSize(getProperties(), 64);
+
+    final int n = 5;
+    runWithReadIndexCounting(cluster -> {
+      final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+      final RaftPeerId followerId = cluster.getFollowers().get(0).getId();
+
+      try (RaftClient leaderClient = cluster.createClient(leaderId);
+           RaftClient followerClient = cluster.createClient(followerId)) {
+        assertReplyExact(1, leaderClient.io().send(INCREMENT));
+
+        final List<Reply> replies = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+          replies.add(new Reply(1, followerClient.async().sendReadAfterWrite(QUERY)));
+        }
+
+        for (Reply reply : replies) {
+          reply.assertAtLeast();
+        }
+      }
+    }, count -> Assertions.assertEquals(n, count.get()));
+  }
+
+  private void runWithReadIndexCounting(CheckedConsumer<CLUSTER, Exception> testCase,
+      CheckedConsumer<AtomicInteger, Exception> assertion) throws Exception {
+    final AtomicInteger count = new AtomicInteger();
+    CodeInjectionForTesting.put("RaftServerImpl.readIndexAsync", (localId, remoteId, args) -> {
+      count.incrementAndGet();
+      return true;
+    });
+    try {
+      runWithNewCluster(testCase);
+      assertion.accept(count);
+    } finally {
+      CodeInjectionForTesting.remove("RaftServerImpl.readIndexAsync");
     }
   }
 
