@@ -40,6 +40,7 @@ class ReadIndexBatching {
   private final int batchSize;
   private final Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl;
 
+  /** Guarded by {@code this}; the monitor provides visibility, so volatile is not needed. */
   private Batch open;
 
   ReadIndexBatching(TimeDuration batchInterval, int batchSize,
