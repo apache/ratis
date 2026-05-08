@@ -38,15 +38,15 @@ class ReadIndexBatching {
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
   private final TimeDuration batchInterval;
   private final int batchSize;
-  private final Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> sender;
+  private final Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl;
 
   private Batch open;
 
   ReadIndexBatching(TimeDuration batchInterval, int batchSize,
-      Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> sender) {
+      Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl) {
     this.batchInterval = batchInterval;
     this.batchSize = batchSize;
-    this.sender = sender;
+    this.readIndexAsyncImpl = readIndexAsyncImpl;
   }
 
   CompletableFuture<ReadIndexReplyProto> submit(RaftClientRequest request) {
@@ -72,7 +72,7 @@ class ReadIndexBatching {
           () -> "Failed to seal ReadIndex batch");
     }
     if (seal) {
-      batch.seal(sender);
+      batch.seal(readIndexAsyncImpl);
     }
     return future;
   }
@@ -83,7 +83,7 @@ class ReadIndexBatching {
         open = null;
       }
     }
-    batch.seal(sender);
+    batch.seal(readIndexAsyncImpl);
   }
 
   private static class Pending {
@@ -108,7 +108,7 @@ class ReadIndexBatching {
       return pending.size();
     }
 
-    void seal(Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> sender) {
+    void seal(Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl) {
       if (!sealed.compareAndSet(false, true)) {
         return;
       }
@@ -118,7 +118,7 @@ class ReadIndexBatching {
 
       final CompletableFuture<ReadIndexReplyProto> replyFuture;
       try {
-        replyFuture = sender.apply(pending.get(0).request);
+        replyFuture = readIndexAsyncImpl.apply(pending.get(0).request);
       } catch (Throwable t) {
         completeExceptionally(t);
         return;
