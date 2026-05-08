@@ -273,15 +273,18 @@ public class LifeCycle {
   /** Run the given start method and transition the current state accordingly. */
   @SafeVarargs
   public final <T extends Throwable> void startAndTransition(
-      CheckedRunnable<T> startImpl, Class<? extends Throwable>... exceptionClasses)
+      CheckedRunnable<T> startMethod, Class<? extends Throwable>... exceptionClasses)
       throws T {
     transition(State.STARTING);
     try {
-      startImpl.run();
+      startMethod.run();
       transition(State.RUNNING);
     } catch (Throwable t) {
-      transition(ReflectionUtils.isInstance(t, exceptionClasses)?
-          State.NEW: State.EXCEPTION);
+      final State state = getCurrentState();
+      LOG.warn("{}: Failed to start (state={})", name, state, t);
+      if (!state.isClosingOrClosed()) {
+        transition(ReflectionUtils.isInstance(t, exceptionClasses) ? State.NEW : State.EXCEPTION);
+      }
       throw t;
     }
   }
