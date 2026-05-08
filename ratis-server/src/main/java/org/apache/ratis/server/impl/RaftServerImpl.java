@@ -285,7 +285,7 @@ class RaftServerImpl implements RaftServer.Division,
         new ReadIndexBatching(
             RaftServerConfigKeys.Read.ReadIndex.Batch.batchInterval(properties),
             RaftServerConfigKeys.Read.ReadIndex.Batch.batchSize(properties),
-            this::sendReadIndexAsyncUnbatched) : null;
+            this::sendReadIndexAsyncImpl) : null;
     this.transactionManager = new TransactionManager(id);
     TraceUtils.setTracerWhenEnabled(properties);
 
@@ -1102,10 +1102,10 @@ class RaftServerImpl implements RaftServer.Division,
         && !clientRequest.getType().getRead().getReadAfterWriteConsistent()) {
       return readIndexBatching.submit(clientRequest);
     }
-    return sendReadIndexAsyncUnbatched(clientRequest);
+    return sendReadIndexAsyncImpl(clientRequest);
   }
 
-  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsyncUnbatched(RaftClientRequest clientRequest) {
+  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsyncImpl(RaftClientRequest clientRequest) {
     final RaftPeerId leaderId = getInfo().getLeaderId();
     if (leaderId == null) {
       return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
