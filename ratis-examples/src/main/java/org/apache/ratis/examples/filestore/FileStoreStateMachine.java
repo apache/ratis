@@ -40,6 +40,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -112,16 +113,18 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
   @Override
   public TransactionContext startTransaction(LogEntryProto entry, RaftProtos.RaftPeerRole role) {
+    ByteString copied = ByteString.copyFrom(entry.getStateMachineLogEntry().getLogData().asReadOnlyByteBuffer());
     return TransactionContext.newBuilder()
         .setStateMachine(this)
         .setLogEntry(entry)
         .setServerRole(role)
-        .setStateMachineContext(getProto(entry))
+        .setStateMachineContext(getProto(copied))
         .build();
   }
 
   @Override
-  public CompletableFuture<Integer> write(LogEntryProto entry, TransactionContext context) {
+  public CompletableFuture<Integer> write(ReferenceCountedObject<LogEntryProto> entryRef, TransactionContext context) {
+    LogEntryProto entry = entryRef.retain();
     final FileStoreRequestProto proto = getProto(context, entry);
     if (proto.getRequestCase() != FileStoreRequestProto.RequestCase.WRITEHEADER) {
       return null;
@@ -130,9 +133,10 @@ public class FileStoreStateMachine extends BaseStateMachine {
     final WriteRequestHeaderProto h = proto.getWriteHeader();
     final CompletableFuture<Integer> f = files.write(entry.getIndex(),
         h.getPath().toStringUtf8(), h.getClose(),  h.getSync(), h.getOffset(),
-        entry.getStateMachineLogEntry().getStateMachineEntry().getStateMachineData());
+        entry.getStateMachineLogEntry().getStateMachineEntry().getStateMachineData()
+    ).whenComplete((r, e) -> entryRef.release());
     // sync only if closing the file
-    return h.getClose()? f: null;
+    return h.getClose() ? f: null;
   }
 
   static FileStoreRequestProto getProto(TransactionContext context, LogEntryProto entry) {
@@ -142,14 +146,14 @@ public class FileStoreStateMachine extends BaseStateMachine {
         return proto;
       }
     }
-    return getProto(entry);
+    return getProto(entry.getStateMachineLogEntry().getLogData());
   }
 
-  static FileStoreRequestProto getProto(LogEntryProto entry) {
+  static FileStoreRequestProto getProto(ByteString bytes) {
     try {
-      return FileStoreRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
+      return FileStoreRequestProto.parseFrom(bytes);
     } catch (InvalidProtocolBufferException e) {
-      throw new IllegalArgumentException("Failed to parse data, entry=" + entry, e);
+      throw new IllegalArgumentException("Failed to parse data", e);
     }
   }
 
@@ -214,7 +218,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    final LogEntryProto entry = trx.getLogEntry();
+    final LogEntryProto entry = trx.getLogEntryUnsafe();
 
     final long index = entry.getIndex();
     updateLastAppliedTermIndex(entry.getTerm(), index);

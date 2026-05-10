@@ -21,14 +21,19 @@ import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.grpc.metrics.ZeroCopyMetrics;
 import org.apache.ratis.grpc.server.GrpcServicesImpl;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.ReferenceCountedLeakDetector;
+import org.junit.jupiter.api.Assertions;
 
 import java.util.Optional;
 
@@ -45,6 +50,11 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
     }
   };
 
+  static {
+    // TODO move it to MiniRaftCluster for detecting non-gRPC cases
+    ReferenceCountedLeakDetector.enable(false);
+  }
+
   public interface FactoryGet extends Factory.Get<MiniRaftClusterWithGrpc> {
     @Override
     default Factory<MiniRaftClusterWithGrpc> getFactory() {
@@ -54,7 +64,7 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
 
   public static final DelayLocalExecutionInjection SEND_SERVER_REQUEST_INJECTION =
       new DelayLocalExecutionInjection(GrpcServicesImpl.GRPC_SEND_SERVER_REQUEST);
-  
+
   public MiniRaftClusterWithGrpc(String[] ids, RaftProperties properties, Parameters parameters) {
     this(ids, new String[0], properties, parameters);
   }
@@ -70,6 +80,8 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
         GrpcConfigKeys.Client.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
     Optional.ofNullable(getAddress(id, group, RaftPeer::getAdminAddress)).ifPresent(address ->
         GrpcConfigKeys.Admin.setPort(properties, NetUtils.createSocketAddr(address).getPort()));
+    // Always run grpc integration tests with zero-copy enabled because the path of nonzero-copy is not risky.
+    GrpcConfigKeys.Server.setZeroCopyEnabled(properties, true);
     return parameters;
   }
 
@@ -78,5 +90,23 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
       throws InterruptedException {
     RaftTestUtil.blockQueueAndSetDelay(getServers(), SEND_SERVER_REQUEST_INJECTION,
         leaderId, delayMs, getTimeoutMax());
+  }
+
+  @Override
+  public void shutdown() {
+    super.shutdown();
+    assertZeroCopyMetrics();
+  }
+
+  public void assertZeroCopyMetrics() {
+    getServers().forEach(server -> server.getGroupIds().forEach(id -> {
+      LOG.info("Checking {}-{}", server.getId(), id);
+      RaftServer.Division division = RaftServerTestUtil.getDivision(server, id);
+      final GrpcServicesImpl service = (GrpcServicesImpl) RaftServerTestUtil.getServerRpc(division);
+      ZeroCopyMetrics zeroCopyMetrics = service.getZeroCopyMetrics();
+      Assertions.assertEquals(0, zeroCopyMetrics.nonZeroCopyMessages());
+      Assertions.assertEquals(zeroCopyMetrics.zeroCopyMessages(), zeroCopyMetrics.releasedMessages(),
+          "Unreleased zero copy messages: please check logs to find the leaks. ");
+    }));
   }
 }

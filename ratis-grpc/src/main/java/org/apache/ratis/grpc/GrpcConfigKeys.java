@@ -54,29 +54,50 @@ public interface GrpcConfigKeys {
   interface TLS {
     String PREFIX = GrpcConfigKeys.PREFIX + ".tls";
 
-    @Deprecated
+    String ENABLED_KEY = PREFIX + ".enabled";
+    boolean ENABLED_DEFAULT = false;
+    static boolean enabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, ENABLED_KEY, ENABLED_DEFAULT, getDefaultLog());
+    }
     static void setEnabled(RaftProperties properties, boolean enabled) {
-      LOG.warn("This method has no effect. Use setConf(Parameters, GrpcTlsConfig) instead.");
+      setBoolean(properties::setBoolean, ENABLED_KEY, enabled);
     }
 
-    @Deprecated
+    String MUTUAL_AUTHN_ENABLED_KEY = PREFIX + ".mutual_authn.enabled";
+    boolean MUTUAL_AUTHN_ENABLED_DEFAULT = false;
+    static boolean mutualAuthnEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean,
+          MUTUAL_AUTHN_ENABLED_KEY, MUTUAL_AUTHN_ENABLED_DEFAULT, getDefaultLog());
+    }
     static void setMutualAuthnEnabled(RaftProperties properties, boolean mutualAuthnEnabled) {
-      LOG.warn("This method has no effect. Use setConf(Parameters, GrpcTlsConfig) instead.");
+      setBoolean(properties::setBoolean, MUTUAL_AUTHN_ENABLED_KEY, mutualAuthnEnabled);
     }
 
-    @Deprecated
+    String PRIVATE_KEY_FILE_NAME_KEY = PREFIX + ".private.key.file.name";
+    String PRIVATE_KEY_FILE_NAME_DEFAULT = "private.pem";
+    static String privateKeyFileName(RaftProperties properties) {
+      return get(properties::get, PRIVATE_KEY_FILE_NAME_KEY, PRIVATE_KEY_FILE_NAME_DEFAULT, getDefaultLog());
+    }
     static void setPrivateKeyFileName(RaftProperties properties, String privateKeyFileName) {
-      LOG.warn("This method has no effect. Use setConf(Parameters, GrpcTlsConfig) instead.");
+      set(properties::set, PRIVATE_KEY_FILE_NAME_KEY, privateKeyFileName);
     }
 
-    @Deprecated
+    String CERT_CHAIN_FILE_NAME_KEY = PREFIX + ".cert.chain.file.name";
+    String CERT_CHAIN_FILE_NAME_DEFAULT = "certificate.crt";
+    static String certChainFileName(RaftProperties properties) {
+      return get(properties::get, CERT_CHAIN_FILE_NAME_KEY, CERT_CHAIN_FILE_NAME_DEFAULT, getDefaultLog());
+    }
     static void setCertChainFileName(RaftProperties properties, String certChainFileName) {
-      LOG.warn("This method has no effect. Use setConf(Parameters, GrpcTlsConfig) instead.");
+      set(properties::set, CERT_CHAIN_FILE_NAME_KEY, certChainFileName);
     }
 
-    @Deprecated
+    String TRUST_STORE_KEY = PREFIX + ".trust.store";
+    String TRUST_STORE_DEFAULT = "ca.crt";
+    static String trustStore(RaftProperties properties) {
+      return get(properties::get, TRUST_STORE_KEY, TRUST_STORE_DEFAULT, getDefaultLog());
+    }
     static void setTrustStore(RaftProperties properties, String trustStore) {
-      LOG.warn("This method has no effect. Use setConf(Parameters, GrpcTlsConfig) instead.");
+      set(properties::set, TRUST_STORE_KEY, trustStore);
     }
 
     String CONF_PARAMETER = PREFIX + ".conf";
@@ -264,6 +285,15 @@ public interface GrpcConfigKeys {
           LOG_MESSAGE_BATCH_DURATION_KEY, logMessageBatchDuration);
     }
 
+    String ZERO_COPY_ENABLED_KEY = PREFIX + ".zerocopy.enabled";
+    boolean ZERO_COPY_ENABLED_DEFAULT = false;
+    static boolean zeroCopyEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, ZERO_COPY_ENABLED_KEY, ZERO_COPY_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setZeroCopyEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, ZERO_COPY_ENABLED_KEY, enabled);
+    }
+
     String SERVICES_CUSTOMIZER_PARAMETER = PREFIX + ".services.customizer";
     Class<GrpcServices.Customizer> SERVICES_CUSTOMIZER_CLASS = GrpcServices.Customizer.class;
     static GrpcServices.Customizer servicesCustomizer(Parameters parameters) {
@@ -281,15 +311,6 @@ public interface GrpcConfigKeys {
     }
     static void setTlsConf(Parameters parameters, GrpcTlsConfig conf) {
       parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
-    }
-
-    String STUB_POOL_SIZE_KEY = PREFIX + ".stub.pool.size";
-    int STUB_POOL_SIZE_DEFAULT = 1;
-    static int stubPoolSize(RaftProperties properties) {
-      return get(properties::getInt, STUB_POOL_SIZE_KEY, STUB_POOL_SIZE_DEFAULT, getDefaultLog());
-    }
-    static void setStubPoolSize(RaftProperties properties, int size) {
-      setInt(properties::setInt, STUB_POOL_SIZE_KEY, size);
     }
   }
 

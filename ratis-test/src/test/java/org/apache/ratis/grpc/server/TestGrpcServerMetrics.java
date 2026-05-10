@@ -43,6 +43,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+@SuppressWarnings({"rawtypes"})
 public class TestGrpcServerMetrics {
   private static GrpcServerMetrics grpcServerMetrics;
   private static RatisMetricRegistry ratisMetricRegistry;

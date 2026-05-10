@@ -60,7 +60,7 @@ public final class ParseRatisLog {
 
     System.out.println("Processing Raft Log file: " + file.getAbsolutePath() + " size:" + file.length());
     final int entryCount = LogSegment.readSegmentFile(file, pi.getStartEnd(), maxOpSize,
-        RaftServerConfigKeys.Log.CorruptionPolicy.EXCEPTION, null, this::processLogEntry);
+        RaftServerConfigKeys.Log.CorruptionPolicy.EXCEPTION, null, entry -> processLogEntry(entry.get()));
     System.out.println("Num Total Entries: " + entryCount);
     System.out.println("Num Conf Entries: " + numConfEntries);
     System.out.println("Num Metadata Entries: " + numMetadataEntries);

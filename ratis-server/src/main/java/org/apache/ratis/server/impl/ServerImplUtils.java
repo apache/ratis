@@ -47,10 +47,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 /** Server utilities for internal use. */
 public final class ServerImplUtils {
@@ -122,8 +119,6 @@ public final class ServerImplUtils {
   /** A data structure to support the {@link #contains(TermIndex)} method. */
   static class NavigableIndices {
     private final NavigableMap<Long, ConsecutiveIndices> map = new TreeMap<>();
-    private final AtomicReference<CompletableFuture<Void>> future
-        = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     boolean contains(TermIndex ti) {
       final Long term = getTerm(ti.getIndex());
@@ -142,15 +137,7 @@ public final class ServerImplUtils {
       return floorEntry.getValue().getTerm(index);
     }
 
-    CompletableFuture<Void> append(List<LogEntryProto> entries,
-        Function<List<LogEntryProto>, CompletableFuture<Void>> appendLog) {
-      final List<ConsecutiveIndices> entriesTermIndices = ConsecutiveIndices.convert(entries);
-      return alreadyExists(entriesTermIndices) ? future.get()
-          : future.updateAndGet(f -> f.thenComposeAsync(ignored -> appendLog.apply(entries)))
-              .whenComplete((v, e) -> removeExisting(entriesTermIndices));
-    }
-
-    private synchronized boolean alreadyExists(List<ConsecutiveIndices> entriesTermIndices) {
+    synchronized boolean append(List<ConsecutiveIndices> entriesTermIndices) {
       for(int i = 0; i < entriesTermIndices.size(); i++) {
         final ConsecutiveIndices indices = entriesTermIndices.get(i);
         final ConsecutiveIndices previous = map.put(indices.startIndex, indices);
@@ -160,10 +147,10 @@ public final class ServerImplUtils {
           for(int j = 0; j < i; j++) {
             map.remove(entriesTermIndices.get(j).startIndex);
           }
-          return true;
+          return false;
         }
       }
-      return false;
+      return true;
     }
 
     synchronized void removeExisting(List<ConsecutiveIndices> entriesTermIndices) {
@@ -183,8 +170,8 @@ public final class ServerImplUtils {
       RaftPeerId id, RaftGroup group, RaftStorage.StartupOption option, StateMachine.Registry stateMachineRegistry,
       ThreadGroup threadGroup, RaftProperties properties, Parameters parameters) throws IOException {
     RaftServer.LOG.debug("newRaftServer: {}, {}", id, group);
-    Objects.requireNonNull(id, "id == null");
     if (group != null && !group.getPeers().isEmpty()) {
+      Objects.requireNonNull(id, () -> "RaftPeerId " + id + " is not in RaftGroup " + group);
       Objects.requireNonNull(group.getPeer(id), () -> "RaftPeerId " + id + " is not in RaftGroup " + group);
     }
     final RaftServerProxy proxy = newRaftServer(id, stateMachineRegistry, threadGroup, properties, parameters);

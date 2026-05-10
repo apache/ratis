@@ -27,6 +27,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.Timestamp;
 
 import java.io.IOException;
@@ -58,49 +59,53 @@ class LogAppenderDefault extends LogAppenderBase {
   /** Send an appendEntries RPC; retry indefinitely. */
   private AppendEntriesReplyProto sendAppendEntriesWithRetries(AtomicLong requestFirstIndex)
       throws InterruptedException, InterruptedIOException, RaftLogIOException {
-    int retry = 0;
-
-    AppendEntriesRequestProto request = newAppendEntriesRequest(CallId.getAndIncrement(), false);
-    while (isRunning()) { // keep retrying for IOException
+    for(int retry = 0; isRunning(); retry++) {
+      final ReferenceCountedObject<AppendEntriesRequestProto> request = nextAppendEntriesRequest(
+          CallId.getAndIncrement(), false);
+      if (request == null) {
+        LOG.trace("{} no entries to send now, wait ...", this);
+        return null;
+      }
       try {
-        if (request == null || request.getEntriesCount() == 0) {
-          request = newAppendEntriesRequest(CallId.getAndIncrement(), false);
-        }
-
-        if (request == null) {
-          LOG.trace("{} no entries to send now, wait ...", this);
-          return null;
-        } else if (!isRunning()) {
+        if (!isRunning()) {
           LOG.info("{} is stopped. Skip appendEntries.", this);
           return null;
         }
 
-        resetHeartbeatTrigger();
-        final Timestamp sendTime = Timestamp.currentTime();
-        getFollower().updateLastRpcSendTime(request.getEntriesCount() == 0);
-        final AppendEntriesRequestProto proto = request;
-        final AppendEntriesReplyProto reply = getServerRpc().appendEntries(proto);
+        final AppendEntriesRequestProto proto = request.get();
+        final AppendEntriesReplyProto reply = sendAppendEntries(proto);
         final long first = proto.getEntriesCount() > 0 ? proto.getEntries(0).getIndex() : RaftLog.INVALID_LOG_INDEX;
         requestFirstIndex.set(first);
-        getFollower().updateLastRpcResponseTime();
-        getFollower().updateLastRespondedAppendEntriesSendTime(sendTime);
-
-        getLeaderState().onFollowerCommitIndex(getFollower(), reply.getFollowerCommit());
         return reply;
       } catch (InterruptedIOException | RaftLogIOException e) {
         throw e;
       } catch (IOException ioe) {
         // TODO should have more detailed retry policy here.
-        if (retry++ % 10 == 0) { // to reduce the number of messages
+        if (retry % 10 == 0) { // to reduce the number of messages
           LOG.warn("{}: Failed to appendEntries (retry={})", this, retry, ioe);
         }
         handleException(ioe);
+      } finally {
+        request.release();
       }
+
       if (isRunning()) {
         getServer().properties().rpcSleepTime().sleep();
       }
     }
     return null;
+  }
+
+  private AppendEntriesReplyProto sendAppendEntries(AppendEntriesRequestProto request) throws IOException {
+    resetHeartbeatTrigger();
+    final Timestamp sendTime = Timestamp.currentTime();
+    getFollower().updateLastRpcSendTime(request.getEntriesCount() == 0);
+    final AppendEntriesReplyProto r = getServerRpc().appendEntries(request);
+    getFollower().updateLastRpcResponseTime();
+    getFollower().updateLastRespondedAppendEntriesSendTime(sendTime);
+
+    getLeaderState().onFollowerCommitIndex(getFollower(), r.getFollowerCommit());
+    return r;
   }
 
   private InstallSnapshotReplyProto installSnapshot(SnapshotInfo snapshot) throws InterruptedIOException {

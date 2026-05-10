@@ -52,8 +52,8 @@ import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.VersionInfo;
 
 import java.io.Closeable;
 import java.io.File;
@@ -208,8 +208,6 @@ class RaftServerProxy implements RaftServer {
 
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters, ThreadGroup threadGroup) {
-    VersionInfo.load(getClass()).printStartupMessages(id, LOG::info);
-
     this.properties = properties;
     this.stateMachineRegistry = stateMachineRegistry;
 
@@ -454,9 +452,15 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> submitClientRequestAsync(RaftClientRequest request) {
-    return getImplFuture(request.getRaftGroupId())
-        .thenCompose(impl -> impl.executeSubmitClientRequestAsync(request));
+  public CompletableFuture<RaftClientReply> submitClientRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    final RaftClientRequest request = requestRef.retain();
+    try {
+      return getImplFuture(request.getRaftGroupId())
+          .thenCompose(impl -> impl.executeSubmitClientRequestAsync(requestRef));
+    } finally {
+      requestRef.release();
+    }
   }
 
   @Override
@@ -648,11 +652,17 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request) {
-    final RaftGroupId groupId = ProtoUtils.toRaftGroupId(request.getServerRequest().getRaftGroupId());
-    return getImplFuture(groupId)
-        .thenCompose(impl ->  JavaUtils.callAsUnchecked(
-            () -> impl.appendEntriesAsync(request), CompletionException::new));
+  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
+      ReferenceCountedObject<AppendEntriesRequestProto> requestRef) {
+    AppendEntriesRequestProto request = requestRef.retain();
+    try {
+      final RaftGroupId groupId = ProtoUtils.toRaftGroupId(request.getServerRequest().getRaftGroupId());
+      return getImplFuture(groupId)
+          .thenCompose(impl -> JavaUtils.callAsUnchecked(
+              () -> impl.appendEntriesAsync(requestRef), CompletionException::new));
+    } finally {
+      requestRef.release();
+    }
   }
 
   @Override

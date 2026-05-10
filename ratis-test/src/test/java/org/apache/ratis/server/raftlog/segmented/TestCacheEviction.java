@@ -51,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils.MAX_OP_SIZE;
 
+@SuppressWarnings({"deprecation"})
 public class TestCacheEviction extends BaseTest {
   private static final CacheInvalidationPolicy POLICY = new CacheInvalidationPolicyDefault();
 

@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings({"try"})
 public class TestDataStreamDisabled extends BaseTest {
   @Test
   public void testDataStreamDisabled() throws Exception {

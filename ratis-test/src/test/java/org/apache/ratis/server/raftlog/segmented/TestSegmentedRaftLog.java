@@ -87,6 +87,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+@SuppressWarnings({"deprecation"})
 public class TestSegmentedRaftLog extends BaseTest {
   static {
     Slf4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.INFO);

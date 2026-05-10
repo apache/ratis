@@ -33,6 +33,7 @@ import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TraditionalBinaryPrefix;
 import org.junit.jupiter.api.AfterEach;
@@ -57,6 +58,7 @@ import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtil
 /**
  * Test basic functionality of {@link LogSegment}
  */
+@SuppressWarnings({"try"})
 public class TestLogSegment extends BaseTest {
   public static final LogSegmentStartEnd ZERO_START_NULL_END = LogSegmentStartEnd.valueOf(0);
 
@@ -142,11 +144,11 @@ public class TestLogSegment extends BaseTest {
       Assertions.assertEquals(term, ti.getTerm());
       Assertions.assertEquals(offset, record.getOffset());
 
-      LogEntryProto entry = segment.getEntryFromCache(ti);
-      if (entry == null) {
-        entry = segment.loadCache(record);
+      ReferenceCountedObject<LogEntryProto> entryRef = segment.getEntryFromCache(ti);
+      if (entryRef == null) {
+        entryRef = segment.loadCache(ti);
       }
-      offset += getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
+      offset += getEntrySize(entryRef.get(), LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
     }
   }
 
@@ -206,7 +208,7 @@ public class TestLogSegment extends BaseTest {
       SimpleOperation op = new SimpleOperation("m" + i);
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i++ + start);
       size += getEntrySize(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE);
-      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
+      segment.appendToOpenSegment(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
     }
 
     Assertions.assertTrue(segment.getTotalFileSize() >= max);
@@ -238,18 +240,18 @@ public class TestLogSegment extends BaseTest {
     final StateMachineLogEntryProto m = op.getLogEntryContent();
     try {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(m, 0, 1001);
-      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
+      segment.appendToOpenSegment(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
       Assertions.fail("should fail since the entry's index needs to be 1000");
     } catch (IllegalStateException e) {
       // the exception is expected.
     }
 
     LogEntryProto entry = LogProtoUtils.toLogEntryProto(m, 0, 1000);
-    segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
+    segment.appendToOpenSegment(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
 
     try {
       entry = LogProtoUtils.toLogEntryProto(m, 0, 1002);
-      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
+      segment.appendToOpenSegment(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
       Assertions.fail("should fail since the entry's index needs to be 1001");
     } catch (IllegalStateException e) {
       // the exception is expected.
@@ -264,7 +266,7 @@ public class TestLogSegment extends BaseTest {
     for (int i = 0; i < 100; i++) {
       LogEntryProto entry = LogProtoUtils.toLogEntryProto(
           new SimpleOperation("m" + i).getLogEntryContent(), term, i + start);
-      segment.appendToOpenSegment(entry, LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, true);
+      segment.appendToOpenSegment(LogSegment.Op.WRITE_CACHE_WITHOUT_STATE_MACHINE_CACHE, ReferenceCountedObject.wrap(entry));
     }
 
     // truncate an open segment (remove 1080~1099)

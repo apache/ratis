@@ -51,9 +51,8 @@ import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -245,10 +244,11 @@ class SegmentedRaftLogWorker {
   }
 
   void close() {
+    queue.close();
     this.running = false;
+    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_MINUTE, workerThreadExecutor,
+        timeout -> LOG.warn("{}: shutdown timeout in {}", name, timeout));
     Optional.ofNullable(flushExecutor).ifPresent(ExecutorService::shutdown);
-    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND.multiply(3),
-        workerThreadExecutor, timeout -> LOG.warn("{}: shutdown timeout in " + timeout, name));
     IOUtils.cleanup(LOG, out);
     PlatformDependent.freeDirectBuffer(writeBuffer);
     LOG.info("{} close()", name);
@@ -290,6 +290,7 @@ class SegmentedRaftLogWorker {
         LOG.error("Failed to add IO task {}", task, e);
         Optional.ofNullable(server).ifPresent(RaftServer.Division::close);
       }
+      task.discard();
     }
     task.startTimerOnEnqueue(raftLogMetrics.getEnqueuedTimer());
     return task;
@@ -343,7 +344,7 @@ class SegmentedRaftLogWorker {
         LOG.info(Thread.currentThread().getName()
             + " was interrupted, exiting. There are " + queue.getNumElements()
             + " tasks remaining in the queue.");
-        return;
+        break;
       } catch (Exception e) {
         if (!running) {
           LOG.info("{} got closed and hit exception",
@@ -354,6 +355,8 @@ class SegmentedRaftLogWorker {
         }
       }
     }
+
+    queue.clear(Task::discard);
   }
 
   private boolean shouldFlush() {
@@ -448,8 +451,9 @@ class SegmentedRaftLogWorker {
     addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
   }
 
-  Task writeLogEntry(LogEntryProto entry, TransactionContext context) {
-    return addIOTask(new WriteLog(entry, context));
+  Task writeLogEntry(ReferenceCountedObject<LogEntryProto> entry,
+      LogEntryProto removedStateMachineData, TransactionContext context) {
+    return addIOTask(new WriteLog(entry, removedStateMachineData, context));
   }
 
   Task truncate(TruncationSegments ts, long index) {
@@ -497,26 +501,32 @@ class SegmentedRaftLogWorker {
     private final LogEntryProto entry;
     private final CompletableFuture<?> stateMachineFuture;
     private final CompletableFuture<Long> combined;
+    private final AtomicReference<ReferenceCountedObject<LogEntryProto>> ref = new AtomicReference<>();
 
-    WriteLog(LogEntryProto entry, TransactionContext context) {
-      this.entry = LogProtoUtils.removeStateMachineData(entry);
-      if (this.entry == entry) {
-        final StateMachineLogEntryProto proto = entry.hasStateMachineLogEntry()? entry.getStateMachineLogEntry(): null;
+    WriteLog(ReferenceCountedObject<LogEntryProto> entryRef, LogEntryProto removedStateMachineData,
+        TransactionContext context) {
+      LogEntryProto origEntry = entryRef.get();
+      this.entry = removedStateMachineData;
+      if (this.entry == origEntry) {
+        final StateMachineLogEntryProto proto = origEntry.hasStateMachineLogEntry() ?
+            origEntry.getStateMachineLogEntry(): null;
         if (stateMachine != null && proto != null && proto.getType() == StateMachineLogEntryProto.Type.DATASTREAM) {
           final ClientInvocationId invocationId = ClientInvocationId.valueOf(proto);
           final CompletableFuture<DataStream> removed = server.getDataStreamMap().remove(invocationId);
-          this.stateMachineFuture = removed == null? stateMachine.data().link(null, entry)
-              : removed.thenApply(stream -> stateMachine.data().link(stream, entry));
+          this.stateMachineFuture = removed == null? stateMachine.data().link(null, origEntry)
+              : removed.thenApply(stream -> stateMachine.data().link(stream, origEntry));
         } else {
           this.stateMachineFuture = null;
         }
+        entryRef.retain();
+        this.ref.set(entryRef);
       } else {
         try {
-          // this.entry != entry iff the entry has state machine data
-          this.stateMachineFuture = stateMachine.data().write(entry, context);
+          // this.entry != origEntry if it has state machine data
+          this.stateMachineFuture = stateMachine.data().write(entryRef, context);
         } catch (Exception e) {
-          LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
-              + ", entry=" + LogProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);
+          LOG.error(name + ": writeStateMachineData failed for index " + origEntry.getIndex()
+              + ", entry=" + LogProtoUtils.toLogEntryString(origEntry, stateMachine::toStateMachineLogEntryString), e);
           throw e;
         }
       }
@@ -528,6 +538,7 @@ class SegmentedRaftLogWorker {
     void failed(IOException e) {
       stateMachine.event().notifyLogFailed(e, entry);
       super.failed(e);
+      discard();
     }
 
     @Override
@@ -543,6 +554,15 @@ class SegmentedRaftLogWorker {
     @Override
     void done() {
       writeTasks.offerOrCompleteFuture(this);
+      discard();
+    }
+
+    @Override
+    void discard() {
+      final ReferenceCountedObject<LogEntryProto> entryRef = ref.getAndSet(null);
+      if (entryRef != null) {
+        entryRef.release();
+      }
     }
 
     @Override

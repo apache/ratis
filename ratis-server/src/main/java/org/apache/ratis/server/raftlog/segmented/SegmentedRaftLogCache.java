@@ -32,6 +32,7 @@ import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AutoCloseableReadWriteLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,12 +44,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * In-memory RaftLog Cache. Currently we provide a simple implementation that
@@ -364,16 +367,14 @@ public class SegmentedRaftLogCache {
     TruncationSegments purge(long index) {
       try (AutoCloseableLock writeLock = writeLock()) {
         int segmentIndex = binarySearch(index);
-        List<SegmentFileInfo> list = new ArrayList<>();
         if (segmentIndex == -1) {
           // nothing to purge
           return null;
         }
+        List<LogSegment> list = new LinkedList<>();
 
         if (segmentIndex == -segments.size() - 1) {
-          for (LogSegment ls : segments) {
-            list.add(SegmentFileInfo.newClosedSegmentFileInfo(ls));
-          }
+          list.addAll(segments);
           segments.clear();
           sizeInBytes = 0;
         } else if (segmentIndex >= 0) {
@@ -386,13 +387,16 @@ public class SegmentedRaftLogCache {
           for (int i = 0; i <= startIndex; i++) {
             LogSegment segment = segments.remove(0); // must remove the first segment to avoid gaps.
             sizeInBytes -= segment.getTotalFileSize();
-            list.add(SegmentFileInfo.newClosedSegmentFileInfo(segment));
+            list.add(segment);
           }
         } else {
           throw new IllegalStateException("Unexpected gap in segments: binarySearch(" + index + ") returns "
                   + segmentIndex + ", segments=" + segments);
         }
-        return list.isEmpty() ? null : new TruncationSegments("purge(" + index + ")", null, list);
+        list.forEach(LogSegment::evictCache);
+        List<SegmentFileInfo> toDelete = list.stream().map(SegmentFileInfo::newClosedSegmentFileInfo)
+            .collect(Collectors.toList());
+        return list.isEmpty() ? null : new TruncationSegments("purge(" + index + ")", null, toDelete);
       }
     }
 
@@ -614,25 +618,18 @@ public class SegmentedRaftLogCache {
 
   TermIndex getLastTermIndex() {
     try (AutoCloseableLock readLock = closedSegments.readLock()) {
-      LogSegment tmpSegment = openSegment;
-      return (tmpSegment != null && tmpSegment.getLastTermIndex() != null) ?
-          tmpSegment.getLastTermIndex() :
+      return (openSegment != null && openSegment.numOfEntries() > 0) ?
+          openSegment.getLastTermIndex() :
           (closedSegments.isEmpty() ? null :
               closedSegments.get(closedSegments.size() - 1).getLastTermIndex());
     }
   }
 
-  void verifyAppendEntryIndex(LogEntryProto entry) {
-    // SegmentedRaftLog does the segment creation/rolling work.
-    Objects.requireNonNull(openSegment, "openSegment == null");
-    openSegment.verifyEntryIndex(entry.getIndex());
-  }
-
-  void appendEntry(LogEntryProto entry, LogSegment.Op op) {
+  void appendEntry(LogSegment.Op op, ReferenceCountedObject<LogEntryProto> entry) {
     // SegmentedRaftLog does the segment creation/rolling work. Here we just
     // simply append the entry into the open segment.
     Objects.requireNonNull(openSegment, "openSegment == null");
-    openSegment.appendToOpenSegment(entry, op, false);
+    openSegment.appendToOpenSegment(op, entry);
   }
 
   /**

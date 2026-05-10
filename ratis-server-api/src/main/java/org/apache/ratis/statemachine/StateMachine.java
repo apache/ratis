@@ -89,10 +89,34 @@ public interface StateMachine extends Closeable {
     }
 
     /**
+     * Read asynchronously the state machine data from this state machine.
+     * StateMachines implement this method when the read result contains retained resources that should be released
+     * after use.
+     *
+     * @return a future for the read task. The result of the future is a {@link ReferenceCountedObject} wrapping the
+     * read result. Client code of this method must call  {@link ReferenceCountedObject#release()} after
+     * use.
+     */
+    default CompletableFuture<ReferenceCountedObject<ByteString>> retainRead(LogEntryProto entry,
+        TransactionContext context) {
+      return read(entry, context).thenApply(r -> {
+        if (r == null) {
+          return null;
+        }
+        ReferenceCountedObject<ByteString> ref = ReferenceCountedObject.wrap(r);
+        ref.retain();
+        return ref;
+
+      });
+    }
+
+    /**
      * Write asynchronously the state machine data in the given log entry to this state machine.
      *
      * @return a future for the write task
+     * @deprecated Applications should implement {@link #write(ReferenceCountedObject, TransactionContext)} instead.
      */
+    @Deprecated
     default CompletableFuture<?> write(LogEntryProto entry) {
       return CompletableFuture.completedFuture(null);
     }
@@ -101,9 +125,34 @@ public interface StateMachine extends Closeable {
      * Write asynchronously the state machine data in the given log entry to this state machine.
      *
      * @return a future for the write task
+     * @deprecated Applications should implement {@link #write(ReferenceCountedObject, TransactionContext)} instead.
      */
+    @Deprecated
     default CompletableFuture<?> write(LogEntryProto entry, TransactionContext context) {
       return write(entry);
+    }
+
+    /**
+     * Write asynchronously the state machine data in the given log entry to this state machine.
+     *
+     * @param entryRef Reference to a log entry.
+     *                 Implementations of this method may call {@link ReferenceCountedObject#get()}
+     *                 to access the log entry before this method returns.
+     *                 If the log entry is needed after this method returns,
+     *                 e.g. for asynchronous computation or caching,
+     *                 the implementation must invoke {@link ReferenceCountedObject#retain()}
+     *                 and {@link ReferenceCountedObject#release()}.
+     * @return a future for the write task
+     */
+    default CompletableFuture<?> write(ReferenceCountedObject<LogEntryProto> entryRef, TransactionContext context) {
+      final LogEntryProto entry = entryRef.get();
+      try {
+        final LogEntryProto copy = LogEntryProto.parseFrom(entry.toByteString());
+        return write(copy, context);
+      } catch (InvalidProtocolBufferException e) {
+        return JavaUtils.completeExceptionally(new IllegalStateException(
+            "Failed to copy log entry " + TermIndex.valueOf(entry), e));
+      }
     }
 
     /**

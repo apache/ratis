@@ -39,7 +39,6 @@ import org.apache.ratis.protocol.exceptions.NotReplicatedException;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.ReadIndexHeartbeats.AppendEntriesListener;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
@@ -58,6 +57,7 @@ import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 
@@ -556,20 +556,21 @@ class LeaderStateImpl implements LeaderState {
   PendingRequest addPendingRequest(PendingRequests.Permit permit, RaftClientRequest request, TransactionContext entry) {
     if (LOG.isDebugEnabled()) {
       LOG.debug("{}: addPendingRequest at {}, entry={}", this, request,
-          LogProtoUtils.toLogEntryString(entry.getLogEntry()));
+          LogProtoUtils.toLogEntryString(entry.getLogEntryUnsafe()));
     }
     return pendingRequests.add(permit, request, entry);
   }
 
-  CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
-    return messageStreamRequests.streamAsync(request)
+  CompletableFuture<RaftClientReply> streamAsync(ReferenceCountedObject<RaftClientRequest> requestRef) {
+    RaftClientRequest request = requestRef.get();
+    return messageStreamRequests.streamAsync(requestRef)
         .thenApply(dummy -> server.newSuccessReply(request))
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
-  CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
-    return messageStreamRequests.streamEndOfRequestAsync(request)
-        .thenApply(bytes -> RaftClientRequest.toWriteRequest(request, Message.valueOf(bytes)));
+  CompletableFuture<ReferenceCountedObject<RaftClientRequest>> streamEndOfRequestAsync(
+      ReferenceCountedObject<RaftClientRequest> requestRef) {
+    return messageStreamRequests.streamEndOfRequestAsync(requestRef);
   }
 
   CompletableFuture<RaftClientReply> addWatchRequest(RaftClientRequest request) {
@@ -1241,22 +1242,8 @@ class LeaderStateImpl implements LeaderState {
         && (server.getRaftConf().isSingleton() || lease.isValid());
   }
 
-  void replyPendingRequest(TermIndex termIndex, RaftClientReply reply, RetryCacheImpl.CacheEntry cacheEntry) {
-    final PendingRequest pending = pendingRequests.remove(termIndex);
-
-    final LongSupplier replyMethod = () -> {
-      cacheEntry.updateResult(reply);
-      if (pending != null) {
-        pending.setReply(reply);
-      }
-      return termIndex.getIndex();
-    };
-
-    if (readIndexType == Type.REPLIED_INDEX) {
-      replyFlusher.hold(replyMethod);
-    } else {
-      replyMethod.getAsLong();
-    }
+  void replyPendingRequest(TermIndex termIndex, RaftClientReply reply) {
+    pendingRequests.replyPendingRequest(termIndex, reply);
   }
 
   TransactionContext getTransactionContext(TermIndex termIndex) {
@@ -1351,6 +1338,7 @@ class LeaderStateImpl implements LeaderState {
   }
 
   @Override
+  @SuppressWarnings("deprecation")
   public void checkHealth(FollowerInfo follower) {
     final TimeDuration elapsedTime = follower.getLastRpcResponseTime().elapsedTime();
     if (elapsedTime.compareTo(server.properties().rpcSlownessTimeout()) > 0) {

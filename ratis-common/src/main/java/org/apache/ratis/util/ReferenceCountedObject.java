@@ -19,10 +19,11 @@ package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
 
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * A reference-counted object can be retained for later use
@@ -44,6 +45,7 @@ import java.util.function.Consumer;
  * @param <T> The object type.
  */
 public interface ReferenceCountedObject<T> {
+
   /** @return the object. */
   T get();
 
@@ -101,6 +103,63 @@ public interface ReferenceCountedObject<T> {
     return wrap(value, () -> {}, ignored -> {});
   }
 
+  static <T, V> ReferenceCountedObject<V> delegateFrom(Collection<ReferenceCountedObject<T>> fromRefs, V value) {
+    return new ReferenceCountedObject<V>() {
+      @Override
+      public V get() {
+        return value;
+      }
+
+      @Override
+      public V retain() {
+        fromRefs.forEach(ReferenceCountedObject::retain);
+        return value;
+      }
+
+      @Override
+      public boolean release() {
+        boolean allReleased = true;
+        for (ReferenceCountedObject<T> ref : fromRefs) {
+          if (!ref.release()) {
+            allReleased = false;
+          }
+        }
+        return allReleased;
+      }
+    };
+  }
+
+  /**
+   * @return a {@link ReferenceCountedObject} of the given value by delegating to this object.
+   */
+  default <V> ReferenceCountedObject<V> delegate(V value) {
+    final ReferenceCountedObject<T> delegated = this;
+    return new ReferenceCountedObject<V>() {
+      @Override
+      public V get() {
+        return value;
+      }
+
+      @Override
+      public V retain() {
+        delegated.retain();
+        return value;
+      }
+
+      @Override
+      public boolean release() {
+        return delegated.release();
+      }
+    };
+  }
+
+  /**
+   * @return a {@link ReferenceCountedObject} by apply the given function to this object.
+   */
+  default <V> ReferenceCountedObject<V> apply(Function<T, V> function) {
+    return delegate(function.apply(get()));
+  }
+
   /**
    * Wrap the given value as a {@link ReferenceCountedObject}.
    *
@@ -116,48 +175,7 @@ public interface ReferenceCountedObject<T> {
     Objects.requireNonNull(retainMethod, "retainMethod == null");
     Objects.requireNonNull(releaseMethod, "releaseMethod == null");
 
-    return new ReferenceCountedObject<V>() {
-      private final AtomicInteger count = new AtomicInteger();
-
-      @Override
-      public V get() {
-        final int previous = count.get();
-        if (previous < 0) {
-          throw new IllegalStateException("Failed to get: object has already been completely released.");
-        } else if (previous == 0) {
-          throw new IllegalStateException("Failed to get: object has not yet been retained.");
-        }
-        return value;
-      }
-
-      @Override
-      public V retain() {
-        // n <  0: exception
-        // n >= 0: n++
-        if (count.getAndUpdate(n -> n < 0? n : n + 1) < 0) {
-          throw new IllegalStateException("Failed to retain: object has already been completely released.");
-        }
-
-        retainMethod.run();
-        return value;
-      }
-
-      @Override
-      public boolean release() {
-        // n <= 0: exception
-        // n >  1: n--
-        // n == 1: n = -1
-        final int previous = count.getAndUpdate(n -> n <= 1? -1: n - 1);
-        if (previous < 0) {
-          throw new IllegalStateException("Failed to release: object has already been completely released.");
-        } else if (previous == 0) {
-          throw new IllegalStateException("Failed to release: object has not yet been retained.");
-        }
-        final boolean completedReleased = previous == 1;
-        releaseMethod.accept(completedReleased);
-        return completedReleased;
-      }
-    };
+    return ReferenceCountedLeakDetector.getFactory().create(value, retainMethod, releaseMethod);
   }
 
   /** The same as wrap(value, retainMethod, ignored -> releaseMethod.run()). */

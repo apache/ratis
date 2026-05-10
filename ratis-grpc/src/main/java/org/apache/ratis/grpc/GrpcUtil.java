@@ -24,14 +24,15 @@ import org.apache.ratis.security.TlsConf.TrustManagerConf;
 import org.apache.ratis.security.TlsConf.CertificatesConf;
 import org.apache.ratis.security.TlsConf.PrivateKeyConf;
 import org.apache.ratis.security.TlsConf.KeyManagerConf;
+import org.apache.ratis.thirdparty.com.google.protobuf.MessageLite;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.Metadata;
+import org.apache.ratis.thirdparty.io.grpc.MethodDescriptor;
+import org.apache.ratis.thirdparty.io.grpc.ServerCallHandler;
+import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
-import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -42,15 +43,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.KeyManager;
-import javax.net.ssl.SSLException;
 import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
 
 public interface GrpcUtil {
   Logger LOG = LoggerFactory.getLogger(GrpcUtil.class);
@@ -65,14 +63,8 @@ public interface GrpcUtil {
       Metadata.Key.of("heartbeat", Metadata.ASCII_STRING_MARSHALLER);
 
   static StatusRuntimeException wrapException(Throwable t) {
-    return wrapException(t, -1);
-  }
-
-  static StatusRuntimeException wrapException(Throwable t, long callId) {
     t = JavaUtils.unwrapCompletionException(t);
-    Metadata trailers = new StatusRuntimeExceptionMetadataBuilder(t)
-        .addCallId(callId)
-        .build();
+    Metadata trailers = new StatusRuntimeExceptionMetadataBuilder(t).build();
     return wrapException(t, trailers);
   }
 
@@ -84,6 +76,10 @@ public interface GrpcUtil {
         .build();
     return wrapException(t, trailers);
   }
+  static StatusRuntimeException wrapException(Throwable t, long callId) {
+    return wrapException(t, callId, false);
+  }
+
 
   static StatusRuntimeException wrapException(Throwable t, Metadata trailers) {
     return new StatusRuntimeException(
@@ -97,7 +93,7 @@ public interface GrpcUtil {
         return unwrapped;
       }
     }
-    return JavaUtils.unwrapCompletionException(t);
+    return t;
   }
 
   static IOException unwrapException(StatusRuntimeException se) {
@@ -144,10 +140,8 @@ public interface GrpcUtil {
   static long getCallId(Throwable t) {
     if (t instanceof StatusRuntimeException) {
       final Metadata trailers = ((StatusRuntimeException)t).getTrailers();
-      if (trailers != null) {
-        final String callId = trailers.get(CALL_ID);
-        return callId != null ? Long.parseUnsignedLong(callId) : -1;
-      }
+      String callId = trailers.get(CALL_ID);
+      return callId != null ? Integer.parseInt(callId) : -1;
     }
     return -1;
   }
@@ -155,8 +149,8 @@ public interface GrpcUtil {
   static boolean isHeartbeat(Throwable t) {
     if (t instanceof StatusRuntimeException) {
       final Metadata trailers = ((StatusRuntimeException)t).getTrailers();
-      final String isHeartbeat = trailers != null ? trailers.get(HEARTBEAT) : null;
-      return Boolean.parseBoolean(isHeartbeat);
+      String isHeartbeat = trailers != null ? trailers.get(HEARTBEAT) : null;
+      return isHeartbeat != null && Boolean.valueOf(isHeartbeat);
     }
     return false;
   }
@@ -164,7 +158,7 @@ public interface GrpcUtil {
   static IOException unwrapIOException(Throwable t) {
     final IOException e;
     if (t instanceof StatusRuntimeException) {
-      e = unwrapException((StatusRuntimeException) t);
+      e = GrpcUtil.unwrapException((StatusRuntimeException) t);
     } else {
       e = IOUtils.asIOException(t);
     }
@@ -180,7 +174,7 @@ public interface GrpcUtil {
       supplier.get().whenComplete((reply, exception) -> {
         if (exception != null) {
           warning.accept(exception);
-          responseObserver.onError(wrapException(exception));
+          responseObserver.onError(GrpcUtil.wrapException(exception));
         } else {
           responseObserver.onNext(toProto.apply(reply));
           responseObserver.onCompleted();
@@ -188,7 +182,7 @@ public interface GrpcUtil {
       });
     } catch (Exception e) {
       warning.accept(e);
-      responseObserver.onError(wrapException(e));
+      responseObserver.onError(GrpcUtil.wrapException(e));
     }
   }
 
@@ -197,7 +191,7 @@ public interface GrpcUtil {
   }
 
   class StatusRuntimeExceptionMetadataBuilder {
-    private final Metadata trailers = new Metadata();
+    private Metadata trailers = new Metadata();
 
     StatusRuntimeExceptionMetadataBuilder(Throwable t) {
       trailers.put(EXCEPTION_TYPE_KEY, t.getClass().getCanonicalName());
@@ -306,37 +300,25 @@ public interface GrpcUtil {
     }
   }
 
-  static SslContext buildSslContextForServer(GrpcTlsConfig tlsConf) {
-    if (tlsConf == null) {
-      return null;
-    }
-    SslContextBuilder b = initSslContextBuilderForServer(tlsConf.getKeyManager());
-    if (tlsConf.getMtlsEnabled()) {
-      b.clientAuth(ClientAuth.REQUIRE);
-      setTrustManager(b, tlsConf.getTrustManager());
-    }
-    b = GrpcSslContexts.configure(b, OPENSSL);
-    try {
-      return b.build();
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to buildSslContextForServer from tlsConfig " + tlsConf, e);
-    }
-  }
-
-  static SslContext buildSslContextForClient(GrpcTlsConfig tlsConf) {
-    if (tlsConf == null) {
-      return null;
-    }
-
-    final SslContextBuilder b = GrpcSslContexts.forClient();
-    setTrustManager(b, tlsConf.getTrustManager());
-    if (tlsConf.getMtlsEnabled()) {
-      setKeyManager(b, tlsConf.getKeyManager());
-    }
-    try {
-      return b.build();
-    } catch (SSLException e) {
-      throw new IllegalArgumentException("Failed to buildSslContextForClient from tlsConfig " + tlsConf, e);
-    }
+  /**
+   * Used to add a method to Service definition with a custom request marshaller.
+   *
+   * @param orig original service definition.
+   * @param newServiceBuilder builder of the new service definition.
+   * @param origMethod the original method definition.
+   * @param customMarshaller custom marshaller to be set for the method.
+   * @param <Req>
+   * @param <Resp>
+   */
+  static <Req extends MessageLite, Resp> void addMethodWithCustomMarshaller(
+      ServerServiceDefinition orig, ServerServiceDefinition.Builder newServiceBuilder,
+      MethodDescriptor<Req, Resp> origMethod, MethodDescriptor.PrototypeMarshaller<Req> customMarshaller) {
+    MethodDescriptor<Req, Resp> newMethod = origMethod.toBuilder()
+        .setRequestMarshaller(customMarshaller)
+        .build();
+    @SuppressWarnings("unchecked")
+    ServerCallHandler<Req, Resp> serverCallHandler =
+        (ServerCallHandler<Req, Resp>) orig.getMethod(newMethod.getFullMethodName()).getServerCallHandler();
+    newServiceBuilder.addMethod(newMethod, serverCallHandler);
   }
 }
