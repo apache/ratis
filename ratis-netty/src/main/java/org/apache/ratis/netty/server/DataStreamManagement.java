@@ -311,8 +311,11 @@ public class DataStreamManagement {
       if (buffer.remaining() == 0) {
         continue;
       }
-      final ReferenceCountedObject<ByteBuffer> wrapped = ReferenceCountedObject.wrap(
-          buffer, buf::retain, ignored -> buf.release());
+      final ReferenceCountedObject<ByteBuffer> wrapped = ReferenceCountedObject.<ByteBuffer>newBuilder()
+          .setValue(buffer)
+          .setRetainMethod(buf::retain)
+          .setReleaseMethod(ignored -> buf.release())
+          .build();
       try(UncheckedAutoCloseable ignore = wrapped.retainAndReleaseOnClose()) {
         byteWritten += channel.write(wrapped);
       } catch (Throwable t) {
