@@ -23,10 +23,12 @@ import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
+import org.apache.ratis.util.TimeoutScheduler;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +38,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 class TestReadIndexBatching {
+  @Test
+  void testDefaultSchedulerPreservesSubMillisecondBatchInterval() throws Exception {
+    final ReadIndexBatching batching = new ReadIndexBatching(
+        TimeDuration.valueOf(500, TimeUnit.MICROSECONDS), 64, request -> new CompletableFuture<>());
+
+    final Field scheduler = ReadIndexBatching.class.getDeclaredField("scheduler");
+    scheduler.setAccessible(true);
+    Assertions.assertTrue(scheduler.get(batching) instanceof TimeoutScheduler);
+  }
+
   @Test
   void testBatchIntervalMustBePositive() {
     final RaftProperties properties = new RaftProperties();

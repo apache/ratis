@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
+import org.apache.ratis.util.TimeoutScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +49,7 @@ class ReadIndexBatching {
 
   ReadIndexBatching(TimeDuration batchInterval, int batchSize,
       Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl) {
-    this(TimeoutExecutor.getInstance(), batchInterval, batchSize, readIndexAsyncImpl);
+    this(TimeoutScheduler.getInstance(), batchInterval, batchSize, readIndexAsyncImpl);
   }
 
   ReadIndexBatching(TimeoutExecutor scheduler, TimeDuration batchInterval, int batchSize,
