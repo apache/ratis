@@ -42,6 +42,7 @@ class FollowerInfoImpl implements FollowerInfo {
   private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex snapshotIndex = new RaftLogIndex("snapshotIndex", 0L);
+  private final ErrorState errorState = new ErrorStateImpl();
   private volatile boolean caughtUp;
   private volatile boolean ackInstallSnapshotAttempt = false;
 
@@ -239,5 +240,36 @@ class FollowerInfoImpl implements FollowerInfo {
   @Override
   public void updateLastRespondedAppendEntriesSendTime(Timestamp sendTime) {
     lastRespondedAppendEntriesSendTime.set(sendTime);
+  }
+
+  @Override
+  public ErrorState getErrorState() {
+    return errorState;
+  }
+
+  static class ErrorStateImpl implements ErrorState {
+    /** The number of consecutive errors without getting a successful reply for a particular follower. */
+    private int errorCount = 0;
+    private int lastReturnedErrorCount = 0;
+
+    @Override
+    public synchronized int updateErrorCount(boolean isError) {
+      if (isError) {
+        errorCount++;
+      } else {
+        errorCount = 0;
+        lastReturnedErrorCount = 0;
+      }
+      return errorCount;
+    }
+
+    @Override
+    public synchronized int getErrorCountToDelay() {
+      if (errorCount == lastReturnedErrorCount) {
+        return 0;
+      }
+      lastReturnedErrorCount = errorCount;
+      return errorCount;
+    }
   }
 }

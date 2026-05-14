@@ -112,4 +112,34 @@ public interface FollowerInfo {
 
   /** Update lastRpcResponseTime and LastRespondedAppendEntriesSendTime */
   void updateLastRespondedAppendEntriesSendTime(Timestamp sendTime);
+
+  /** @return the error state. */
+  ErrorState getErrorState();
+
+  /** Error state such as the count for consecutive errors. */
+  interface ErrorState {
+    /**
+     * If it is an error, increment the count; otherwise, reset the count to 0.
+     *
+     * @return the updated error count.
+     */
+    int updateErrorCount(boolean isError);
+
+    /**
+     * Each error count is returned only once.
+     * For the subsequent calls of the same error count, it returns 0.
+     * <p>
+     * For example,
+     * 1. Error count is 3
+     * 2. Calling getErrorCountToDelay() returns 3
+     * 3. Calling getErrorCountToDelay() again returns 0
+     * 4. Calling updateErrorCount(true) to increment error count to 4
+     * 5. Calling getErrorCountToDelay() returns 4
+     * 6. Calling getErrorCountToDelay() again returns 0
+     * 7. Calling updateErrorCount(false) resets error count to 0
+     *
+     * @return each error count only once.
+     */
+    int getErrorCountToDelay();
+  }
 }

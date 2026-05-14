@@ -276,7 +276,7 @@ abstract class FileInfo {
       final WriteInfo info = writeInfos.get(index);
       if (info == null) {
         return JavaUtils.completeExceptionally(
-            new IOException(name.get() + " is already committed."));
+            new IOException(name.get() + " not found."));
       }
 
       final CheckedSupplier<Integer, IOException> task = LogUtils.newCheckedSupplier(LOG, () -> {

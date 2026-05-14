@@ -47,6 +47,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.apache.ratis.examples.filestore.FileStoreStateMachine.SimulateFailure.PATH_TO_FAIL;
+
 public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
@@ -141,6 +143,18 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
     testSingleFile("foo", SizeInBytes.valueOf("2M"), newClient);
     testMultipleFiles("file", 20, SizeInBytes.valueOf("1M"), newClient);
 
+    cluster.shutdown();
+  }
+
+  @Test
+  public void testWriteStateMachineDataFailure() throws Exception {
+    final CLUSTER cluster = newCluster(NUM_PEERS);
+    cluster.start();
+    RaftTestUtil.waitForLeader(cluster);
+
+    final CheckedSupplier<FileStoreClient, IOException> newClient = () -> newFileStoreClient(cluster);
+    testSingleFile(PATH_TO_FAIL, SizeInBytes.valueOf("100k"), newClient);
+    testSingleFile("bar", SizeInBytes.valueOf("2k"), newClient);
     cluster.shutdown();
   }
 
