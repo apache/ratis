@@ -99,11 +99,6 @@ class SnapshotInstallationHandler {
     return inProgressInstallSnapshotIndex.get();
   }
 
-  Throwable getInProgressInstallSnapshotReadException() {
-    final long installSnapshot = getInProgressInstallSnapshotIndex();
-    return installSnapshot != INVALID_LOG_INDEX ? ReadRequests.newException(getMemberId(), installSnapshot) : null;
-  }
-
   InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException {
     BatchLogger.print(BatchLogKey.INSTALL_SNAPSHOT_REQUEST, getMemberId(),
         suffix -> LOG.info("{}: receive installSnapshot: {} {}",
@@ -281,7 +276,7 @@ class SnapshotInstallationHandler {
               InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
           return future.thenApply(dummy -> reply);
         }
-        server.getState().getReadRequests().fail(ReadRequests.newException(getMemberId(), firstAvailableLogIndex));
+        server.getState().getReadRequests().fail(server.newReadException("wait for", firstAvailableLogIndex, true));
 
         final RaftPeerProto leaderProto;
         if (!request.hasLastRaftConfigurationLogEntryProto()) {

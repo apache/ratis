@@ -165,14 +165,14 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     final Method fail = readRequests.getClass().getDeclaredMethod("fail", Throwable.class);
     fail.setAccessible(true);
     fail.invoke(readRequests, new ReadException(server.getMemberId()
-        + ": Failed read as snapshot (" + index + ") installation is in progress"));
+        + ": Failed to wait for readIndex as snapshot (" + index + ") installation is started"));
   }
 
   static void assertSnapshotInstallationReadException(Throwable exception) {
     final Throwable cause = exception instanceof CompletionException && exception.getCause() != null
         ? exception.getCause() : exception;
     Assertions.assertInstanceOf(ReadException.class, cause);
-    Assertions.assertTrue(cause.getMessage().contains("snapshot (1) installation is in progress"),
+    Assertions.assertTrue(cause.getMessage().contains("snapshot (1) installation is"),
         () -> "Unexpected exception: " + exception);
   }
 

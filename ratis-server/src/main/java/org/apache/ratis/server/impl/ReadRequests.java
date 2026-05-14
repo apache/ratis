@@ -20,29 +20,21 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.exceptions.ReadException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongConsumer;
-import java.util.function.Supplier;
 
 /** For supporting linearizable read. */
 class ReadRequests {
   private static final Logger LOG = LoggerFactory.getLogger(ReadRequests.class);
-
-  static ReadException newException(Object server, long installSnapshot) {
-    return new ReadException(server + ": Failed read as snapshot (" + installSnapshot
-        + ") installation is in progress");
-  }
 
   static class ReadIndexQueue {
     private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
@@ -52,7 +44,7 @@ class ReadRequests {
      * Map      : readIndex -> appliedIndexFuture (when completes, readIndex <= appliedIndex).
      * Invariant: all keys > lastAppliedIndex.
      */
-    private final NavigableMap<Long, CompletableFuture<Long>> sorted = new TreeMap<>();
+    private NavigableMap<Long, CompletableFuture<Long>> sorted = new TreeMap<>();
 
     private final TimeDuration readTimeout;
 
@@ -61,14 +53,10 @@ class ReadRequests {
       this.readTimeout = readTimeout;
     }
 
-    CompletableFuture<Long> add(long readIndex, Supplier<Throwable> failureSupplier) {
+    CompletableFuture<Long> add(long readIndex) {
       final CompletableFuture<Long> returned;
       final boolean create;
       synchronized (this) {
-        final Throwable failure = failureSupplier.get();
-        if (failure != null) {
-          return JavaUtils.completeExceptionally(failure);
-        }
         if (readIndex <= lastAppliedIndex) {
           return CompletableFuture.completedFuture(lastAppliedIndex);
         }
@@ -101,13 +89,10 @@ class ReadRequests {
       removed.completeExceptionally(new ReadException("Read timeout " + readTimeout + " for index " + readIndex));
     }
 
-    void fail(Throwable cause) {
-      final Collection<CompletableFuture<Long>> futures;
-      synchronized (this) {
-        futures = new ArrayList<>(sorted.values());
-        sorted.clear();
-      }
-      futures.forEach(f -> f.completeExceptionally(cause));
+    synchronized Collection<CompletableFuture<Long>> clear() {
+      final Collection<CompletableFuture<Long>> futures = sorted.values();
+      sorted = new TreeMap<>();
+      return futures;
     }
 
     /** Complete all the entries less than or equal to the given applied index. */
@@ -140,11 +125,13 @@ class ReadRequests {
     return readIndexQueue::complete;
   }
 
-  CompletableFuture<Long> waitToAdvance(long readIndex, Supplier<Throwable> failureSupplier) {
-    return readIndexQueue.add(readIndex, failureSupplier);
+  CompletableFuture<Long> waitToAdvance(long readIndex) {
+    return readIndexQueue.add(readIndex);
   }
 
   void fail(Throwable cause) {
-    readIndexQueue.fail(cause);
+    for (CompletableFuture<Long> f : readIndexQueue.clear()) {
+      f.completeExceptionally(cause);
+    }
   }
 }
