@@ -276,7 +276,7 @@ class SnapshotInstallationHandler {
               InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
           return future.thenApply(dummy -> reply);
         }
-        server.getState().getReadRequests().fail(server.newReadException("wait for", firstAvailableLogIndex, true));
+        server.getState().getReadRequests().fail(server.getReadException("wait for", firstAvailableLogIndex, true));
 
         final RaftPeerProto leaderProto;
         if (!request.hasLastRaftConfigurationLogEntryProto()) {

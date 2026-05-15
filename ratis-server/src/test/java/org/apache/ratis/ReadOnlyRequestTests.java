@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   extends BaseTest
