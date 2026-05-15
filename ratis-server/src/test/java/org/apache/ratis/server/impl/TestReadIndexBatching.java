@@ -21,101 +21,94 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.ReadIndexReplyProto;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutExecutor;
-import org.apache.ratis.util.TimeoutScheduler;
-import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 
 class TestReadIndexBatching {
   @Test
-  void testDefaultSchedulerPreservesSubMillisecondBatchInterval() throws Exception {
-    final ReadIndexBatching batching = new ReadIndexBatching(
-        TimeDuration.valueOf(500, TimeUnit.MICROSECONDS), 64, request -> new CompletableFuture<>());
-
-    final Field scheduler = ReadIndexBatching.class.getDeclaredField("scheduler");
-    scheduler.setAccessible(true);
-    Assertions.assertTrue(scheduler.get(batching) instanceof TimeoutScheduler);
-  }
-
-  @Test
-  void testBatchIntervalMustBePositive() {
+  void testBatchSizeMustBePositive() {
     final RaftProperties properties = new RaftProperties();
-    final TimeDuration zero = TimeDuration.valueOf(0, TimeUnit.MICROSECONDS);
 
     Assertions.assertThrows(IllegalArgumentException.class,
-        () -> RaftServerConfigKeys.Read.ReadIndex.Batch.setBatchInterval(properties, zero));
+        () -> RaftServerConfigKeys.Read.ReadIndex.Batch.setBatchSize(properties, 0));
 
-    properties.setTimeDuration(RaftServerConfigKeys.Read.ReadIndex.Batch.BATCH_INTERVAL_KEY, zero);
+    properties.setInt(RaftServerConfigKeys.Read.ReadIndex.Batch.BATCH_SIZE_KEY, 0);
     Assertions.assertThrows(IllegalArgumentException.class,
-        () -> RaftServerConfigKeys.Read.ReadIndex.Batch.batchInterval(properties));
+        () -> RaftServerConfigKeys.Read.ReadIndex.Batch.batchSize(properties));
   }
 
   @Test
-  void testBatchSizeSealsImmediately() throws Exception {
-    final CapturingTimeoutExecutor scheduler = new CapturingTimeoutExecutor();
+  void testSubmitSchedulesOneOpportunisticDrain() throws Exception {
+    final CapturingExecutor executor = new CapturingExecutor();
     final AtomicInteger readIndexCount = new AtomicInteger();
     final ReadIndexReplyProto readIndexReply = ReadIndexReplyProto.getDefaultInstance();
     final ReadIndexBatching batching = new ReadIndexBatching(
-        scheduler, TimeDuration.valueOf(1, TimeUnit.DAYS), 2, request -> {
+        executor, 64, request -> {
           readIndexCount.incrementAndGet();
           return CompletableFuture.completedFuture(readIndexReply);
         });
 
     final CompletableFuture<ReadIndexReplyProto> first = batching.submit(null);
     Assertions.assertFalse(first.isDone());
-    Assertions.assertEquals(1, scheduler.getTaskCount());
+    Assertions.assertEquals(1, executor.getTaskCount());
 
     final CompletableFuture<ReadIndexReplyProto> second = batching.submit(null);
+    Assertions.assertFalse(second.isDone());
+    Assertions.assertEquals(1, executor.getTaskCount());
+
+    executor.runNext();
     Assertions.assertEquals(1, readIndexCount.get());
     Assertions.assertSame(readIndexReply, first.get());
     Assertions.assertSame(readIndexReply, second.get());
-
-    scheduler.runNext();
-    Assertions.assertEquals(1, readIndexCount.get());
   }
 
   @Test
-  void testBatchIntervalSealsOpenBatch() throws Exception {
-    final CapturingTimeoutExecutor scheduler = new CapturingTimeoutExecutor();
+  void testBatchSizeCapsEachDrain() throws Exception {
+    final CapturingExecutor executor = new CapturingExecutor();
     final AtomicInteger readIndexCount = new AtomicInteger();
     final ReadIndexReplyProto readIndexReply = ReadIndexReplyProto.getDefaultInstance();
     final ReadIndexBatching batching = new ReadIndexBatching(
-        scheduler, TimeDuration.valueOf(1, TimeUnit.DAYS), 64, request -> {
+        executor, 2, request -> {
           readIndexCount.incrementAndGet();
           return CompletableFuture.completedFuture(readIndexReply);
         });
 
-    final CompletableFuture<ReadIndexReplyProto> reply = batching.submit(null);
-    Assertions.assertFalse(reply.isDone());
-    Assertions.assertEquals(1, scheduler.getTaskCount());
+    final CompletableFuture<ReadIndexReplyProto> first = batching.submit(null);
+    final CompletableFuture<ReadIndexReplyProto> second = batching.submit(null);
+    final CompletableFuture<ReadIndexReplyProto> third = batching.submit(null);
 
-    scheduler.runNext();
+    executor.runNext();
     Assertions.assertEquals(1, readIndexCount.get());
-    Assertions.assertSame(readIndexReply, reply.get());
+    Assertions.assertSame(readIndexReply, first.get());
+    Assertions.assertSame(readIndexReply, second.get());
+    Assertions.assertFalse(third.isDone());
+    Assertions.assertEquals(1, executor.getTaskCount());
+
+    executor.runNext();
+    Assertions.assertEquals(2, readIndexCount.get());
+    Assertions.assertSame(readIndexReply, third.get());
   }
 
   @Test
-  void testReadIndexFailureCompletesAllBatchFuturesExceptionally() throws Exception {
+  void testReadIndexFailureCompletesBatchFuturesExceptionally() throws Exception {
+    final CapturingExecutor executor = new CapturingExecutor();
     final RuntimeException failure = new RuntimeException("read index failed");
     final CompletableFuture<ReadIndexReplyProto> failed = new CompletableFuture<>();
     failed.completeExceptionally(failure);
-    final ReadIndexBatching batching = new ReadIndexBatching(
-        new NoOpTimeoutExecutor(), TimeDuration.valueOf(1, TimeUnit.DAYS), 2, request -> failed);
+    final ReadIndexBatching batching = new ReadIndexBatching(executor, 64, request -> failed);
 
     final CompletableFuture<ReadIndexReplyProto> first = batching.submit(null);
     final CompletableFuture<ReadIndexReplyProto> second = batching.submit(null);
 
+    executor.runNext();
     Assertions.assertSame(failure,
         Assertions.assertThrows(ExecutionException.class, first::get).getCause());
     Assertions.assertSame(failure,
@@ -123,29 +116,52 @@ class TestReadIndexBatching {
   }
 
   @Test
-  void testCloseCompletesOpenBatchExceptionally() throws Exception {
+  void testCloseCompletesQueuedAndInFlightBatchesExceptionally() throws Exception {
+    final CapturingExecutor executor = new CapturingExecutor();
     final AtomicInteger readIndexCount = new AtomicInteger();
+    final CompletableFuture<ReadIndexReplyProto> readIndexFuture = new CompletableFuture<>();
     final ReadIndexBatching batching = new ReadIndexBatching(
-        new NoOpTimeoutExecutor(), TimeDuration.valueOf(1, TimeUnit.DAYS), 64, request -> {
+        executor, 1, request -> {
           readIndexCount.incrementAndGet();
-          return new CompletableFuture<ReadIndexReplyProto>();
+          return readIndexFuture;
         });
 
-    final CompletableFuture<ReadIndexReplyProto> reply = batching.submit(null);
-    Assertions.assertFalse(reply.isDone());
+    final CompletableFuture<ReadIndexReplyProto> inFlight = batching.submit(null);
+    final CompletableFuture<ReadIndexReplyProto> queued = batching.submit(null);
+    executor.runNext();
+
+    Assertions.assertEquals(1, readIndexCount.get());
+    Assertions.assertFalse(inFlight.isDone());
+    Assertions.assertFalse(queued.isDone());
 
     batching.close();
 
-    final ExecutionException e = Assertions.assertThrows(ExecutionException.class, reply::get);
-    Assertions.assertTrue(e.getCause() instanceof ReadIndexException);
-    Assertions.assertEquals(0, readIndexCount.get());
+    assertReadIndexException(inFlight);
+    assertReadIndexException(queued);
+
+    readIndexFuture.complete(ReadIndexReplyProto.getDefaultInstance());
+    assertReadIndexException(inFlight);
+  }
+
+  @Test
+  void testScheduleFailureClosesBatching() throws Exception {
+    final ReadIndexBatching batching = new ReadIndexBatching(
+        command -> {
+          throw new RejectedExecutionException("closed");
+        }, 64, request -> CompletableFuture.completedFuture(ReadIndexReplyProto.getDefaultInstance()));
+
+    final CompletableFuture<ReadIndexReplyProto> rejected = batching.submit(null);
+    assertReadIndexException(rejected);
+
+    final CompletableFuture<ReadIndexReplyProto> afterClose = batching.submit(null);
+    assertReadIndexException(afterClose);
   }
 
   @Test
   void testSubmitAfterCloseCompletesExceptionally() {
     final AtomicInteger readIndexCount = new AtomicInteger();
     final ReadIndexBatching batching = new ReadIndexBatching(
-        new NoOpTimeoutExecutor(), TimeDuration.valueOf(1, TimeUnit.DAYS), 64, request -> {
+        Runnable::run, 64, request -> {
           readIndexCount.incrementAndGet();
           return new CompletableFuture<ReadIndexReplyProto>();
         });
@@ -158,40 +174,25 @@ class TestReadIndexBatching {
     Assertions.assertEquals(0, readIndexCount.get());
   }
 
-  private static class NoOpTimeoutExecutor extends CapturingTimeoutExecutor {
-    @Override
-    public <THROWABLE extends Throwable> void onTimeout(
-        TimeDuration timeout, CheckedRunnable<THROWABLE> task, Consumer<THROWABLE> errorHandler) {
-    }
-
-    @Override
-    void runNext() {
-    }
+  private static void assertReadIndexException(CompletableFuture<ReadIndexReplyProto> future) throws Exception {
+    final ExecutionException e = Assertions.assertThrows(ExecutionException.class, future::get);
+    Assertions.assertTrue(e.getCause() instanceof ReadIndexException);
   }
 
-  private static class CapturingTimeoutExecutor implements TimeoutExecutor {
-    private final List<CheckedRunnable<?>> tasks = new ArrayList<>();
+  private static class CapturingExecutor implements Executor {
+    private final List<Runnable> tasks = new ArrayList<>();
 
-    @Override
     public int getTaskCount() {
       return tasks.size();
     }
 
     @Override
-    public <THROWABLE extends Throwable> void onTimeout(
-        TimeDuration timeout, CheckedRunnable<THROWABLE> task, Consumer<THROWABLE> errorHandler) {
-      tasks.add(task);
+    public void execute(Runnable command) {
+      tasks.add(command);
     }
 
-    void runNext() throws Exception {
-      final CheckedRunnable<?> task = tasks.remove(0);
-      try {
-        task.run();
-      } catch (RuntimeException | Error e) {
-        throw e;
-      } catch (Throwable t) {
-        throw new AssertionError(t);
-      }
+    void runNext() {
+      tasks.remove(0).run();
     }
   }
 }

@@ -322,16 +322,6 @@ public interface RaftServerConfigKeys {
           setBoolean(properties::setBoolean, ENABLED_KEY, enabled);
         }
 
-        String BATCH_INTERVAL_KEY = PREFIX + ".interval";
-        TimeDuration BATCH_INTERVAL_DEFAULT = TimeDuration.valueOf(500, TimeUnit.MICROSECONDS);
-        static TimeDuration batchInterval(RaftProperties properties) {
-          return getTimeDuration(properties.getTimeDuration(BATCH_INTERVAL_DEFAULT.getUnit()),
-              BATCH_INTERVAL_KEY, BATCH_INTERVAL_DEFAULT, getDefaultLog(), requirePositive());
-        }
-        static void setBatchInterval(RaftProperties properties, TimeDuration interval) {
-          setTimeDuration(properties::setTimeDuration, BATCH_INTERVAL_KEY, interval, requirePositive());
-        }
-
         String BATCH_SIZE_KEY = PREFIX + ".size";
         int BATCH_SIZE_DEFAULT = 64;
         static int batchSize(RaftProperties properties) {

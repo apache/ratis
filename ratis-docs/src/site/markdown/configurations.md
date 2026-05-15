@@ -259,24 +259,18 @@ but there are tradeoffs (e.g. Write and Read performance) between different type
 | **Type**        | boolean                                                                           |
 | **Default**     | false                                                                             |
 
-| **Property**    | `raft.server.read.read-index.batch.interval`        |
-|:----------------|:----------------------------------------------------|
-| **Description** | positive maximum time to collect reads into one ReadIndex batch |
-| **Type**        | TimeDuration                                       |
-| **Default**     | 500us                                              |
-
 | **Property**    | `raft.server.read.read-index.batch.size` |
 |:----------------|:----------------------------------------------------|
-| **Description** | maximum number of reads in one ReadIndex batch      |
+| **Description** | maximum number of reads in one opportunistic ReadIndex batch |
 | **Type**        | int                                                 |
 | **Default**     | 64                                                  |
 
 When ReadIndex batching is enabled, a follower batches plain linearizable read
-requests and sends a single ReadIndex request for each sealed batch. A batch is
-sealed when either `batch.interval` expires or `batch.size` is reached. New
-reads after sealing are assigned to a later batch. Read-after-write requests
-bypass batching so that the leader can evaluate each request's client-specific
-write index.
+requests opportunistically and sends a single ReadIndex request for the reads
+already queued when the batch is drained. `batch.size` is a maximum cap, not a
+target size; the follower does not wait to fill a batch. Read-after-write
+requests bypass batching so that the leader can evaluate each request's
+client-specific write index.
 
 | **Property**    | `raft.server.read.leader.heartbeat-check.enabled` |
 |:----------------|:--------------------------------------------------|

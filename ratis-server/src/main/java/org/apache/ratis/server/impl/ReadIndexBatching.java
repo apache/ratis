@@ -21,85 +21,92 @@ import org.apache.ratis.proto.RaftProtos.ReadIndexReplyProto;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.util.TimeoutExecutor;
-import org.apache.ratis.util.TimeoutScheduler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
-/** Batch follower-to-leader ReadIndex requests. */
+/**
+ * Opportunistically batch follower-to-leader ReadIndex requests.
+ *
+ * <p>The batch is drained on the server executor without waiting for a timer. {@code batchSize}
+ * is only a maximum drain cap, not a target size.
+ */
 class ReadIndexBatching {
-  private static final Logger LOG = LoggerFactory.getLogger(ReadIndexBatching.class);
-
-  private final TimeoutExecutor scheduler;
-  private final TimeDuration batchInterval;
+  private final Executor executor;
   private final int batchSize;
   private final Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl;
 
-  /** Guarded by {@code this}; the monitor provides visibility, so volatile is not needed. */
-  private Batch open;
+  /** Guarded by {@code this}. */
+  private final Queue<Pending> pending = new ArrayDeque<>();
+  /** Guarded by {@code this}. */
+  private final HashSet<Batch> inFlight = new HashSet<>();
+  /** Guarded by {@code this}; at most one drain task is scheduled or running. */
+  private boolean drainScheduled;
   /** Guarded by {@code this}. */
   private boolean closed;
 
-  ReadIndexBatching(TimeDuration batchInterval, int batchSize,
+  ReadIndexBatching(Executor executor, int batchSize,
       Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl) {
-    this(TimeoutScheduler.getInstance(), batchInterval, batchSize, readIndexAsyncImpl);
-  }
-
-  ReadIndexBatching(TimeoutExecutor scheduler, TimeDuration batchInterval, int batchSize,
-      Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl) {
-    this.scheduler = scheduler;
-    this.batchInterval = batchInterval;
+    this.executor = executor;
     this.batchSize = batchSize;
     this.readIndexAsyncImpl = readIndexAsyncImpl;
   }
 
   CompletableFuture<ReadIndexReplyProto> submit(RaftClientRequest request) {
     final CompletableFuture<ReadIndexReplyProto> future = new CompletableFuture<>();
-    final Batch batch;
     final boolean schedule;
-    final boolean seal;
     synchronized (this) {
       if (closed) {
         return JavaUtils.completeExceptionally(newClosedException());
       }
-      schedule = open == null;
+      pending.add(new Pending(request, future));
+      schedule = !drainScheduled;
       if (schedule) {
-        open = new Batch();
-      }
-      batch = open;
-      batch.add(request, future);
-      seal = batch.size() >= batchSize;
-      if (seal) {
-        open = null;
+        drainScheduled = true;
       }
     }
 
     if (schedule) {
-      scheduler.onTimeout(batchInterval, () -> seal(batch), LOG,
-          () -> "Failed to seal ReadIndex batch");
-    }
-    if (seal) {
-      batch.seal(readIndexAsyncImpl);
+      scheduleDrain();
     }
     return future;
   }
 
   void close() {
-    final Batch batch;
+    close(newClosedException());
+  }
+
+  private void close(Throwable throwable) {
+    final List<Pending> queued;
+    final List<Batch> running;
     synchronized (this) {
+      if (closed) {
+        return;
+      }
       closed = true;
-      batch = open;
-      open = null;
+      drainScheduled = false;
+      queued = new ArrayList<>(pending);
+      pending.clear();
+      running = new ArrayList<>(inFlight);
+      inFlight.clear();
     }
-    if (batch != null) {
-      batch.cancel(newClosedException());
+    queued.forEach(p -> p.future.completeExceptionally(throwable));
+    running.forEach(batch -> batch.completeExceptionally(throwable));
+  }
+
+  private void scheduleDrain() {
+    try {
+      executor.execute(this::drain);
+    } catch (RejectedExecutionException e) {
+      close(new ReadIndexException("Failed to schedule ReadIndex batch drain.", e));
     }
   }
 
@@ -107,13 +114,51 @@ class ReadIndexBatching {
     return new ReadIndexException("ReadIndex batching is closed.");
   }
 
-  private void seal(Batch batch) {
+  private void drain() {
+    final Batch batch;
     synchronized (this) {
-      if (open == batch) {
-        open = null;
+      if (closed || pending.isEmpty()) {
+        drainScheduled = false;
+        return;
+      }
+      batch = pollBatch();
+      inFlight.add(batch);
+    }
+
+    batch.send(readIndexAsyncImpl, () -> onBatchDone(batch));
+
+    final boolean scheduleNext;
+    synchronized (this) {
+      if (closed) {
+        scheduleNext = false;
+      } else if (pending.isEmpty()) {
+        drainScheduled = false;
+        scheduleNext = false;
+      } else {
+        scheduleNext = true;
       }
     }
-    batch.seal(readIndexAsyncImpl);
+    if (scheduleNext) {
+      scheduleDrain();
+    }
+  }
+
+  private Batch pollBatch() {
+    final List<Pending> batch = new ArrayList<>(Math.min(batchSize, pending.size()));
+    for (int i = 0; i < batchSize; i++) {
+      final Pending next = pending.poll();
+      if (next == null) {
+        break;
+      }
+      batch.add(next);
+    }
+    return new Batch(batch);
+  }
+
+  private void onBatchDone(Batch batch) {
+    synchronized (this) {
+      inFlight.remove(batch);
+    }
   }
 
   private static class Pending {
@@ -127,23 +172,19 @@ class ReadIndexBatching {
   }
 
   private static class Batch {
-    private final AtomicBoolean sealed = new AtomicBoolean();
-    /** Appended only while this batch is {@code open}; sealing first removes it from {@code open}. */
-    private final List<Pending> pending = new ArrayList<>();
+    private final AtomicBoolean completed = new AtomicBoolean();
+    private final List<Pending> pending;
 
-    void add(RaftClientRequest request, CompletableFuture<ReadIndexReplyProto> future) {
-      pending.add(new Pending(request, future));
+    Batch(List<Pending> pending) {
+      this.pending = pending;
     }
 
-    int size() {
-      return pending.size();
-    }
-
-    void seal(Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl) {
-      if (!sealed.compareAndSet(false, true)) {
+    void send(Function<RaftClientRequest, CompletableFuture<ReadIndexReplyProto>> readIndexAsyncImpl,
+        Runnable onComplete) {
+      if (pending.isEmpty()) {
         return;
       }
-      if (pending.isEmpty()) {
+      if (completed.get()) {
         return;
       }
 
@@ -155,26 +196,33 @@ class ReadIndexBatching {
         replyFuture = readIndexAsyncImpl.apply(pending.get(0).request);
       } catch (Throwable t) {
         completeExceptionally(t);
+        onComplete.run();
         return;
       }
 
       replyFuture.whenComplete((reply, throwable) -> {
-        if (throwable != null) {
-          completeExceptionally(JavaUtils.unwrapCompletionException(throwable));
-        } else {
-          pending.forEach(p -> p.future.complete(reply));
+        try {
+          if (throwable != null) {
+            completeExceptionally(JavaUtils.unwrapCompletionException(throwable));
+          } else {
+            complete(reply);
+          }
+        } finally {
+          onComplete.run();
         }
       });
     }
 
-    private void cancel(Throwable throwable) {
-      if (sealed.compareAndSet(false, true)) {
-        completeExceptionally(throwable);
+    private void complete(ReadIndexReplyProto reply) {
+      if (completed.compareAndSet(false, true)) {
+        pending.forEach(p -> p.future.complete(reply));
       }
     }
 
     private void completeExceptionally(Throwable throwable) {
-      pending.forEach(p -> p.future.completeExceptionally(throwable));
+      if (completed.compareAndSet(false, true)) {
+        pending.forEach(p -> p.future.completeExceptionally(throwable));
+      }
     }
   }
 }
