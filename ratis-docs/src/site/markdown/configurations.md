@@ -253,6 +253,25 @@ but there are tradeoffs (e.g. Write and Read performance) between different type
 | **Type**        | TimeDuration                                                                                                                                |
 | **Default**     | 10ms                                                                                                                                        |
 
+| **Property**    | `raft.server.read.read-index.batch.enabled`                                       |
+|:----------------|:----------------------------------------------------------------------------------|
+| **Description** | whether to batch follower-to-leader ReadIndex RPCs for plain linearizable reads    |
+| **Type**        | boolean                                                                           |
+| **Default**     | false                                                                             |
+
+| **Property**    | `raft.server.read.read-index.batch.size` |
+|:----------------|:----------------------------------------------------|
+| **Description** | maximum number of reads in one opportunistic ReadIndex batch |
+| **Type**        | int                                                 |
+| **Default**     | 64                                                  |
+
+When ReadIndex batching is enabled, a follower batches plain linearizable read
+requests opportunistically and sends a single ReadIndex request for the reads
+already queued when the batch is drained. `batch.size` is a maximum cap, not a
+target size; the follower does not wait to fill a batch. Read-after-write
+requests bypass batching so that the leader can evaluate each request's
+client-specific write index.
+
 | **Property**    | `raft.server.read.leader.heartbeat-check.enabled` |
 |:----------------|:--------------------------------------------------|
 | **Description** | whether to check heartbeat for read index.        |

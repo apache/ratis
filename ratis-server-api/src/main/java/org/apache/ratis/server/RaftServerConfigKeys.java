@@ -309,6 +309,28 @@ public interface RaftServerConfigKeys {
       static void setRepliedIndexBatchInterval(RaftProperties properties, TimeDuration interval) {
         setTimeDuration(properties::setTimeDuration, REPLIED_INDEX_BATCH_INTERVAL_KEY, interval);
       }
+
+      interface Batch {
+        String PREFIX = ReadIndex.PREFIX + ".batch";
+
+        String ENABLED_KEY = PREFIX + ".enabled";
+        boolean ENABLED_DEFAULT = false;
+        static boolean enabled(RaftProperties properties) {
+          return getBoolean(properties::getBoolean, ENABLED_KEY, ENABLED_DEFAULT, getDefaultLog());
+        }
+        static void setEnabled(RaftProperties properties, boolean enabled) {
+          setBoolean(properties::setBoolean, ENABLED_KEY, enabled);
+        }
+
+        String BATCH_SIZE_KEY = PREFIX + ".size";
+        int BATCH_SIZE_DEFAULT = 64;
+        static int batchSize(RaftProperties properties) {
+          return getInt(properties::getInt, BATCH_SIZE_KEY, BATCH_SIZE_DEFAULT, getDefaultLog(), requireMin(1));
+        }
+        static void setBatchSize(RaftProperties properties, int batchSize) {
+          setInt(properties::setInt, BATCH_SIZE_KEY, batchSize, requireMin(1));
+        }
+      }
     }
   }
 

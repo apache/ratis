@@ -68,10 +68,15 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
   public abstract Type readIndexType();
 
+  public boolean readIndexBatchEnabled() {
+    return false;
+  }
+
   public final void assertRaftProperties(RaftProperties p) {
     assertOption(LINEARIZABLE, p);
     assertEquals(isLeaderLeaseEnabled(), RaftServerConfigKeys.Read.leaderLeaseEnabled(p));
     assertSame(readIndexType(), RaftServerConfigKeys.Read.ReadIndex.type(p));
+    assertEquals(readIndexBatchEnabled(), RaftServerConfigKeys.Read.ReadIndex.Batch.enabled(p));
   }
 
   protected void runWithNewCluster(CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
@@ -88,6 +93,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     RaftServerConfigKeys.Read.setOption(p, LINEARIZABLE);
     RaftServerConfigKeys.Read.setLeaderLeaseEnabled(p, isLeaderLeaseEnabled());
     RaftServerConfigKeys.Read.ReadIndex.setType(p, readIndexType());
+    RaftServerConfigKeys.Read.ReadIndex.Batch.setEnabled(p, readIndexBatchEnabled());
 
     // Enable dummy request so linearizable-read tests exercise the default ordered-async bootstrap path.
     RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(p, true);
