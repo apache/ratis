@@ -81,7 +81,7 @@ public final class TraceUtils {
     }
   }
 
-  static boolean isEnabled() {
+  public static boolean isEnabled() {
     return TRACER.get() != null;
   }
 

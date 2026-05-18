@@ -26,6 +26,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -353,6 +354,7 @@ class LeaderStateImpl implements LeaderState {
   private final LogAppenderMetrics logAppenderMetrics;
   private final long followerMaxGapThreshold;
   private final PendingStepDown pendingStepDown;
+  private final LeaderTracer leaderTracer;
 
   private final ReadIndexHeartbeats readIndexHeartbeats;
   private final RaftServerConfigKeys.Read.ReadIndex.Type readIndexType;
@@ -387,6 +389,7 @@ class LeaderStateImpl implements LeaderState {
     this.logMetadataEnabled = RaftServerConfigKeys.Log.logMetadataEnabled(properties);
     long maxPendingRequests = RaftServerConfigKeys.Write.elementLimit(properties);
     double followerGapRatioMax = RaftServerConfigKeys.Write.followerGapRatioMax(properties);
+    leaderTracer = new LeaderTracer();
 
     if (followerGapRatioMax == -1) {
       this.followerMaxGapThreshold = -1;
@@ -483,6 +486,7 @@ class LeaderStateImpl implements LeaderState {
     raftServerMetrics.unregister();
     pendingRequests.close();
     watchRequests.close();
+    leaderTracer.close();
     return f;
   }
 
@@ -558,7 +562,9 @@ class LeaderStateImpl implements LeaderState {
       LOG.debug("{}: addPendingRequest at {}, entry={}", this, request,
           LogProtoUtils.toLogEntryString(entry.getLogEntry()));
     }
-    return pendingRequests.add(permit, request, entry);
+    final PendingRequest pending = pendingRequests.add(permit, request, entry);
+    leaderTracer.tracePendingRequest(pending);
+    return pending;
   }
 
   CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
@@ -645,9 +651,10 @@ class LeaderStateImpl implements LeaderState {
       List<LogEntryProto> entries, TermIndex previous, long callId) {
     final boolean initializing = !isCaughtUp(follower);
     final RaftPeerId targetId = follower.getId();
+    final SpanContextProto tracing = leaderTracer.traceAppendEntries(entries);
     return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId, getCurrentTerm(), entries,
         ServerImplUtils.effectiveCommitIndex(readIndexSupplier.get(), previous, entries.size()),
-        initializing, previous, server.getCommitInfos(), callId);
+        initializing, previous, server.getCommitInfos(), callId, tracing);
   }
 
   /**
@@ -1243,6 +1250,7 @@ class LeaderStateImpl implements LeaderState {
 
   void replyPendingRequest(TermIndex termIndex, RaftClientReply reply, RetryCacheImpl.CacheEntry cacheEntry) {
     final PendingRequest pending = pendingRequests.remove(termIndex);
+    leaderTracer.removePendingRequest(pending);
 
     final LongSupplier replyMethod = () -> {
       cacheEntry.updateResult(reply);

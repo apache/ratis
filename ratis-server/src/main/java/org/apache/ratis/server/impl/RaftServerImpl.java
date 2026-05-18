@@ -101,6 +101,7 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.trace.SpanNames;
 import org.apache.ratis.trace.TraceServer;
 import org.apache.ratis.trace.TraceUtils;
 import org.apache.ratis.util.CodeInjectionForTesting;
@@ -975,7 +976,7 @@ class RaftServerImpl implements RaftServer.Division,
       RaftClientRequest request) throws IOException {
     return TraceServer.traceAsyncMethod(
         () -> submitClientRequestAsyncInternal(request),
-        request, getMemberId().toString(), "raft.server.submitClientRequestAsync");
+        request, getMemberId().toString(), SpanNames.SUBMIT_CLIENT_REQUEST_ASYNC);
   }
 
   private CompletableFuture<RaftClientReply> submitClientRequestAsyncInternal(
@@ -1546,7 +1547,6 @@ class RaftServerImpl implements RaftServer.Division,
     try {
       final RaftPeerId leaderId = RaftPeerId.valueOf(request.getRequestorId());
       final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(request.getRaftGroupId());
-
       CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(), leaderId, previous, r);
 
       assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
@@ -1555,8 +1555,8 @@ class RaftServerImpl implements RaftServer.Division,
       }
       assertGroup(getMemberId(), leaderId, leaderGroupId);
       assertEntries(r, previous, state);
-
-      return appendEntriesAsync(leaderId, request.getCallId(), previous, r);
+      return TraceServer.traceAppendEntriesAsync(() -> appendEntriesAsync(leaderId, request.getCallId(), previous, r),
+          r, getMemberId().toString());
     } catch(Exception t) {
       LOG.error("{}: Failed appendEntries* {}", getMemberId(),
           toAppendEntriesRequestString(r, stateMachine::toStateMachineLogEntryString), t);
