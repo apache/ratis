@@ -43,7 +43,7 @@ public final class TraceClient {
       return action.get();
     }
     return TraceUtils.traceAsyncMethod(action,
-        () -> createClientOperationSpan(type, server, "Async::send"));
+        () -> createClientOperationSpan(type, server, SpanNames.ASYNC_SEND));
   }
 
   private static Span createClientOperationSpan(RaftClientRequest.Type type, RaftPeerId server,
