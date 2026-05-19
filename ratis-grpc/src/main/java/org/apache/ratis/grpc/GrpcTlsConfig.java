@@ -24,7 +24,6 @@ import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
 import java.io.File;
 import java.security.PrivateKey;
-import java.security.Provider;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,7 +37,6 @@ import java.util.Optional;
 public class GrpcTlsConfig extends TlsConf {
   private final boolean fileBasedConfig;
   private final SslProvider sslProvider;
-  private final Provider jsseProvider;
   private final String jsseProviderName;
   private final String[] protocols;
   private final String[] cipherSuites;
@@ -99,10 +97,6 @@ public class GrpcTlsConfig extends TlsConf {
     return sslProvider;
   }
 
-  public Provider getJsseProvider() {
-    return jsseProvider;
-  }
-
   public String getJsseProviderName() {
     return jsseProviderName;
   }
@@ -134,7 +128,6 @@ public class GrpcTlsConfig extends TlsConf {
     super(builder);
     this.fileBasedConfig = fileBasedConfig;
     this.sslProvider = builder.sslProvider;
-    this.jsseProvider = builder.jsseProvider;
     this.jsseProviderName = builder.jsseProviderName;
     this.protocols = copy(builder.protocols);
     this.cipherSuites = copy(builder.cipherSuites);
@@ -183,7 +176,6 @@ public class GrpcTlsConfig extends TlsConf {
       }
     });
     return b.setSslProvider(conf.getSslProvider())
-        .setJsseProvider(conf.getJsseProvider())
         .setJsseProviderName(conf.getJsseProviderName())
         .setProtocols(conf.getProtocols())
         .setCipherSuites(conf.getCipherSuites());
@@ -200,7 +192,6 @@ public class GrpcTlsConfig extends TlsConf {
   /** For building {@link GrpcTlsConfig}. */
   public static class Builder extends TlsConf.Builder {
     private SslProvider sslProvider;
-    private Provider jsseProvider;
     private String jsseProviderName;
     private String[] protocols;
     private String[] cipherSuites;
@@ -249,11 +240,6 @@ public class GrpcTlsConfig extends TlsConf {
 
     public Builder setSslProvider(SslProvider sslProvider) {
       this.sslProvider = sslProvider;
-      return this;
-    }
-
-    public Builder setJsseProvider(Provider jsseProvider) {
-      this.jsseProvider = jsseProvider;
       return this;
     }
 

@@ -357,10 +357,6 @@ public interface GrpcUtil {
   }
 
   static Provider getJsseProvider(GrpcTlsConfig tlsConf) {
-    final Provider provider = tlsConf.getJsseProvider();
-    if (provider != null) {
-      return provider;
-    }
     final String providerName = tlsConf.getJsseProviderName();
     if (providerName == null || providerName.trim().isEmpty()) {
       return null;
