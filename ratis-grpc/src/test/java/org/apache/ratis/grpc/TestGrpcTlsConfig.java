@@ -18,9 +18,12 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.security.Provider;
 
 public class TestGrpcTlsConfig {
   @Test
@@ -33,13 +36,13 @@ public class TestGrpcTlsConfig {
 
     final RaftProperties properties = new RaftProperties();
     GrpcConfigKeys.TLS.setSslProvider(properties, SslProvider.JDK);
-    GrpcConfigKeys.TLS.setJsseProviderName(properties, "BCJSSE");
+    GrpcConfigKeys.TLS.setJsseProviderName(properties, "SunJSSE");
     GrpcConfigKeys.TLS.setProtocols(properties, "TLSv1.3");
     GrpcConfigKeys.TLS.setCipherSuites(properties, "TLS_AES_256_GCM_SHA384");
 
     final GrpcTlsConfig updated = GrpcConfigKeys.TLS.apply(properties, conf);
     Assertions.assertSame(SslProvider.JDK, updated.getSslProvider());
-    Assertions.assertEquals("BCJSSE", updated.getJsseProviderName());
+    Assertions.assertEquals("SunJSSE", updated.getJsseProviderName());
     Assertions.assertArrayEquals(new String[] {"TLSv1.3"}, updated.getProtocols());
     Assertions.assertArrayEquals(new String[] {"TLS_AES_256_GCM_SHA384"}, updated.getCipherSuites());
   }
@@ -48,15 +51,30 @@ public class TestGrpcTlsConfig {
   public void testRaftPropertiesKeepUnsetGrpcTlsOptions() {
     final GrpcTlsConfig conf = GrpcTlsConfig.newBuilder()
         .setSslProvider(SslProvider.OPENSSL)
-        .setJsseProviderName("BCJSSE")
+        .setJsseProviderName("SunJSSE")
         .setProtocols("TLSv1.2")
         .setCipherSuites("TLS_AES_128_GCM_SHA256")
         .build();
 
     final GrpcTlsConfig updated = GrpcConfigKeys.TLS.apply(new RaftProperties(), conf);
     Assertions.assertSame(SslProvider.OPENSSL, updated.getSslProvider());
-    Assertions.assertEquals("BCJSSE", updated.getJsseProviderName());
+    Assertions.assertEquals("SunJSSE", updated.getJsseProviderName());
     Assertions.assertArrayEquals(new String[] {"TLSv1.2"}, updated.getProtocols());
     Assertions.assertArrayEquals(new String[] {"TLS_AES_128_GCM_SHA256"}, updated.getCipherSuites());
+  }
+
+  @Test
+  public void testUnknownJsseProviderUsesGenericJdkConfiguration() {
+    final SslContextBuilder builder = GrpcUtil.configureJsseProvider(
+        SslContextBuilder.forClient(), new TestProvider());
+    Assertions.assertNotNull(builder);
+  }
+
+  private static class TestProvider extends Provider {
+    private static final long serialVersionUID = 1L;
+
+    TestProvider() {
+      super("TestJSSE", 1.0, "Test JSSE provider");
+    }
   }
 }

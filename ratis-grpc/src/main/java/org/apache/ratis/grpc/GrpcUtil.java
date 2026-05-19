@@ -30,11 +30,12 @@ import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.ApplicationProtocolConfig;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.IdentityCipherSuiteFilter;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -68,6 +69,12 @@ public interface GrpcUtil {
       Metadata.Key.of("call-id", Metadata.ASCII_STRING_MARSHALLER);
   Metadata.Key<String> HEARTBEAT =
       Metadata.Key.of("heartbeat", Metadata.ASCII_STRING_MARSHALLER);
+
+  ApplicationProtocolConfig ALPN =
+      new ApplicationProtocolConfig(ApplicationProtocolConfig.Protocol.ALPN,
+          ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+          ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+          "h2");
 
   static StatusRuntimeException wrapException(Throwable t) {
     return wrapException(t, -1);
@@ -315,7 +322,7 @@ public interface GrpcUtil {
       SslContextBuilder b, GrpcTlsConfig tlsConf, SslProvider defaultSslProvider) {
     final Provider jsseProvider = getJsseProvider(tlsConf);
     if (jsseProvider != null) {
-      b = GrpcSslContexts.configure(b, jsseProvider);
+      b = configureJsseProvider(b, jsseProvider);
     } else {
       final SslProvider sslProvider = tlsConf.getSslProvider() != null
           ? tlsConf.getSslProvider() : defaultSslProvider;
@@ -331,9 +338,22 @@ public interface GrpcUtil {
     }
     final String[] cipherSuites = tlsConf.getCipherSuites();
     if (cipherSuites != null && cipherSuites.length > 0) {
-      b.ciphers(Arrays.asList(cipherSuites), SupportedCipherSuiteFilter.INSTANCE);
+      b.ciphers(Arrays.asList(cipherSuites), IdentityCipherSuiteFilter.INSTANCE);
     }
     return b;
+  }
+
+  static SslContextBuilder configureJsseProvider(SslContextBuilder b, Provider provider) {
+    try {
+      return GrpcSslContexts.configure(b, provider);
+    } catch (IllegalArgumentException e) {
+      if (!String.valueOf(e.getMessage()).contains("Unknown provider")) {
+        throw e;
+      }
+      return b.sslProvider(SslProvider.JDK)
+          .applicationProtocolConfig(ALPN)
+          .sslContextProvider(provider);
+    }
   }
 
   static Provider getJsseProvider(GrpcTlsConfig tlsConf) {
