@@ -21,11 +21,15 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.server.GrpcServices;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -86,6 +90,73 @@ public interface GrpcConfigKeys {
     }
     static void setConf(Parameters parameters, GrpcTlsConfig conf) {
       parameters.put(CONF_PARAMETER, conf, GrpcTlsConfig.class);
+    }
+
+    String SSL_PROVIDER_KEY = PREFIX + ".ssl.provider";
+    SslProvider SSL_PROVIDER_DEFAULT = null;
+    static SslProvider sslProvider(RaftProperties properties) {
+      return properties.getEnum(SSL_PROVIDER_KEY, SslProvider.class, SSL_PROVIDER_DEFAULT);
+    }
+    static void setSslProvider(RaftProperties properties, SslProvider provider) {
+      properties.setEnum(SSL_PROVIDER_KEY, provider);
+    }
+
+    String JSSE_PROVIDER_NAME_KEY = PREFIX + ".jsse.provider.name";
+    String JSSE_PROVIDER_NAME_DEFAULT = null;
+    static String jsseProviderName(RaftProperties properties) {
+      return properties.get(JSSE_PROVIDER_NAME_KEY, JSSE_PROVIDER_NAME_DEFAULT);
+    }
+    static void setJsseProviderName(RaftProperties properties, String name) {
+      properties.set(JSSE_PROVIDER_NAME_KEY, name);
+    }
+
+    String PROTOCOLS_KEY = PREFIX + ".protocols";
+    String[] PROTOCOLS_DEFAULT = StringUtils.EMPTY_STRING_ARRAY;
+    static String[] protocols(RaftProperties properties) {
+      return StringUtils.getTrimmedStrings(properties.get(PROTOCOLS_KEY, null));
+    }
+    static void setProtocols(RaftProperties properties, String... protocols) {
+      properties.set(PROTOCOLS_KEY, String.join(",", protocols));
+    }
+
+    String CIPHER_SUITES_KEY = PREFIX + ".cipher.suites";
+    String[] CIPHER_SUITES_DEFAULT = StringUtils.EMPTY_STRING_ARRAY;
+    static String[] cipherSuites(RaftProperties properties) {
+      return StringUtils.getTrimmedStrings(properties.get(CIPHER_SUITES_KEY, null));
+    }
+    static void setCipherSuites(RaftProperties properties, String... cipherSuites) {
+      properties.set(CIPHER_SUITES_KEY, String.join(",", cipherSuites));
+    }
+
+    static GrpcTlsConfig apply(RaftProperties properties, GrpcTlsConfig conf) {
+      if (properties == null || conf == null) {
+        return conf;
+      }
+      final GrpcTlsConfig.Builder b = GrpcTlsConfig.newBuilder(conf);
+      final SslProvider provider = sslProvider(properties);
+      if (provider != null) {
+        b.setSslProvider(provider);
+      }
+      final String jsseProvider = jsseProviderName(properties);
+      if (jsseProvider != null && !jsseProvider.isEmpty()) {
+        b.setJsseProviderName(jsseProvider);
+      }
+      final String[] configuredProtocols = protocols(properties);
+      if (configuredProtocols.length > 0) {
+        b.setProtocols(configuredProtocols);
+      }
+      final String[] configuredCipherSuites = cipherSuites(properties);
+      if (configuredCipherSuites.length > 0) {
+        b.setCipherSuites(configuredCipherSuites);
+      }
+      final GrpcTlsConfig updated = b.build();
+      if (!Arrays.equals(conf.getProtocols(), updated.getProtocols())
+          || !Arrays.equals(conf.getCipherSuites(), updated.getCipherSuites())
+          || conf.getSslProvider() != updated.getSslProvider()
+          || !Objects.equals(conf.getJsseProviderName(), updated.getJsseProviderName())) {
+        LOG.info("Applied gRPC TLS options from RaftProperties to {}", updated);
+      }
+      return updated;
     }
   }
 

@@ -33,6 +33,8 @@ import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -45,6 +47,9 @@ import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.TrustManager;
 import java.io.IOException;
+import java.security.Provider;
+import java.security.Security;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -306,6 +311,47 @@ public interface GrpcUtil {
     }
   }
 
+  static SslContextBuilder configureSslContextBuilder(
+      SslContextBuilder b, GrpcTlsConfig tlsConf, SslProvider defaultSslProvider) {
+    final Provider jsseProvider = getJsseProvider(tlsConf);
+    if (jsseProvider != null) {
+      b = GrpcSslContexts.configure(b, jsseProvider);
+    } else {
+      final SslProvider sslProvider = tlsConf.getSslProvider() != null
+          ? tlsConf.getSslProvider() : defaultSslProvider;
+      if (sslProvider == SslProvider.OPENSSL_REFCNT) {
+        b = GrpcSslContexts.configure(b, OPENSSL).sslProvider(SslProvider.OPENSSL_REFCNT);
+      } else {
+        b = sslProvider != null ? GrpcSslContexts.configure(b, sslProvider) : GrpcSslContexts.configure(b);
+      }
+    }
+    final String[] protocols = tlsConf.getProtocols();
+    if (protocols != null && protocols.length > 0) {
+      b.protocols(protocols);
+    }
+    final String[] cipherSuites = tlsConf.getCipherSuites();
+    if (cipherSuites != null && cipherSuites.length > 0) {
+      b.ciphers(Arrays.asList(cipherSuites), SupportedCipherSuiteFilter.INSTANCE);
+    }
+    return b;
+  }
+
+  static Provider getJsseProvider(GrpcTlsConfig tlsConf) {
+    final Provider provider = tlsConf.getJsseProvider();
+    if (provider != null) {
+      return provider;
+    }
+    final String providerName = tlsConf.getJsseProviderName();
+    if (providerName == null || providerName.trim().isEmpty()) {
+      return null;
+    }
+    final Provider namedProvider = Security.getProvider(providerName.trim());
+    if (namedProvider == null) {
+      throw new IllegalArgumentException("JSSE provider not found: " + providerName);
+    }
+    return namedProvider;
+  }
+
   static SslContext buildSslContextForServer(GrpcTlsConfig tlsConf) {
     if (tlsConf == null) {
       return null;
@@ -315,7 +361,7 @@ public interface GrpcUtil {
       b.clientAuth(ClientAuth.REQUIRE);
       setTrustManager(b, tlsConf.getTrustManager());
     }
-    b = GrpcSslContexts.configure(b, OPENSSL);
+    b = configureSslContextBuilder(b, tlsConf, OPENSSL);
     try {
       return b.build();
     } catch (Exception e) {
@@ -328,7 +374,7 @@ public interface GrpcUtil {
       return null;
     }
 
-    final SslContextBuilder b = GrpcSslContexts.forClient();
+    final SslContextBuilder b = configureSslContextBuilder(SslContextBuilder.forClient(), tlsConf, null);
     setTrustManager(b, tlsConf.getTrustManager());
     if (tlsConf.getMtlsEnabled()) {
       setKeyManager(b, tlsConf.getKeyManager());

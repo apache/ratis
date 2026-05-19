@@ -18,12 +18,15 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.security.TlsConf;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
 import java.io.File;
 import java.security.PrivateKey;
+import java.security.Provider;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -34,6 +37,11 @@ import java.util.Optional;
  */
 public class GrpcTlsConfig extends TlsConf {
   private final boolean fileBasedConfig;
+  private final SslProvider sslProvider;
+  private final Provider jsseProvider;
+  private final String jsseProviderName;
+  private final String[] protocols;
+  private final String[] cipherSuites;
 
   public boolean isFileBasedConfig() {
     return fileBasedConfig;
@@ -87,6 +95,26 @@ public class GrpcTlsConfig extends TlsConf {
     return isMutualTls();
   }
 
+  public SslProvider getSslProvider() {
+    return sslProvider;
+  }
+
+  public Provider getJsseProvider() {
+    return jsseProvider;
+  }
+
+  public String getJsseProviderName() {
+    return jsseProviderName;
+  }
+
+  public String[] getProtocols() {
+    return protocols != null ? Arrays.copyOf(protocols, protocols.length) : null;
+  }
+
+  public String[] getCipherSuites() {
+    return cipherSuites != null ? Arrays.copyOf(cipherSuites, cipherSuites.length) : null;
+  }
+
   public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
       List<X509Certificate> trustStore, boolean mTlsEnabled) {
     this(newBuilder(privateKey, certChain, trustStore, mTlsEnabled), false);
@@ -105,6 +133,11 @@ public class GrpcTlsConfig extends TlsConf {
   private GrpcTlsConfig(Builder builder, boolean fileBasedConfig) {
     super(builder);
     this.fileBasedConfig = fileBasedConfig;
+    this.sslProvider = builder.sslProvider;
+    this.jsseProvider = builder.jsseProvider;
+    this.jsseProviderName = builder.jsseProviderName;
+    this.protocols = copy(builder.protocols);
+    this.cipherSuites = copy(builder.cipherSuites);
   }
 
   public GrpcTlsConfig(KeyManager keyManager, TrustManager trustManager, boolean mTlsEnabled) {
@@ -130,5 +163,118 @@ public class GrpcTlsConfig extends TlsConf {
 
   private static Builder newBuilder(KeyManager keyManager, TrustManager trustManager, boolean mTlsEnabled) {
     return newBuilder().setMutualTls(mTlsEnabled).setKeyManager(keyManager).setTrustManager(trustManager);
+  }
+
+  public static Builder newBuilder(GrpcTlsConfig conf) {
+    final Builder b = newBuilder().setMutualTls(conf.isMutualTls());
+    Optional.ofNullable(conf.getKeyManager()).ifPresent(keyManager -> {
+      if (keyManager.getKeyManager() != null) {
+        b.setKeyManager(keyManager.getKeyManager());
+      } else {
+        b.setPrivateKey(keyManager.getPrivateKey());
+        b.setKeyCertificates(keyManager.getKeyCertificates());
+      }
+    });
+    Optional.ofNullable(conf.getTrustManager()).ifPresent(trustManager -> {
+      if (trustManager.getTrustManager() != null) {
+        b.setTrustManager(trustManager.getTrustManager());
+      } else {
+        b.setTrustCertificates(trustManager.getTrustCertificates());
+      }
+    });
+    return b.setSslProvider(conf.getSslProvider())
+        .setJsseProvider(conf.getJsseProvider())
+        .setJsseProviderName(conf.getJsseProviderName())
+        .setProtocols(conf.getProtocols())
+        .setCipherSuites(conf.getCipherSuites());
+  }
+
+  private static String[] copy(String[] values) {
+    return values != null ? Arrays.copyOf(values, values.length) : null;
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  /** For building {@link GrpcTlsConfig}. */
+  public static class Builder extends TlsConf.Builder {
+    private SslProvider sslProvider;
+    private Provider jsseProvider;
+    private String jsseProviderName;
+    private String[] protocols;
+    private String[] cipherSuites;
+
+    @Override
+    public Builder setName(String name) {
+      super.setName(name);
+      return this;
+    }
+
+    @Override
+    public Builder setTrustCertificates(CertificatesConf trustCertificates) {
+      super.setTrustCertificates(trustCertificates);
+      return this;
+    }
+
+    @Override
+    public Builder setPrivateKey(PrivateKeyConf privateKey) {
+      super.setPrivateKey(privateKey);
+      return this;
+    }
+
+    @Override
+    public Builder setKeyCertificates(CertificatesConf keyCertificates) {
+      super.setKeyCertificates(keyCertificates);
+      return this;
+    }
+
+    @Override
+    public Builder setKeyManager(KeyManager keyManager) {
+      super.setKeyManager(keyManager);
+      return this;
+    }
+
+    @Override
+    public Builder setTrustManager(TrustManager trustManager) {
+      super.setTrustManager(trustManager);
+      return this;
+    }
+
+    @Override
+    public Builder setMutualTls(boolean mutualTls) {
+      super.setMutualTls(mutualTls);
+      return this;
+    }
+
+    public Builder setSslProvider(SslProvider sslProvider) {
+      this.sslProvider = sslProvider;
+      return this;
+    }
+
+    public Builder setJsseProvider(Provider jsseProvider) {
+      this.jsseProvider = jsseProvider;
+      return this;
+    }
+
+    public Builder setJsseProviderName(String jsseProviderName) {
+      this.jsseProviderName = jsseProviderName;
+      return this;
+    }
+
+    public Builder setProtocols(String... protocols) {
+      this.protocols = copy(protocols);
+      return this;
+    }
+
+    public Builder setCipherSuites(String... cipherSuites) {
+      this.cipherSuites = copy(cipherSuites);
+      return this;
+    }
+
+    @Override
+    public GrpcTlsConfig build() {
+      return new GrpcTlsConfig(this, false);
+    }
   }
 }
