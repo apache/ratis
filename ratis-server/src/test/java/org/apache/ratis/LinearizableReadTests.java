@@ -170,6 +170,11 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testFollowerLinearizableReadFailsWhenInstallingSnapshot() throws Exception {
+    runWithNewCluster(ReadOnlyRequestTests::runTestFollowerLinearizableReadFailsWhenInstallingSnapshot);
+  }
+
+  @Test
   public void testFollowerLinearizableReadParallel() throws Exception {
     runWithNewCluster(LinearizableReadTests::runTestFollowerReadOnlyParallel);
   }

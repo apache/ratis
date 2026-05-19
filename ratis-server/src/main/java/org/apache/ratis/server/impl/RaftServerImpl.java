@@ -1086,12 +1086,15 @@ class RaftServerImpl implements RaftServer.Division,
     }
     return processQueryFuture(stateMachine.queryStale(request.getMessage(), minIndex), request);
   }
-
-  ReadRequests getReadRequests() {
-    return getState().getReadRequests();
+  ReadException getReadException(String op, long installSnapshot, boolean started) {
+    return installSnapshot == RaftLog.INVALID_LOG_INDEX ? null : new ReadException(getMemberId() + ": Failed to " + op
+        + " readIndex as snapshot (" + installSnapshot + ") installation is " + (started ? "started" : "in progress"));
   }
-
   private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync(RaftClientRequest clientRequest) {
+    final long installSnapshot = snapshotInstallationHandler.getInProgressInstallSnapshotIndex();
+    if (installSnapshot != RaftLog.INVALID_LOG_INDEX) {
+      return JavaUtils.completeExceptionally(getReadException("get", installSnapshot, false));
+    }
     final RaftPeerId leaderId = getInfo().getLeaderId();
     if (leaderId == null) {
       return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
@@ -1103,11 +1106,9 @@ class RaftServerImpl implements RaftServer.Division,
       return JavaUtils.completeExceptionally(e);
     }
   }
-
   private CompletableFuture<Long> getReadIndex(RaftClientRequest request, LeaderStateImpl leader) {
     return writeIndexCache.getWriteIndexFuture(request).thenCompose(leader::getReadIndex);
   }
-
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
     if (request.getType().getRead().getPreferNonLinearizable()
         || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
@@ -1117,14 +1118,7 @@ class RaftServerImpl implements RaftServer.Division,
        }
        return queryStateMachine(request);
     } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE){
-      /*
-        Linearizable read using ReadIndex. See Raft paper section 6.4.
-        1. First obtain readIndex from Leader.
-        2. Then waits for statemachine to advance at least as far as readIndex.
-        3. Finally, query the statemachine and return the result.
-       */
       final LeaderStateImpl leader = role.getLeaderState().orElse(null);
-
       final CompletableFuture<Long> replyFuture;
       if (leader != null) {
         replyFuture = getReadIndex(request, leader);
@@ -1140,14 +1134,14 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       return replyFuture
-          .thenCompose(readIndex -> getReadRequests().waitToAdvance(readIndex))
+          .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
+              () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
           .thenCompose(readIndex -> queryStateMachine(request))
           .exceptionally(e -> readException2Reply(request, e));
     } else {
       throw new IllegalStateException("Unexpected read option: " + readOption);
     }
   }
-
   private RaftClientReply readException2Reply(RaftClientRequest request, Throwable e) {
     e = JavaUtils.unwrapCompletionException(e);
     if (e instanceof StateMachineException ) {
