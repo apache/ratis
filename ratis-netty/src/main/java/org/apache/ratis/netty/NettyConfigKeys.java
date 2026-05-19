@@ -134,7 +134,6 @@ public interface NettyConfigKeys {
         return getTlsConf(key -> parameters.get(key, TLS_CONF_CLASS), TLS_CONF_PARAMETER, getDefaultLog());
       }
       static void setTlsConf(Parameters parameters, TlsConf conf) {
-        LOG.info("setTlsConf " + conf);
         ConfUtils.setTlsConf((key, value) -> parameters.put(key, value, TLS_CONF_CLASS), TLS_CONF_PARAMETER, conf);
       }
 
@@ -199,7 +198,6 @@ public interface NettyConfigKeys {
         return getTlsConf(key -> parameters.get(key, TLS_CONF_CLASS), TLS_CONF_PARAMETER, getDefaultLog());
       }
       static void setTlsConf(Parameters parameters, TlsConf conf) {
-        LOG.info("setTlsConf " + conf);
         ConfUtils.setTlsConf((key, value) -> parameters.put(key, value, TLS_CONF_CLASS), TLS_CONF_PARAMETER, conf);
       }
 
