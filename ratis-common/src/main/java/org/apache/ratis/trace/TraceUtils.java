@@ -164,6 +164,15 @@ public final class TraceUtils {
   private static final TextMapPropagator PROPAGATOR =
       GlobalOpenTelemetry.getPropagators().getTextMapPropagator();
 
+  public static SpanContextProto injectContextToProto() {
+    return injectContextToProto(Context.current());
+  }
+
+  /**
+   * For testing only, allows injecting a context instead of the current one.
+   * @param context the context to inject into the proto; typically this will be the current context.
+   * @return the span context proto containing the context map injected by the global propagator.
+   */
   public static SpanContextProto injectContextToProto(Context context) {
     Map<String, String> carrier = new TreeMap<>();
     PROPAGATOR.inject(context, carrier, (map, key, value) -> map.put(key, value));

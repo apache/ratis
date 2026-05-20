@@ -146,3 +146,47 @@ by using the `run_all_tests.sh` script found in [dev-support/vagrant/](../dev-su
 See the [dev-support/vagrant/README.md](../dev-support/vagrant/README.md) for more on dependencies and what is setup.
 This will allow one to try a fully setup three server Ratis cluster on a single VM image,
 preventing resource contention with your development host and allowing failure injection too.
+
+
+## Enable Tracing when testing examples
+Ratis uses OpenTracing to provide distributed tracing of requests across the cluster. 
+To enable tracing, you need to set the `-Draft.otel.tracing.enabled=true` as part of 
+the JVM options when running the server and client.
+For example, to enable tracing for the FileStore server, you can run the following command:
+
+```bash
+# build the assembly jar first
+mvn clean package -DskipTests
+
+# extract the assembly jar, mainly we need the dependencies for tracing
+pushd ratis-assembly/target
+file=$(ls -1t ratis-assembly-*.tar.gz | head -n1)
+tar -zxvf "$file"
+popd
+
+# run the server, the tracing will be enabled because it found the 
+# opentelemetry agent jar
+BIN=ratis-examples/src/main/bin
+PEERS=n0:127.0.0.1:6000,n1:127.0.0.1:6001,n2:127.0.0.1:6002
+
+ID=n0; ${BIN}/server.sh filestore server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
+ID=n1; ${BIN}/server.sh filestore server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
+ID=n2; ${BIN}/server.sh filestore server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
+
+# some message should be shown
+[otel.javaagent 2026-04-15 15:55:11:320 -0700] [main] INFO io.opentelemetry.javaagent.tooling.VersionLogger - opentelemetry-javaagent - version: 2.26.1
+```
+
+If you want to configure the tracing further, you can set the following system properties
+
+```bash
+# below is an example to configure the OTLP exporter to send the traces to a local collector, 
+# you can change the endpoint and protocol as needed, and please make sure 
+# raft.otel.tracing.enabled is set to true to enable tracing in Ratis
+export OTEL_EXPORTER_OPTS="-Dotel.traces.exporter=otlp \
+-Dotel.exporter.otlp.protocol=grpc \
+-Dotel.exporter.otlp.endpoint=http://localhost:4317 \
+-Dotel.metrics.exporter=none \
+-Dotel.logs.exporter=none \
+-Draft.otel.tracing.enabled=true"
+```
