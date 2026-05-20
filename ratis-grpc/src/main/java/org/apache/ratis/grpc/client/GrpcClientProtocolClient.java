@@ -21,6 +21,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcEventLoops;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.intercept.client.MetricClientInterceptor;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
@@ -51,6 +52,7 @@ import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
+import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -94,6 +96,7 @@ public class GrpcClientProtocolClient implements Closeable {
 
   private final AtomicReference<AsyncStreamObservers> unorderedStreamObservers = new AtomicReference<>();
   private final MetricClientInterceptor metricClientInterceptor;
+  private final EventLoopGroup workerEventLoopGroup;
 
   GrpcClientProtocolClient(ClientId id, RaftPeer target, RaftProperties properties,
       SslContext adminSslContext, SslContext clientSslContext) {
@@ -102,6 +105,11 @@ public class GrpcClientProtocolClient implements Closeable {
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
     this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
     metricClientInterceptor = new MetricClientInterceptor(getName());
+
+    final int workerThreads = GrpcConfigKeys.Client.workerEventLoopThreads(properties);
+    this.workerEventLoopGroup = workerThreads > 0
+        ? GrpcEventLoops.newEventLoopGroup(workerThreads, getName() + "-grpc-worker-ELG")
+        : null;
 
     final String clientAddress = Optional.ofNullable(target.getClientAddress())
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
@@ -135,6 +143,8 @@ public class GrpcClientProtocolClient implements Closeable {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
 
+    GrpcEventLoops.configure(channelBuilder, workerEventLoopGroup);
+
     return channelBuilder.flowControlWindow(flowControlWindow.getSizeInt())
         .maxInboundMessageSize(maxMessageSize.getSizeInt())
         .intercept(metricClientInterceptor)
@@ -154,6 +164,7 @@ public class GrpcClientProtocolClient implements Closeable {
       GrpcUtil.shutdownManagedChannel(adminChannel);
     }
     metricClientInterceptor.close();
+    GrpcEventLoops.shutdownGracefully(workerEventLoopGroup);
   }
 
   RaftClientReplyProto groupAdd(GroupManagementRequestProto request) throws IOException {

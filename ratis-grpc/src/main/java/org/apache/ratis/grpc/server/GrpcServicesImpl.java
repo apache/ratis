@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcEventLoops;
 import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
@@ -36,6 +37,7 @@ import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Server;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
+import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 
 import org.apache.ratis.proto.RaftProtos.*;
@@ -114,6 +116,7 @@ public final class GrpcServicesImpl
     private SizeInBytes flowControlWindow;
     private TimeDuration requestTimeoutDuration;
     private boolean separateHeartbeatChannel;
+    private int workerEventLoopThreads;
 
     private Builder() {}
 
@@ -132,6 +135,7 @@ public final class GrpcServicesImpl
       this.requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(properties);
       this.separateHeartbeatChannel = GrpcConfigKeys.Server.heartbeatChannel(properties);
       this.serverStubPoolSize = GrpcConfigKeys.Server.stubPoolSize(properties);
+      this.workerEventLoopThreads = GrpcConfigKeys.Server.workerEventLoopThreads(properties);
 
       final SizeInBytes appenderBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
       final SizeInBytes gap = SizeInBytes.ONE_MB;
@@ -151,9 +155,9 @@ public final class GrpcServicesImpl
       return this;
     }
 
-    private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target) {
+    private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target, EventLoopGroup eventLoopGroup) {
       return new GrpcServerProtocolClient(target, serverStubPoolSize, flowControlWindow.getSizeInt(),
-          requestTimeoutDuration, serverSslContextForClient, separateHeartbeatChannel);
+          requestTimeoutDuration, serverSslContextForClient, separateHeartbeatChannel, eventLoopGroup);
     }
 
     private ExecutorService newExecutor() {
@@ -182,25 +186,28 @@ public final class GrpcServicesImpl
       return customizer.customize(builder, types).build();
     }
 
-    private NettyServerBuilder newNettyServerBuilderForServer() {
-      return newNettyServerBuilder(serverHost, serverPort, serverSslContextForServer);
+    private NettyServerBuilder newNettyServerBuilderForServer(EventLoopGroup bossGroup, EventLoopGroup workerGroup) {
+      return newNettyServerBuilder(serverHost, serverPort, serverSslContextForServer, bossGroup, workerGroup);
     }
 
-    private NettyServerBuilder newNettyServerBuilderForAdmin() {
-      return newNettyServerBuilder(adminHost, adminPort, adminSslContext);
+    private NettyServerBuilder newNettyServerBuilderForAdmin(EventLoopGroup bossGroup, EventLoopGroup workerGroup) {
+      return newNettyServerBuilder(adminHost, adminPort, adminSslContext, bossGroup, workerGroup);
     }
 
-    private NettyServerBuilder newNettyServerBuilderForClient() {
-      return newNettyServerBuilder(clientHost, clientPort, clientSslContext);
+    private NettyServerBuilder newNettyServerBuilderForClient(EventLoopGroup bossGroup, EventLoopGroup workerGroup) {
+      return newNettyServerBuilder(clientHost, clientPort, clientSslContext, bossGroup, workerGroup);
     }
 
-    private NettyServerBuilder newNettyServerBuilder(String hostname, int port, SslContext sslContext) {
+    private NettyServerBuilder newNettyServerBuilder(String hostname, int port, SslContext sslContext,
+        EventLoopGroup bossGroup, EventLoopGroup workerGroup) {
       final InetSocketAddress address = hostname == null || hostname.isEmpty() ?
           new InetSocketAddress(port) : new InetSocketAddress(hostname, port);
       final NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forAddress(address)
           .withChildOption(ChannelOption.SO_REUSEADDR, true)
           .maxInboundMessageSize(messageSizeMax.getSizeInt())
           .flowControlWindow(flowControlWindow.getSizeInt());
+
+      GrpcEventLoops.configure(nettyServerBuilder, bossGroup, workerGroup);
 
       if (sslContext != null) {
         LOG.info("Setting TLS for {}", address);
@@ -217,9 +224,10 @@ public final class GrpcServicesImpl
       return clientPort > 0 && clientPort != serverPort;
     }
 
-    Server newServer(GrpcClientProtocolService client, ServerInterceptor interceptor) {
+    Server newServer(GrpcClientProtocolService client, ServerInterceptor interceptor,
+        EventLoopGroup bossGroup, EventLoopGroup workerGroup) {
       final EnumSet<GrpcServices.Type> types = EnumSet.of(GrpcServices.Type.SERVER);
-      final NettyServerBuilder serverBuilder = newNettyServerBuilderForServer();
+      final NettyServerBuilder serverBuilder = newNettyServerBuilderForServer(bossGroup, workerGroup);
       final GrpcServerProtocolService service = newGrpcServerProtocolService();
       serverBuilder.addService(ServerInterceptors.intercept(service, interceptor));
 
@@ -232,6 +240,24 @@ public final class GrpcServicesImpl
         addClientService(serverBuilder, client, interceptor);
       }
       return buildServer(serverBuilder, types);
+    }
+
+    private EventLoopGroup bossEventLoopGroup;
+    private EventLoopGroup workerEventLoopGroup;
+
+    EventLoopGroup getBossEventLoopGroup() {
+      if (workerEventLoopThreads > 0 && bossEventLoopGroup == null) {
+        bossEventLoopGroup = GrpcEventLoops.newEventLoopGroup(1, server.getId() + "-grpc-boss-ELG");
+      }
+      return bossEventLoopGroup;
+    }
+
+    EventLoopGroup getWorkerEventLoopGroup() {
+      if (workerEventLoopThreads > 0 && workerEventLoopGroup == null) {
+        final String name = server.getId() + "-grpc-worker-ELG";
+        workerEventLoopGroup = GrpcEventLoops.newEventLoopGroup(workerEventLoopThreads, name);
+      }
+      return workerEventLoopGroup;
     }
 
     public GrpcServicesImpl build() {
@@ -274,20 +300,27 @@ public final class GrpcServicesImpl
   private final GrpcClientProtocolService clientProtocolService;
 
   private final MetricServerInterceptor serverInterceptor;
+  private final EventLoopGroup bossEventLoopGroup;
+  private final EventLoopGroup workerEventLoopGroup;
 
   private GrpcServicesImpl(Builder b) {
-    super(b.server::getId, id -> new PeerProxyMap<>(id.toString(), b::newGrpcServerProtocolClient));
+    super(b.server::getId, id -> new PeerProxyMap<>(id.toString(),
+        peer -> b.newGrpcServerProtocolClient(peer, b.getWorkerEventLoopGroup())));
+
+    this.bossEventLoopGroup = b.getBossEventLoopGroup();
+    this.workerEventLoopGroup = b.getWorkerEventLoopGroup();
 
     this.executor = b.newExecutor();
     this.clientProtocolService = b.newGrpcClientProtocolService(executor);
     this.serverInterceptor = b.newMetricServerInterceptor();
-    final Server server = b.newServer(clientProtocolService, serverInterceptor);
+    final Server server = b.newServer(clientProtocolService, serverInterceptor,
+        bossEventLoopGroup, workerEventLoopGroup);
 
     servers.put(GrpcServerProtocolService.class.getSimpleName(), server);
     addressSupplier = newAddressSupplier(b.serverPort, server);
 
     if (b.separateAdminServer()) {
-      final NettyServerBuilder builder = b.newNettyServerBuilderForAdmin();
+      final NettyServerBuilder builder = b.newNettyServerBuilderForAdmin(bossEventLoopGroup, workerEventLoopGroup);
       addAdminService(builder, b.server, serverInterceptor);
       final Server adminServer = b.buildServer(builder, EnumSet.of(GrpcServices.Type.ADMIN));
       servers.put(GrpcAdminProtocolService.class.getName(), adminServer);
@@ -297,7 +330,7 @@ public final class GrpcServicesImpl
     }
 
     if (b.separateClientServer()) {
-      final NettyServerBuilder builder = b.newNettyServerBuilderForClient();
+      final NettyServerBuilder builder = b.newNettyServerBuilderForClient(bossEventLoopGroup, workerEventLoopGroup);
       addClientService(builder, clientProtocolService, serverInterceptor);
       final Server clientServer = b.buildServer(builder, EnumSet.of(GrpcServices.Type.CLIENT));
       servers.put(GrpcClientProtocolService.class.getName(), clientServer);
@@ -375,6 +408,9 @@ public final class GrpcServicesImpl
     } catch (IOException e) {
       LOG.warn("{}: Failed to close proxies", getId(), e);
     }
+
+    GrpcEventLoops.shutdownGracefully(workerEventLoopGroup);
+    GrpcEventLoops.shutdownGracefully(bossEventLoopGroup);
   }
 
   @Override

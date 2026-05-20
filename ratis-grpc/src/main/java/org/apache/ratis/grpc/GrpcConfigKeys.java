@@ -155,6 +155,22 @@ public interface GrpcConfigKeys {
     static void setTlsConf(Parameters parameters, GrpcTlsConfig conf) {
       parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
     }
+
+    /**
+     * The number of worker threads for the gRPC client-side {@link
+     * org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup}.
+     * 0 (default) means use the gRPC default (i.e. {@code availableProcessors * 2});
+     * a positive value caps the worker event-loop thread count.
+     */
+    String WORKER_EVENT_LOOP_THREADS_KEY = PREFIX + ".worker.event-loop.threads";
+    int WORKER_EVENT_LOOP_THREADS_DEFAULT = 0;
+    static int workerEventLoopThreads(RaftProperties properties) {
+      return getInt(properties::getInt, WORKER_EVENT_LOOP_THREADS_KEY,
+          WORKER_EVENT_LOOP_THREADS_DEFAULT, getDefaultLog(), requireMin(0));
+    }
+    static void setWorkerEventLoopThreads(RaftProperties properties, int threads) {
+      setInt(properties::setInt, WORKER_EVENT_LOOP_THREADS_KEY, threads);
+    }
   }
 
   interface Server {
@@ -290,6 +306,23 @@ public interface GrpcConfigKeys {
     }
     static void setStubPoolSize(RaftProperties properties, int size) {
       setInt(properties::setInt, STUB_POOL_SIZE_KEY, size);
+    }
+
+    /**
+     * The number of worker threads for the gRPC server-side {@link
+     * org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup}.
+     * The group is also reused by the server-to-server clients managed by this server.
+     * 0 (default) means use the gRPC default (i.e. {@code availableProcessors * 2});
+     * a positive value caps the worker event-loop thread count.
+     */
+    String WORKER_EVENT_LOOP_THREADS_KEY = PREFIX + ".worker.event-loop.threads";
+    int WORKER_EVENT_LOOP_THREADS_DEFAULT = 0;
+    static int workerEventLoopThreads(RaftProperties properties) {
+      return getInt(properties::getInt, WORKER_EVENT_LOOP_THREADS_KEY,
+          WORKER_EVENT_LOOP_THREADS_DEFAULT, getDefaultLog(), requireMin(0));
+    }
+    static void setWorkerEventLoopThreads(RaftProperties properties, int threads) {
+      setInt(properties::setInt, WORKER_EVENT_LOOP_THREADS_KEY, threads);
     }
   }
 
