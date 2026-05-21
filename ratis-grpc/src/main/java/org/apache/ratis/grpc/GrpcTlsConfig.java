@@ -103,11 +103,11 @@ public class GrpcTlsConfig extends TlsConf {
   }
 
   public List<String> getProtocols() {
-    return protocols;
+    return copy(protocols);
   }
 
   public List<String> getCipherSuites() {
-    return cipherSuites;
+    return copy(cipherSuites);
   }
 
   public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
