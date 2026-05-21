@@ -25,6 +25,7 @@ import javax.net.ssl.TrustManager;
 import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
@@ -38,8 +39,8 @@ public class GrpcTlsConfig extends TlsConf {
   private final boolean fileBasedConfig;
   private final SslProvider sslProvider;
   private final String jsseProviderName;
-  private final String[] protocols;
-  private final String[] cipherSuites;
+  private final List<String> protocols;
+  private final List<String> cipherSuites;
 
   public boolean isFileBasedConfig() {
     return fileBasedConfig;
@@ -101,12 +102,12 @@ public class GrpcTlsConfig extends TlsConf {
     return jsseProviderName;
   }
 
-  public String[] getProtocols() {
-    return protocols != null ? Arrays.copyOf(protocols, protocols.length) : null;
+  public List<String> getProtocols() {
+    return protocols;
   }
 
-  public String[] getCipherSuites() {
-    return cipherSuites != null ? Arrays.copyOf(cipherSuites, cipherSuites.length) : null;
+  public List<String> getCipherSuites() {
+    return cipherSuites;
   }
 
   public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
@@ -181,8 +182,12 @@ public class GrpcTlsConfig extends TlsConf {
         .setCipherSuites(conf.getCipherSuites());
   }
 
-  private static String[] copy(String[] values) {
-    return values != null ? Arrays.copyOf(values, values.length) : null;
+  private static List<String> copy(List<String> values) {
+    return values != null ? Collections.unmodifiableList(new ArrayList<>(values)) : null;
+  }
+
+  private static List<String> copy(String[] values) {
+    return values != null ? copy(Arrays.asList(values)) : null;
   }
 
   public static Builder newBuilder() {
@@ -193,8 +198,8 @@ public class GrpcTlsConfig extends TlsConf {
   public static class Builder extends TlsConf.Builder {
     private SslProvider sslProvider;
     private String jsseProviderName;
-    private String[] protocols;
-    private String[] cipherSuites;
+    private List<String> protocols;
+    private List<String> cipherSuites;
 
     @Override
     public Builder setName(String name) {
@@ -253,7 +258,17 @@ public class GrpcTlsConfig extends TlsConf {
       return this;
     }
 
+    public Builder setProtocols(List<String> protocols) {
+      this.protocols = copy(protocols);
+      return this;
+    }
+
     public Builder setCipherSuites(String... cipherSuites) {
+      this.cipherSuites = copy(cipherSuites);
+      return this;
+    }
+
+    public Builder setCipherSuites(List<String> cipherSuites) {
       this.cipherSuites = copy(cipherSuites);
       return this;
     }

@@ -17,38 +17,40 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.security.Provider;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class TestGrpcTlsConfig {
   @Test
-  public void testRaftPropertiesOverrideGrpcTlsOptions() {
+  public void testGrpcTlsConfigCopiesLists() {
+    final List<String> protocols = new ArrayList<>(Collections.singletonList("TLSv1.2"));
+    final List<String> cipherSuites = new ArrayList<>(Collections.singletonList("TLS_AES_128_GCM_SHA256"));
+
     final GrpcTlsConfig conf = GrpcTlsConfig.newBuilder()
-        .setSslProvider(SslProvider.OPENSSL)
-        .setProtocols("TLSv1.2")
-        .setCipherSuites("TLS_AES_128_GCM_SHA256")
+        .setProtocols(protocols)
+        .setCipherSuites(cipherSuites)
         .build();
 
-    final RaftProperties properties = new RaftProperties();
-    GrpcConfigKeys.TLS.setSslProvider(properties, SslProvider.JDK);
-    GrpcConfigKeys.TLS.setJsseProviderName(properties, "SunJSSE");
-    GrpcConfigKeys.TLS.setProtocols(properties, "TLSv1.3");
-    GrpcConfigKeys.TLS.setCipherSuites(properties, "TLS_AES_256_GCM_SHA384");
+    protocols.add("TLSv1.3");
+    cipherSuites.add("TLS_AES_256_GCM_SHA384");
 
-    final GrpcTlsConfig updated = GrpcConfigKeys.TLS.apply(properties, conf);
-    Assertions.assertSame(SslProvider.JDK, updated.getSslProvider());
-    Assertions.assertEquals("SunJSSE", updated.getJsseProviderName());
-    Assertions.assertArrayEquals(new String[] {"TLSv1.3"}, updated.getProtocols());
-    Assertions.assertArrayEquals(new String[] {"TLS_AES_256_GCM_SHA384"}, updated.getCipherSuites());
+    Assertions.assertEquals(Collections.singletonList("TLSv1.2"), conf.getProtocols());
+    Assertions.assertEquals(Collections.singletonList("TLS_AES_128_GCM_SHA256"), conf.getCipherSuites());
+    Assertions.assertThrows(UnsupportedOperationException.class, () -> conf.getProtocols().add("TLSv1.3"));
+    Assertions.assertThrows(UnsupportedOperationException.class,
+        () -> conf.getCipherSuites().add("TLS_AES_256_GCM_SHA384"));
   }
 
   @Test
-  public void testRaftPropertiesKeepUnsetGrpcTlsOptions() {
+  public void testNewBuilderCopiesGrpcTlsOptions() {
     final GrpcTlsConfig conf = GrpcTlsConfig.newBuilder()
         .setSslProvider(SslProvider.OPENSSL)
         .setJsseProviderName("SunJSSE")
@@ -56,11 +58,11 @@ public class TestGrpcTlsConfig {
         .setCipherSuites("TLS_AES_128_GCM_SHA256")
         .build();
 
-    final GrpcTlsConfig updated = GrpcConfigKeys.TLS.apply(new RaftProperties(), conf);
+    final GrpcTlsConfig updated = GrpcTlsConfig.newBuilder(conf).build();
     Assertions.assertSame(SslProvider.OPENSSL, updated.getSslProvider());
     Assertions.assertEquals("SunJSSE", updated.getJsseProviderName());
-    Assertions.assertArrayEquals(new String[] {"TLSv1.2"}, updated.getProtocols());
-    Assertions.assertArrayEquals(new String[] {"TLS_AES_128_GCM_SHA256"}, updated.getCipherSuites());
+    Assertions.assertEquals(Collections.singletonList("TLSv1.2"), updated.getProtocols());
+    Assertions.assertEquals(Arrays.asList("TLS_AES_128_GCM_SHA256"), updated.getCipherSuites());
   }
 
   @Test

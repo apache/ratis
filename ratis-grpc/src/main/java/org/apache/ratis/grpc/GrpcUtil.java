@@ -50,7 +50,7 @@ import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.security.Provider;
 import java.security.Security;
-import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -332,13 +332,13 @@ public interface GrpcUtil {
         b = sslProvider != null ? GrpcSslContexts.configure(b, sslProvider) : GrpcSslContexts.configure(b);
       }
     }
-    final String[] protocols = tlsConf.getProtocols();
-    if (protocols != null && protocols.length > 0) {
-      b.protocols(protocols);
+    final List<String> protocols = tlsConf.getProtocols();
+    if (protocols != null && !protocols.isEmpty()) {
+      b.protocols(protocols.toArray(new String[0]));
     }
-    final String[] cipherSuites = tlsConf.getCipherSuites();
-    if (cipherSuites != null && cipherSuites.length > 0) {
-      b.ciphers(Arrays.asList(cipherSuites), IdentityCipherSuiteFilter.INSTANCE);
+    final List<String> cipherSuites = tlsConf.getCipherSuites();
+    if (cipherSuites != null && !cipherSuites.isEmpty()) {
+      b.ciphers(cipherSuites, IdentityCipherSuiteFilter.INSTANCE);
     }
     return b;
   }
