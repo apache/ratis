@@ -18,13 +18,12 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.net.ssl.SSLException;
 import java.security.Provider;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -50,26 +49,10 @@ public class TestGrpcTlsConfig {
   }
 
   @Test
-  public void testNewBuilderCopiesGrpcTlsOptions() {
-    final GrpcTlsConfig conf = GrpcTlsConfig.newBuilder()
-        .setSslProvider(SslProvider.OPENSSL)
-        .setJsseProviderName("SunJSSE")
-        .setProtocols("TLSv1.2")
-        .setCipherSuites("TLS_AES_128_GCM_SHA256")
-        .build();
-
-    final GrpcTlsConfig updated = GrpcTlsConfig.newBuilder(conf).build();
-    Assertions.assertSame(SslProvider.OPENSSL, updated.getSslProvider());
-    Assertions.assertEquals("SunJSSE", updated.getJsseProviderName());
-    Assertions.assertEquals(Collections.singletonList("TLSv1.2"), updated.getProtocols());
-    Assertions.assertEquals(Arrays.asList("TLS_AES_128_GCM_SHA256"), updated.getCipherSuites());
-  }
-
-  @Test
   public void testUnknownJsseProviderUsesGenericJdkConfiguration() {
     final SslContextBuilder builder = GrpcUtil.configureJsseProvider(
         SslContextBuilder.forClient(), new TestProvider());
-    Assertions.assertNotNull(builder);
+    Assertions.assertThrows(SSLException.class, builder::build);
   }
 
   private static class TestProvider extends Provider {

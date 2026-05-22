@@ -25,8 +25,6 @@ import javax.net.ssl.TrustManager;
 import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -37,10 +35,6 @@ import java.util.Optional;
  */
 public class GrpcTlsConfig extends TlsConf {
   private final boolean fileBasedConfig;
-  private final SslProvider sslProvider;
-  private final String jsseProviderName;
-  private final List<String> protocols;
-  private final List<String> cipherSuites;
 
   public boolean isFileBasedConfig() {
     return fileBasedConfig;
@@ -94,22 +88,6 @@ public class GrpcTlsConfig extends TlsConf {
     return isMutualTls();
   }
 
-  public SslProvider getSslProvider() {
-    return sslProvider;
-  }
-
-  public String getJsseProviderName() {
-    return jsseProviderName;
-  }
-
-  public List<String> getProtocols() {
-    return copy(protocols);
-  }
-
-  public List<String> getCipherSuites() {
-    return copy(cipherSuites);
-  }
-
   public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
       List<X509Certificate> trustStore, boolean mTlsEnabled) {
     this(newBuilder(privateKey, certChain, trustStore, mTlsEnabled), false);
@@ -128,10 +106,6 @@ public class GrpcTlsConfig extends TlsConf {
   private GrpcTlsConfig(Builder builder, boolean fileBasedConfig) {
     super(builder);
     this.fileBasedConfig = fileBasedConfig;
-    this.sslProvider = builder.sslProvider;
-    this.jsseProviderName = builder.jsseProviderName;
-    this.protocols = copy(builder.protocols);
-    this.cipherSuites = copy(builder.cipherSuites);
   }
 
   public GrpcTlsConfig(KeyManager keyManager, TrustManager trustManager, boolean mTlsEnabled) {
@@ -159,48 +133,12 @@ public class GrpcTlsConfig extends TlsConf {
     return newBuilder().setMutualTls(mTlsEnabled).setKeyManager(keyManager).setTrustManager(trustManager);
   }
 
-  public static Builder newBuilder(GrpcTlsConfig conf) {
-    final Builder b = newBuilder().setMutualTls(conf.isMutualTls());
-    Optional.ofNullable(conf.getKeyManager()).ifPresent(keyManager -> {
-      if (keyManager.getKeyManager() != null) {
-        b.setKeyManager(keyManager.getKeyManager());
-      } else {
-        b.setPrivateKey(keyManager.getPrivateKey());
-        b.setKeyCertificates(keyManager.getKeyCertificates());
-      }
-    });
-    Optional.ofNullable(conf.getTrustManager()).ifPresent(trustManager -> {
-      if (trustManager.getTrustManager() != null) {
-        b.setTrustManager(trustManager.getTrustManager());
-      } else {
-        b.setTrustCertificates(trustManager.getTrustCertificates());
-      }
-    });
-    return b.setSslProvider(conf.getSslProvider())
-        .setJsseProviderName(conf.getJsseProviderName())
-        .setProtocols(conf.getProtocols())
-        .setCipherSuites(conf.getCipherSuites());
-  }
-
-  private static List<String> copy(List<String> values) {
-    return values != null ? Collections.unmodifiableList(new ArrayList<>(values)) : null;
-  }
-
-  private static List<String> copy(String[] values) {
-    return values != null ? copy(Arrays.asList(values)) : null;
-  }
-
   public static Builder newBuilder() {
     return new Builder();
   }
 
   /** For building {@link GrpcTlsConfig}. */
   public static class Builder extends TlsConf.Builder {
-    private SslProvider sslProvider;
-    private String jsseProviderName;
-    private List<String> protocols;
-    private List<String> cipherSuites;
-
     @Override
     public Builder setName(String name) {
       super.setName(name);
@@ -243,33 +181,39 @@ public class GrpcTlsConfig extends TlsConf {
       return this;
     }
 
+    @Override
     public Builder setSslProvider(SslProvider sslProvider) {
-      this.sslProvider = sslProvider;
+      super.setSslProvider(sslProvider);
       return this;
     }
 
+    @Override
     public Builder setJsseProviderName(String jsseProviderName) {
-      this.jsseProviderName = jsseProviderName;
+      super.setJsseProviderName(jsseProviderName);
       return this;
     }
 
+    @Override
     public Builder setProtocols(String... protocols) {
-      this.protocols = copy(protocols);
+      super.setProtocols(protocols);
       return this;
     }
 
+    @Override
     public Builder setProtocols(List<String> protocols) {
-      this.protocols = copy(protocols);
+      super.setProtocols(protocols);
       return this;
     }
 
+    @Override
     public Builder setCipherSuites(String... cipherSuites) {
-      this.cipherSuites = copy(cipherSuites);
+      super.setCipherSuites(cipherSuites);
       return this;
     }
 
+    @Override
     public Builder setCipherSuites(List<String> cipherSuites) {
-      this.cipherSuites = copy(cipherSuites);
+      super.setCipherSuites(cipherSuites);
       return this;
     }
 

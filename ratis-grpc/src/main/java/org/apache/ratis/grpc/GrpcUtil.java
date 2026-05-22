@@ -20,6 +20,7 @@ package org.apache.ratis.grpc;
 import java.util.function.Consumer;
 import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
+import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.security.TlsConf.TrustManagerConf;
 import org.apache.ratis.security.TlsConf.CertificatesConf;
 import org.apache.ratis.security.TlsConf.PrivateKeyConf;
@@ -319,7 +320,7 @@ public interface GrpcUtil {
   }
 
   static SslContextBuilder configureSslContextBuilder(
-      SslContextBuilder b, GrpcTlsConfig tlsConf, SslProvider defaultSslProvider) {
+      SslContextBuilder b, TlsConf tlsConf, SslProvider defaultSslProvider) {
     final Provider jsseProvider = getJsseProvider(tlsConf);
     if (jsseProvider != null) {
       b = configureJsseProvider(b, jsseProvider);
@@ -356,7 +357,7 @@ public interface GrpcUtil {
     }
   }
 
-  static Provider getJsseProvider(GrpcTlsConfig tlsConf) {
+  static Provider getJsseProvider(TlsConf tlsConf) {
     final String providerName = tlsConf.getJsseProviderName();
     if (providerName == null || providerName.trim().isEmpty()) {
       return null;
