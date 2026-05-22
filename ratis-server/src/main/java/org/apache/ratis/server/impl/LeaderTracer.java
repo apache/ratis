@@ -81,6 +81,9 @@ class LeaderTracer {
   }
 
   void removePendingRequest(PendingRequest pending) {
+    if (pending == null) {
+      return;
+    }
     appendEntriesSpans.remove(pending.getTermIndex().getIndex());
   }
 

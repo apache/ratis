@@ -55,6 +55,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
@@ -146,6 +147,11 @@ public class RaftServerImplTracingTests {
         .findFirst()
         .orElseThrow(() -> new IllegalStateException("Expected INTERNAL span " + SpanNames.APPEND_ENTRIES_ASYNC));
     assertEquals(StatusCode.ERROR, appendSpan.getStatus().getStatusCode());
+  }
+
+  @Test
+  public void testLeaderTracerRemovePendingRequestSkipsNull() {
+    assertDoesNotThrow(() -> new LeaderTracer().removePendingRequest(null));
   }
 
   private static List<SpanData> traceAppendEntriesAndCollectNewSpans(
@@ -265,4 +271,3 @@ public class RaftServerImplTracingTests {
   }
 
 }
-
