@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.security.TlsConf;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
@@ -130,5 +131,95 @@ public class GrpcTlsConfig extends TlsConf {
 
   private static Builder newBuilder(KeyManager keyManager, TrustManager trustManager, boolean mTlsEnabled) {
     return newBuilder().setMutualTls(mTlsEnabled).setKeyManager(keyManager).setTrustManager(trustManager);
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  /** For building {@link GrpcTlsConfig}. */
+  public static class Builder extends TlsConf.Builder {
+    @Override
+    public Builder setName(String name) {
+      super.setName(name);
+      return this;
+    }
+
+    @Override
+    public Builder setTrustCertificates(CertificatesConf trustCertificates) {
+      super.setTrustCertificates(trustCertificates);
+      return this;
+    }
+
+    @Override
+    public Builder setPrivateKey(PrivateKeyConf privateKey) {
+      super.setPrivateKey(privateKey);
+      return this;
+    }
+
+    @Override
+    public Builder setKeyCertificates(CertificatesConf keyCertificates) {
+      super.setKeyCertificates(keyCertificates);
+      return this;
+    }
+
+    @Override
+    public Builder setKeyManager(KeyManager keyManager) {
+      super.setKeyManager(keyManager);
+      return this;
+    }
+
+    @Override
+    public Builder setTrustManager(TrustManager trustManager) {
+      super.setTrustManager(trustManager);
+      return this;
+    }
+
+    @Override
+    public Builder setMutualTls(boolean mutualTls) {
+      super.setMutualTls(mutualTls);
+      return this;
+    }
+
+    @Override
+    public Builder setSslProvider(SslProvider sslProvider) {
+      super.setSslProvider(sslProvider);
+      return this;
+    }
+
+    @Override
+    public Builder setJsseProviderName(String jsseProviderName) {
+      super.setJsseProviderName(jsseProviderName);
+      return this;
+    }
+
+    @Override
+    public Builder setProtocols(String... protocols) {
+      super.setProtocols(protocols);
+      return this;
+    }
+
+    @Override
+    public Builder setProtocols(List<String> protocols) {
+      super.setProtocols(protocols);
+      return this;
+    }
+
+    @Override
+    public Builder setCipherSuites(String... cipherSuites) {
+      super.setCipherSuites(cipherSuites);
+      return this;
+    }
+
+    @Override
+    public Builder setCipherSuites(List<String> cipherSuites) {
+      super.setCipherSuites(cipherSuites);
+      return this;
+    }
+
+    @Override
+    public GrpcTlsConfig build() {
+      return new GrpcTlsConfig(this, false);
+    }
   }
 }

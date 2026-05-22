@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.security;
 
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
@@ -25,8 +26,11 @@ import javax.net.ssl.TrustManager;
 import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -170,16 +174,22 @@ public class TlsConf {
   private final KeyManagerConf keyManager;
   private final TrustManagerConf trustManager;
   private final boolean mutualTls;
-
-  private TlsConf(String name, KeyManagerConf keyManager, TrustManagerConf trustManager, boolean mutualTls) {
-    this.name = JavaUtils.getClassSimpleName(getClass()) + COUNT.getAndIncrement() + (name == null? "": "-" + name);
-    this.keyManager = keyManager;
-    this.trustManager = trustManager;
-    this.mutualTls = mutualTls;
-  }
+  private final SslProvider sslProvider;
+  private final String jsseProviderName;
+  private final List<String> protocols;
+  private final List<String> cipherSuites;
 
   protected TlsConf(Builder b) {
-    this(b.buildName(), b.buildKeyManagerConf(), b.buildTrustManagerConf(), b.isMutualTls());
+    final String buildName = b.buildName();
+    this.name = JavaUtils.getClassSimpleName(getClass()) + COUNT.getAndIncrement()
+        + (buildName == null? "": "-" + buildName);
+    this.keyManager = b.buildKeyManagerConf();
+    this.trustManager = b.buildTrustManagerConf();
+    this.mutualTls = b.isMutualTls();
+    this.sslProvider = b.sslProvider;
+    this.jsseProviderName = b.jsseProviderName;
+    this.protocols = copy(b.protocols);
+    this.cipherSuites = copy(b.cipherSuites);
   }
 
   /** @return the key manager configuration. */
@@ -197,6 +207,22 @@ public class TlsConf {
     return mutualTls;
   }
 
+  public SslProvider getSslProvider() {
+    return sslProvider;
+  }
+
+  public String getJsseProviderName() {
+    return jsseProviderName;
+  }
+
+  public List<String> getProtocols() {
+    return copy(protocols);
+  }
+
+  public List<String> getCipherSuites() {
+    return copy(cipherSuites);
+  }
+
   @Override
   public String toString() {
     return name;
@@ -204,6 +230,14 @@ public class TlsConf {
 
   public static Builder newBuilder() {
     return new Builder();
+  }
+
+  private static List<String> copy(List<String> values) {
+    return values != null ? Collections.unmodifiableList(new ArrayList<>(values)) : null;
+  }
+
+  private static List<String> copy(String[] values) {
+    return values != null ? copy(Arrays.asList(values)) : null;
   }
 
   /** For building {@link TlsConf}. */
@@ -215,6 +249,10 @@ public class TlsConf {
     private boolean mutualTls;
     private KeyManager keyManager;
     private TrustManager trustManager;
+    private SslProvider sslProvider;
+    private String jsseProviderName;
+    private List<String> protocols;
+    private List<String> cipherSuites;
 
     public Builder setName(String name) {
       this.name = name;
@@ -248,6 +286,36 @@ public class TlsConf {
 
     public Builder setMutualTls(boolean mutualTls) {
       this.mutualTls = mutualTls;
+      return this;
+    }
+
+    public Builder setSslProvider(SslProvider sslProvider) {
+      this.sslProvider = sslProvider;
+      return this;
+    }
+
+    public Builder setJsseProviderName(String jsseProviderName) {
+      this.jsseProviderName = jsseProviderName;
+      return this;
+    }
+
+    public Builder setProtocols(String... protocols) {
+      this.protocols = copy(protocols);
+      return this;
+    }
+
+    public Builder setProtocols(List<String> protocols) {
+      this.protocols = copy(protocols);
+      return this;
+    }
+
+    public Builder setCipherSuites(String... cipherSuites) {
+      this.cipherSuites = copy(cipherSuites);
+      return this;
+    }
+
+    public Builder setCipherSuites(List<String> cipherSuites) {
+      this.cipherSuites = copy(cipherSuites);
       return this;
     }
 
