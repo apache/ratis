@@ -15,25 +15,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ratis.client.api;
 
-package org.apache.ratis.protocol;
+import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.RaftClientReply;
 
-import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import java.io.Closeable;
+import java.util.concurrent.CompletableFuture;
 
-import java.util.Collection;
-
-public interface DataStreamReply extends DataStreamPacket {
-
-  boolean isSuccess();
-
-  long getBytesWritten();
-
-  /** @return the commit information when the reply is created. */
-  Collection<CommitInfoProto> getCommitInfos();
+/**
+ * An asynchronous input stream supporting zero buffer copying.
+ */
+public interface DataStreamInput extends Closeable {
+  /**
+   * Read the next chunk in the stream asynchronously.
+   *
+   * @return a future of the reply.
+   */
+  CompletableFuture<DataStreamReply> readAsync();
 
   /**
-   * Release resources owned by this reply.
+   * Return the future of the {@link RaftClientReply}
+   * which will be received once the read-only stream has received a reply.
+   *
+   * @return the future of the {@link RaftClientReply}.
    */
-  default void release() {
-  }
+  CompletableFuture<RaftClientReply> getRaftClientReplyFuture();
 }

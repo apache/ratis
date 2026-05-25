@@ -971,12 +971,44 @@ class RaftServerImpl implements RaftServer.Division,
         clientExecutor).join();
   }
 
+  CompletableFuture<RaftClientReply> executeStreamReadOnlyAsync(
+      RaftClientRequest request, StateMachine.ReadOnlyDataStream stream) {
+    return CompletableFuture.supplyAsync(
+        () -> JavaUtils.callAsUnchecked(() -> streamReadOnlyAsync(request, stream), CompletionException::new),
+        clientExecutor).thenCompose(Function.identity());
+  }
+
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
     return TraceServer.traceAsyncMethod(
         () -> submitClientRequestAsyncInternal(request),
         request, getMemberId().toString(), SpanNames.SUBMIT_CLIENT_REQUEST_ASYNC);
+  }
+
+  public CompletableFuture<RaftClientReply> streamReadOnlyAsync(
+      RaftClientRequest request, StateMachine.ReadOnlyDataStream stream) throws IOException {
+    return TraceServer.traceAsyncMethod(
+        () -> streamReadOnlyAsyncInternal(request, stream),
+        request, getMemberId().toString(), SpanNames.SUBMIT_CLIENT_REQUEST_ASYNC);
+  }
+
+  private CompletableFuture<RaftClientReply> streamReadOnlyAsyncInternal(
+      RaftClientRequest request, StateMachine.ReadOnlyDataStream stream) throws IOException {
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    if (!request.is(TypeCase.READ)) {
+      throw new IOException("Expected a read-only request but got " + request);
+    }
+
+    LOG.debug("{}: receive read-only stream request({})", getMemberId(), request);
+    final Timekeeper timer = raftServerMetrics.getClientRequestTimer(request.getType());
+    final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
+    return readAsync(request, r -> streamReadOnlyStateMachine(r, stream)).whenComplete((clientReply, exception) -> {
+      timerContext.ifPresent(Timekeeper.Context::stop);
+      if (exception != null || clientReply.getException() != null) {
+        raftServerMetrics.incFailedRequestCount(request.getType());
+      }
+    });
   }
 
   private CompletableFuture<RaftClientReply> submitClientRequestAsyncInternal(
@@ -1110,13 +1142,18 @@ class RaftServerImpl implements RaftServer.Division,
     return writeIndexCache.getWriteIndexFuture(request).thenCompose(leader::getReadIndex);
   }
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
+    return readAsync(request, this::queryStateMachine);
+  }
+
+  private CompletableFuture<RaftClientReply> readAsync(
+      RaftClientRequest request, Function<RaftClientRequest, CompletableFuture<RaftClientReply>> query) {
     if (request.getType().getRead().getPreferNonLinearizable()
         || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
       final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
        if (reply != null) {
          return reply;
        }
-       return queryStateMachine(request);
+       return query.apply(request);
     } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE){
       final LeaderStateImpl leader = role.getLeaderState().orElse(null);
       final CompletableFuture<Long> replyFuture;
@@ -1136,7 +1173,7 @@ class RaftServerImpl implements RaftServer.Division,
       return replyFuture
           .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
               () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
-          .thenCompose(readIndex -> queryStateMachine(request))
+          .thenCompose(readIndex -> query.apply(request))
           .exceptionally(e -> readException2Reply(request, e));
     } else {
       throw new IllegalStateException("Unexpected read option: " + readOption);
@@ -1184,6 +1221,15 @@ class RaftServerImpl implements RaftServer.Division,
 
   CompletableFuture<RaftClientReply> queryStateMachine(RaftClientRequest request) {
     return processQueryFuture(stateMachine.query(request.getMessage()), request);
+  }
+
+  CompletableFuture<RaftClientReply> streamReadOnlyStateMachine(
+      RaftClientRequest request, StateMachine.ReadOnlyDataStream stream) {
+    try {
+      return processQueryFuture(stateMachine.data().streamReadOnly(request, stream), request);
+    } catch (UnsupportedOperationException e) {
+      return queryStateMachine(request);
+    }
   }
 
   CompletableFuture<RaftClientReply> processQueryFuture(

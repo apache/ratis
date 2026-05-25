@@ -23,9 +23,11 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
@@ -34,16 +36,17 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.rpc.CallId;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.util.IOUtils;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
@@ -54,10 +57,12 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -237,6 +242,93 @@ public class DataStreamClientImpl implements DataStreamClient {
     }
   }
 
+  public final class DataStreamInputImpl implements DataStreamInput {
+    private final RaftClientRequest header;
+    private final CompletableFuture<DataStreamReply> replyFuture;
+    private final CompletableFuture<RaftClientReply> raftClientReplyFuture = new CompletableFuture<>();
+    private final Queue<DataStreamReply> replies = new ArrayDeque<>();
+    private final Queue<CompletableFuture<DataStreamReply>> pendingReads = new ArrayDeque<>();
+    private Throwable readException;
+    private boolean closed;
+
+    private DataStreamInputImpl(RaftClientRequest request) {
+      this.header = request;
+      final ByteBuffer buffer = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(header);
+      final DataStreamRequestHeader h = new DataStreamRequestHeader(header.getClientId(), Type.STREAM_HEADER,
+          header.getCallId(), 0, buffer.remaining(), StandardWriteOption.FLUSH, StandardWriteOption.CLOSE);
+      this.replyFuture = dataStreamClientRpc.streamAsync(new DataStreamRequestByteBuffer(h, buffer), this::receive);
+      replyFuture.thenApply(ClientProtoUtils::getRaftClientReply)
+          .whenComplete(JavaUtils.asBiConsumer(raftClientReplyFuture));
+      replyFuture.whenComplete((reply, exception) -> {
+        if (exception != null) {
+          failReads(exception);
+        }
+      });
+    }
+
+    private void receive(DataStreamReply reply) {
+      final CompletableFuture<DataStreamReply> pending;
+      synchronized (this) {
+        if (closed) {
+          reply.release();
+          return;
+        }
+        pending = pendingReads.poll();
+        if (pending == null) {
+          replies.add(reply);
+          return;
+        }
+      }
+      pending.complete(reply);
+    }
+
+    private void failReads(Throwable t) {
+      for (;;) {
+        final CompletableFuture<DataStreamReply> pending;
+        synchronized (this) {
+          readException = t;
+          pending = pendingReads.poll();
+          if (pending == null) {
+            return;
+          }
+        }
+        pending.completeExceptionally(t);
+      }
+    }
+
+    @Override
+    public synchronized CompletableFuture<DataStreamReply> readAsync() {
+      if (closed) {
+        return JavaUtils.completeExceptionally(new AlreadyClosedException(
+            clientId + ": stream already closed, request=" + header));
+      }
+      final DataStreamReply reply = replies.poll();
+      if (reply != null) {
+        return CompletableFuture.completedFuture(reply);
+      }
+      if (readException != null) {
+        return JavaUtils.completeExceptionally(readException);
+      }
+      final CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
+      pendingReads.add(f);
+      return f;
+    }
+
+    @Override
+    public CompletableFuture<RaftClientReply> getRaftClientReplyFuture() {
+      return raftClientReplyFuture;
+    }
+
+    @Override
+    public synchronized void close() {
+      closed = true;
+      for (DataStreamReply reply; (reply = replies.poll()) != null;) {
+        reply.release();
+      }
+      failReads(new AlreadyClosedException(clientId + ": stream already closed, request=" + header));
+    }
+  }
+
   @Override
   public DataStreamClientRpc getClientRpc() {
     return dataStreamClientRpc;
@@ -272,6 +364,21 @@ public class DataStreamClientImpl implements DataStreamClient {
         .setRoutingTable(routingTable)
         .build();
     return new DataStreamOutputImpl(request);
+  }
+
+  @Override
+  public DataStreamInput streamReadOnly(ByteBuffer headerMessage) {
+    final Message message =
+        Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
+    final RaftClientRequest request = RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(dataStreamServer.getId())
+        .setGroupId(groupId)
+        .setCallId(CallId.getAndIncrement())
+        .setMessage(message)
+        .setType(RaftClientRequest.readRequestType())
+        .build();
+    return new DataStreamInputImpl(request);
   }
 
   @Override

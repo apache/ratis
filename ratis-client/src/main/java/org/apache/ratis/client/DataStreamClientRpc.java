@@ -24,6 +24,7 @@ import org.apache.ratis.util.JavaUtils;
 
 import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * A client interface for sending stream requests.
@@ -33,6 +34,13 @@ import java.util.concurrent.CompletableFuture;
 public interface DataStreamClientRpc extends Closeable {
   /** Async call to send a request. */
   default CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
+    throw new UnsupportedOperationException(getClass() + " does not support "
+        + JavaUtils.getCurrentStackTraceElement().getMethodName());
+  }
+
+  /** Async call to send a request and receive multiple replies for the request. */
+  default CompletableFuture<DataStreamReply> streamAsync(
+      DataStreamRequest request, Consumer<DataStreamReply> replyConsumer) {
     throw new UnsupportedOperationException(getClass() + " does not support "
         + JavaUtils.getCurrentStackTraceElement().getMethodName());
   }

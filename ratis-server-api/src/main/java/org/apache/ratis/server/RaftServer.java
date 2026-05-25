@@ -24,6 +24,7 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -32,6 +33,8 @@ import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.AdminProtocol;
 import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftClientProtocol;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
@@ -149,6 +152,18 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
   /** @return the data stream rpc service. */
   DataStreamServerRpc getDataStreamServerRpc();
+
+  /**
+   * Submit a read-only request whose response may be streamed through the data stream RPC.
+   *
+   * @param request the read-only request
+   * @param stream the stream for response data chunks
+   * @return a future for the terminal reply
+   */
+  default CompletableFuture<RaftClientReply> streamReadOnlyAsync(
+      RaftClientRequest request, StateMachine.ReadOnlyDataStream stream) throws IOException {
+    throw new UnsupportedOperationException("This method is NOT supported.");
+  }
 
   /** @return the {@link RpcType}. */
   default RpcType getRpcType() {

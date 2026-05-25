@@ -42,6 +42,7 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
+import org.apache.ratis.statemachine.StateMachine.ReadOnlyDataStream;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
@@ -147,7 +148,13 @@ public interface DataStreamTestUtils {
   }
 
   class MultiDataStreamStateMachine extends BaseStateMachine {
+    static final int READ_ONLY_STREAM_CHUNKS = 3;
+
     private final ConcurrentMap<ClientInvocationId, SingleDataStream> streams = new ConcurrentHashMap<>();
+
+    static ByteString getReadOnlyStreamChunk(ByteString query, int index) {
+      return ByteString.copyFromUtf8(query.toStringUtf8() + "-chunk-" + index);
+    }
 
     @Override
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {
@@ -174,6 +181,21 @@ public interface DataStreamTestUtils {
       final SingleDataStream s = getSingleDataStream(ClientInvocationId.valueOf(entry.getStateMachineLogEntry()));
       final ByteString bytesWritten = bytesWritten2ByteString(s.getDataChannel().getBytesWritten());
       return CompletableFuture.completedFuture(() -> bytesWritten);
+    }
+
+    @Override
+    public CompletableFuture<Message> query(Message request) {
+      return CompletableFuture.completedFuture(request);
+    }
+
+    @Override
+    public CompletableFuture<Message> streamReadOnly(RaftClientRequest request, ReadOnlyDataStream stream) {
+      CompletableFuture<Void> writes = CompletableFuture.completedFuture(null);
+      for (int i = 0; i < READ_ONLY_STREAM_CHUNKS; i++) {
+        final ByteString chunk = getReadOnlyStreamChunk(request.getMessage().getContent(), i);
+        writes = writes.thenCompose(ignored -> stream.writeAsync(chunk.asReadOnlyByteBuffer()));
+      }
+      return writes.thenApply(ignored -> request.getMessage());
     }
 
     SingleDataStream getSingleDataStream(RaftClientRequest request) {

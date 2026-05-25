@@ -40,7 +40,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -117,6 +119,18 @@ public interface StateMachine extends Closeable {
     }
 
     /**
+     * Stream a read-only state machine request. Implementations may write zero or more data
+     * chunks before completing the returned future with the terminal reply message.
+     *
+     * @param request the read-only client request
+     * @param stream the output stream for response data chunks
+     * @return a future for the terminal reply message
+     */
+    default CompletableFuture<Message> streamReadOnly(RaftClientRequest request, ReadOnlyDataStream stream) {
+      throw new UnsupportedOperationException("This method is NOT supported.");
+    }
+
+    /**
      * Link asynchronously the given stream with the given log entry.
      * The given stream can be null if it is unavailable due to errors.
      * In such case, the state machine may either recover the data by itself
@@ -149,6 +163,39 @@ public interface StateMachine extends Closeable {
      */
     default CompletableFuture<Void> truncate(long logIndex) {
       return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  /** A stream for read-only state machine response data. */
+  interface ReadOnlyDataStream {
+    /**
+     * Write the next response chunk.
+     *
+     * @return a future completed when the chunk is sent.
+     */
+    CompletableFuture<Void> writeAsync(ByteBuffer buffer);
+
+    /**
+     * Write the next response chunk using multiple buffers.
+     *
+     * The default implementation combines the buffers into one chunk.
+     *
+     * @return a future completed when the chunk is sent.
+     */
+    default CompletableFuture<Void> writeAsync(Iterable<ByteBuffer> buffers) {
+      final List<ByteBuffer> list = new ArrayList<>();
+      long length = 0;
+      for (ByteBuffer buffer : buffers) {
+        final ByteBuffer duplicate = buffer.duplicate();
+        list.add(duplicate);
+        length += duplicate.remaining();
+      }
+      final ByteBuffer combined = ByteBuffer.allocate(Math.toIntExact(length));
+      for (ByteBuffer buffer : list) {
+        combined.put(buffer);
+      }
+      combined.flip();
+      return writeAsync(combined);
     }
   }
 
