@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.grpc.server;
 
-import org.apache.ratis.grpc.GrpcEventLoops;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
@@ -55,7 +55,10 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
-    GrpcEventLoops.configure(channelBuilder, eventLoopGroup);
+    if (eventLoopGroup != null) {
+      channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
+          .eventLoopGroup(eventLoopGroup);
+    }
     ManagedChannel ch = channelBuilder.build();
     ch.getState(true);
     return ch;

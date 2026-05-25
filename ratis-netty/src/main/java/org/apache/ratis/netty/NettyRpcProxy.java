@@ -35,6 +35,7 @@ import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;

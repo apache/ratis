@@ -19,7 +19,9 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
+import org.apache.ratis.thirdparty.io.netty.channel.epoll.Epoll;
 import org.apache.ratis.thirdparty.io.netty.util.concurrent.EventExecutor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,7 +31,7 @@ public class TestGrpcEventLoops extends BaseTest {
   @Test
   public void testNewEventLoopGroupWithThreadCount() {
     final int threads = 3;
-    final EventLoopGroup group = GrpcEventLoops.newEventLoopGroup(threads, "test-elg");
+    final EventLoopGroup group = NettyUtils.newEventLoopGroup("test-elg", threads, false);
     try {
       Assertions.assertNotNull(group);
       int count = 0;
@@ -38,51 +40,57 @@ public class TestGrpcEventLoops extends BaseTest {
       }
       Assertions.assertEquals(threads, count);
     } finally {
-      GrpcEventLoops.shutdownGracefully(group);
+      NettyUtils.shutdownGracefully(group);
     }
   }
 
   @Test
-  public void testNewEventLoopGroupRejectsNonPositiveThreads() {
-    Assertions.assertThrows(IllegalArgumentException.class,
-        () -> GrpcEventLoops.newEventLoopGroup(0, "test-elg"));
-    Assertions.assertThrows(IllegalArgumentException.class,
-        () -> GrpcEventLoops.newEventLoopGroup(-1, "test-elg"));
-  }
-
-  @Test
   public void testChannelTypeMatchesEpollAvailability() {
-    if (GrpcEventLoops.isEpollAvailable()) {
-      Assertions.assertEquals("EpollServerSocketChannel",
-          GrpcEventLoops.getServerChannelType().getSimpleName());
-      Assertions.assertEquals("EpollSocketChannel",
-          GrpcEventLoops.getClientChannelType().getSimpleName());
-    } else {
-      Assertions.assertEquals("NioServerSocketChannel",
-          GrpcEventLoops.getServerChannelType().getSimpleName());
-      Assertions.assertEquals("NioSocketChannel",
-          GrpcEventLoops.getClientChannelType().getSimpleName());
+    final EventLoopGroup group = NettyUtils.newEventLoopGroup("test-epoll", 1, true);
+    try {
+      if (Epoll.isAvailable()) {
+        Assertions.assertEquals("EpollServerSocketChannel",
+            NettyUtils.getServerChannelClass(group).getSimpleName());
+        Assertions.assertEquals("EpollSocketChannel",
+            NettyUtils.getSocketChannelClass(group).getSimpleName());
+      } else {
+        Assertions.assertEquals("NioServerSocketChannel",
+            NettyUtils.getServerChannelClass(group).getSimpleName());
+        Assertions.assertEquals("NioSocketChannel",
+            NettyUtils.getSocketChannelClass(group).getSimpleName());
+      }
+    } finally {
+      NettyUtils.shutdownGracefully(group);
     }
   }
 
   @Test
   public void testConfigKeyDefaults() {
     final RaftProperties properties = new RaftProperties();
-    Assertions.assertEquals(0, GrpcConfigKeys.Server.workerEventLoopThreads(properties));
-    Assertions.assertEquals(0, GrpcConfigKeys.Client.workerEventLoopThreads(properties));
+    final int expectedWorker = GrpcConfigKeys.Server.WORKER_GROUP_SIZE_DEFAULT;
+    Assertions.assertTrue(expectedWorker > 0,
+        "default worker threads should be positive, but got " + expectedWorker);
+    Assertions.assertEquals(expectedWorker, GrpcConfigKeys.Server.workerGroupSize(properties));
+    Assertions.assertEquals(expectedWorker, GrpcConfigKeys.Client.workerGroupSize(properties));
+    Assertions.assertEquals(0, GrpcConfigKeys.Server.bossGroupSize(properties));
+    Assertions.assertTrue(GrpcConfigKeys.useEpoll(properties));
   }
 
   @Test
   public void testConfigKeyRoundtrip() {
     final RaftProperties properties = new RaftProperties();
-    GrpcConfigKeys.Server.setWorkerEventLoopThreads(properties, 4);
-    GrpcConfigKeys.Client.setWorkerEventLoopThreads(properties, 2);
-    Assertions.assertEquals(4, GrpcConfigKeys.Server.workerEventLoopThreads(properties));
-    Assertions.assertEquals(2, GrpcConfigKeys.Client.workerEventLoopThreads(properties));
+    GrpcConfigKeys.Server.setWorkerGroupSize(properties, 4);
+    GrpcConfigKeys.Server.setBossGroupSize(properties, 1);
+    GrpcConfigKeys.Client.setWorkerGroupSize(properties, 2);
+    GrpcConfigKeys.setUseEpoll(properties, false);
+    Assertions.assertEquals(4, GrpcConfigKeys.Server.workerGroupSize(properties));
+    Assertions.assertEquals(1, GrpcConfigKeys.Server.bossGroupSize(properties));
+    Assertions.assertEquals(2, GrpcConfigKeys.Client.workerGroupSize(properties));
+    Assertions.assertFalse(GrpcConfigKeys.useEpoll(properties));
   }
 
   @Test
   public void testShutdownNullIsNoop() {
-    GrpcEventLoops.shutdownGracefully(null);
+    NettyUtils.shutdownGracefully((EventLoopGroup) null);
   }
 }

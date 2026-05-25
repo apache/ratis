@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.netty;
+package org.apache.ratis.util;
 
 import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.security.TlsConf.CertificatesConf;
@@ -36,13 +36,14 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketCh
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
-import org.apache.ratis.util.ConcurrentUtils;
-import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.thirdparty.io.netty.util.concurrent.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -79,6 +80,39 @@ public interface NettyUtils {
       }
     }
     return new NioEventLoopGroup(size, ConcurrentUtils.newThreadFactory(name + "-"));
+  }
+
+  static void shutdownGracefully(EventLoopGroup... groups) {
+    shutdownGracefully(CLOSE_TIMEOUT, groups);
+  }
+
+  static void shutdownGracefully(TimeDuration awaitTime, EventLoopGroup... groups) {
+    if (groups == null || groups.length == 0) {
+      return;
+    }
+
+    final List<EventLoopGroup> nonNullGroups = new ArrayList<>(groups.length);
+    final List<Future<?>> futures = new ArrayList<>(groups.length);
+    for (EventLoopGroup group : groups) {
+      if (group != null) {
+        nonNullGroups.add(group);
+        futures.add(group.shutdownGracefully());
+      }
+    }
+
+    for (int i = 0; i < futures.size(); i++) {
+      final EventLoopGroup group = nonNullGroups.get(i);
+      try {
+        if (!futures.get(i).await(awaitTime.getDuration(), awaitTime.getUnit())) {
+          LOG.warn("Failed to shut down EventLoopGroup {} in {}", group, awaitTime);
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        LOG.warn("Interrupted while shutting down EventLoopGroup {}", group, e);
+      } catch (Exception e) {
+        LOG.warn("Failed to shut down EventLoopGroup {} in {}", group, awaitTime, e);
+      }
+    }
   }
 
   static void setTrustManager(SslContextBuilder b, TrustManagerConf trustManagerConfig) {

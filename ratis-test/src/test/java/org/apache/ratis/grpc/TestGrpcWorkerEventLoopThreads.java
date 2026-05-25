@@ -30,8 +30,8 @@ import static org.apache.ratis.RaftTestUtil.waitForLeader;
 /**
  * Verify a cluster comes up and processes requests when the worker
  * event-loop thread count is capped via
- * {@link GrpcConfigKeys.Server#WORKER_EVENT_LOOP_THREADS_KEY} and
- * {@link GrpcConfigKeys.Client#WORKER_EVENT_LOOP_THREADS_KEY}.
+ * {@link GrpcConfigKeys.Server#WORKER_GROUP_SIZE_KEY} and
+ * {@link GrpcConfigKeys.Client#WORKER_GROUP_SIZE_KEY}.
  *
  * <p>Regression: RATIS-2529 — gRPC worker threads permanently inflate to
  * {@code availableProcessors * 2} after follower restart catch-up.
@@ -42,8 +42,8 @@ public class TestGrpcWorkerEventLoopThreads extends BaseTest {
   public void testClusterWithCappedWorkerEventLoopThreads() throws Exception {
     final String[] ids = {"s0", "s1", "s2"};
     final RaftProperties properties = new RaftProperties();
-    GrpcConfigKeys.Server.setWorkerEventLoopThreads(properties, 2);
-    GrpcConfigKeys.Client.setWorkerEventLoopThreads(properties, 1);
+    GrpcConfigKeys.Server.setWorkerGroupSize(properties, 2);
+    GrpcConfigKeys.Client.setWorkerGroupSize(properties, 1);
 
     try (MiniRaftClusterWithGrpc cluster = new MiniRaftClusterWithGrpc(ids, properties, null)) {
       cluster.start();

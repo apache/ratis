@@ -24,7 +24,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
-import org.apache.ratis.netty.NettyUtils;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.security.SecurityTestUtils;
 import org.apache.ratis.util.Slf4jUtils;

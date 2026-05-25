@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.grpc.server;
 
-import org.apache.ratis.grpc.GrpcEventLoops;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.grpc.util.StreamObserverWithTimeout;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.util.ServerStringUtils;
@@ -96,7 +96,10 @@ class GrpcServerProtocolClient implements Closeable {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
     channelBuilder.disableRetry();
-    GrpcEventLoops.configure(channelBuilder, eventLoopGroup);
+    if (eventLoopGroup != null) {
+      channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
+          .eventLoopGroup(eventLoopGroup);
+    }
     return channelBuilder.flowControlWindow(flowControlWindow).build();
   }
 

@@ -21,6 +21,7 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.server.GrpcServices;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.thirdparty.io.netty.util.NettyRuntime;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -50,6 +51,15 @@ public interface GrpcConfigKeys {
   }
 
   String PREFIX = "raft.grpc";
+
+  String USE_EPOLL_KEY = PREFIX + ".use-epoll";
+  boolean USE_EPOLL_DEFAULT = true;
+  static boolean useEpoll(RaftProperties properties) {
+    return getBoolean(properties::getBoolean, USE_EPOLL_KEY, USE_EPOLL_DEFAULT, getDefaultLog());
+  }
+  static void setUseEpoll(RaftProperties properties, boolean useEpoll) {
+    setBoolean(properties::setBoolean, USE_EPOLL_KEY, useEpoll);
+  }
 
   interface TLS {
     String PREFIX = GrpcConfigKeys.PREFIX + ".tls";
@@ -156,20 +166,14 @@ public interface GrpcConfigKeys {
       parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
     }
 
-    /**
-     * The number of worker threads for the gRPC client-side {@link
-     * org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup}.
-     * 0 (default) means use the gRPC default (i.e. {@code availableProcessors * 2});
-     * a positive value caps the worker event-loop thread count.
-     */
-    String WORKER_EVENT_LOOP_THREADS_KEY = PREFIX + ".worker.event-loop.threads";
-    int WORKER_EVENT_LOOP_THREADS_DEFAULT = 0;
-    static int workerEventLoopThreads(RaftProperties properties) {
-      return getInt(properties::getInt, WORKER_EVENT_LOOP_THREADS_KEY,
-          WORKER_EVENT_LOOP_THREADS_DEFAULT, getDefaultLog(), requireMin(0));
+    String WORKER_GROUP_SIZE_KEY = PREFIX + ".worker-group.size";
+    int WORKER_GROUP_SIZE_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
+    static int workerGroupSize(RaftProperties properties) {
+      return getInt(properties::getInt, WORKER_GROUP_SIZE_KEY,
+          WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(1), requireMax(65536));
     }
-    static void setWorkerEventLoopThreads(RaftProperties properties, int threads) {
-      setInt(properties::setInt, WORKER_EVENT_LOOP_THREADS_KEY, threads);
+    static void setWorkerGroupSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, WORKER_GROUP_SIZE_KEY, size);
     }
   }
 
@@ -308,21 +312,24 @@ public interface GrpcConfigKeys {
       setInt(properties::setInt, STUB_POOL_SIZE_KEY, size);
     }
 
-    /**
-     * The number of worker threads for the gRPC server-side {@link
-     * org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup}.
-     * The group is also reused by the server-to-server clients managed by this server.
-     * 0 (default) means use the gRPC default (i.e. {@code availableProcessors * 2});
-     * a positive value caps the worker event-loop thread count.
-     */
-    String WORKER_EVENT_LOOP_THREADS_KEY = PREFIX + ".worker.event-loop.threads";
-    int WORKER_EVENT_LOOP_THREADS_DEFAULT = 0;
-    static int workerEventLoopThreads(RaftProperties properties) {
-      return getInt(properties::getInt, WORKER_EVENT_LOOP_THREADS_KEY,
-          WORKER_EVENT_LOOP_THREADS_DEFAULT, getDefaultLog(), requireMin(0));
+    String BOSS_GROUP_SIZE_KEY = PREFIX + ".boss-group.size";
+    int BOSS_GROUP_SIZE_DEFAULT = 0;
+    static int bossGroupSize(RaftProperties properties) {
+      return getInt(properties::getInt, BOSS_GROUP_SIZE_KEY,
+          BOSS_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
     }
-    static void setWorkerEventLoopThreads(RaftProperties properties, int threads) {
-      setInt(properties::setInt, WORKER_EVENT_LOOP_THREADS_KEY, threads);
+    static void setBossGroupSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, BOSS_GROUP_SIZE_KEY, size);
+    }
+
+    String WORKER_GROUP_SIZE_KEY = PREFIX + ".worker-group.size";
+    int WORKER_GROUP_SIZE_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
+    static int workerGroupSize(RaftProperties properties) {
+      return getInt(properties::getInt, WORKER_GROUP_SIZE_KEY,
+          WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(1), requireMax(65536));
+    }
+    static void setWorkerGroupSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, WORKER_GROUP_SIZE_KEY, size);
     }
   }
 
