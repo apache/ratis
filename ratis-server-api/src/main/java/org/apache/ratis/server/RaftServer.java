@@ -161,7 +161,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
    * @return a future for the terminal reply
    */
   default CompletableFuture<RaftClientReply> streamReadOnlyAsync(
-      RaftClientRequest request, StateMachine.ReadOnlyDataStream stream) throws IOException {
+      RaftClientRequest request, StateMachine.DataChannel stream) throws IOException {
     throw new UnsupportedOperationException("This method is NOT supported.");
   }
 

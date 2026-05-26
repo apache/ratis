@@ -964,20 +964,36 @@ class RaftServerImpl implements RaftServer.Division,
         () -> JavaUtils.callAsUnchecked(submitFunction, CompletionException::new),
         serverExecutor).join();
   }
-
   CompletableFuture<RaftClientReply> executeSubmitClientRequestAsync(RaftClientRequest request) {
     return CompletableFuture.supplyAsync(
         () -> JavaUtils.callAsUnchecked(() -> submitClientRequestAsync(request), CompletionException::new),
         clientExecutor).join();
   }
-
   CompletableFuture<RaftClientReply> executeStreamReadOnlyAsync(
-      RaftClientRequest request, StateMachine.ReadOnlyDataStream stream) {
-    return CompletableFuture.supplyAsync(
-        () -> JavaUtils.callAsUnchecked(() -> streamReadOnlyAsync(request, stream), CompletionException::new),
+      RaftClientRequest request, StateMachine.DataChannel stream) {
+    return CompletableFuture.supplyAsync(() -> JavaUtils.callAsUnchecked(() -> TraceServer.traceAsyncMethod(() -> {
+      assertLifeCycleState(LifeCycle.States.RUNNING);
+      if (!request.is(TypeCase.READ)) {
+        throw new IOException("Expected a read-only request but got " + request);
+      }
+      LOG.debug("{}: receive read-only stream request({})", getMemberId(), request);
+      final Timekeeper timer = raftServerMetrics.getClientRequestTimer(request.getType());
+      final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
+      return readAsync(request, r -> {
+        try {
+          return processQueryFuture(stateMachine.data().streamReadOnly(r, stream), r);
+        } catch (UnsupportedOperationException e) {
+          return queryStateMachine(r);
+        }
+      }).whenComplete((clientReply, exception) -> {
+        timerContext.ifPresent(Timekeeper.Context::stop);
+        if (exception != null || clientReply.getException() != null) {
+          raftServerMetrics.incFailedRequestCount(request.getType());
+        }
+      });
+    }, request, getMemberId().toString(), SpanNames.SUBMIT_CLIENT_REQUEST_ASYNC), CompletionException::new),
         clientExecutor).thenCompose(Function.identity());
   }
-
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
@@ -985,32 +1001,6 @@ class RaftServerImpl implements RaftServer.Division,
         () -> submitClientRequestAsyncInternal(request),
         request, getMemberId().toString(), SpanNames.SUBMIT_CLIENT_REQUEST_ASYNC);
   }
-
-  public CompletableFuture<RaftClientReply> streamReadOnlyAsync(
-      RaftClientRequest request, StateMachine.ReadOnlyDataStream stream) throws IOException {
-    return TraceServer.traceAsyncMethod(
-        () -> streamReadOnlyAsyncInternal(request, stream),
-        request, getMemberId().toString(), SpanNames.SUBMIT_CLIENT_REQUEST_ASYNC);
-  }
-
-  private CompletableFuture<RaftClientReply> streamReadOnlyAsyncInternal(
-      RaftClientRequest request, StateMachine.ReadOnlyDataStream stream) throws IOException {
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-    if (!request.is(TypeCase.READ)) {
-      throw new IOException("Expected a read-only request but got " + request);
-    }
-
-    LOG.debug("{}: receive read-only stream request({})", getMemberId(), request);
-    final Timekeeper timer = raftServerMetrics.getClientRequestTimer(request.getType());
-    final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
-    return readAsync(request, r -> streamReadOnlyStateMachine(r, stream)).whenComplete((clientReply, exception) -> {
-      timerContext.ifPresent(Timekeeper.Context::stop);
-      if (exception != null || clientReply.getException() != null) {
-        raftServerMetrics.incFailedRequestCount(request.getType());
-      }
-    });
-  }
-
   private CompletableFuture<RaftClientReply> submitClientRequestAsyncInternal(
       RaftClientRequest request) throws IOException {
     assertLifeCycleState(LifeCycle.States.RUNNING);
@@ -1027,7 +1017,6 @@ class RaftServerImpl implements RaftServer.Division,
 
   private CompletableFuture<RaftClientReply> replyFuture(RaftClientRequest request) throws IOException {
     retryCache.invalidateRepliedRequests(request);
-
     final TypeCase type = request.getType().getTypeCase();
     switch (type) {
       case STALEREAD:
@@ -1045,7 +1034,6 @@ class RaftServerImpl implements RaftServer.Division,
         throw new IllegalStateException("Unexpected request type: " + type + ", request=" + request);
     }
   }
-
   private CompletableFuture<RaftClientReply> writeAsync(RaftClientRequest request) throws IOException {
     final CompletableFuture<RaftClientReply> future = writeAsyncImpl(request);
     if (request.is(TypeCase.WRITE)) {
@@ -1057,13 +1045,11 @@ class RaftServerImpl implements RaftServer.Division,
     }
     return future;
   }
-
   private CompletableFuture<RaftClientReply> writeAsyncImpl(RaftClientRequest request) throws IOException {
     final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
     if (reply != null) {
       return reply;
     }
-
     // query the retry cache
     final RetryCacheImpl.CacheQueryResult queryResult = retryCache.queryCache(request);
     final CacheEntry cacheEntry = queryResult.getEntry();
@@ -1081,7 +1067,6 @@ class RaftServerImpl implements RaftServer.Division,
       final RaftClientReply exceptionReply = newExceptionReply(request, e);
       return failWithReply(exceptionReply, cacheEntry, context);
     }
-
     try {
       return appendTransaction(request, context, cacheEntry);
     } catch (Exception e) {
@@ -1089,17 +1074,14 @@ class RaftServerImpl implements RaftServer.Division,
       throw e;
     }
   }
-
   private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
     if (OrderedAsync.DUMMY.getContent().equals(request.getMessage().getContent())) {
       return CompletableFuture.completedFuture(RaftClientReply.newBuilder().setRequest(request).build());
     }
-
     final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
     if (reply != null) {
       return reply;
     }
-
     return role.getLeaderState()
         .map(ls -> ls.addWatchRequest(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
@@ -1150,54 +1132,47 @@ class RaftServerImpl implements RaftServer.Division,
     if (request.getType().getRead().getPreferNonLinearizable()
         || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
       final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
-       if (reply != null) {
-         return reply;
-       }
-       return query.apply(request);
-    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE){
-      final LeaderStateImpl leader = role.getLeaderState().orElse(null);
-      final CompletableFuture<Long> replyFuture;
-      if (leader != null) {
-        replyFuture = getReadIndex(request, leader);
-      } else {
-        replyFuture = sendReadIndexAsync(request).thenApply(reply   -> {
-          if (reply.getServerReply().getSuccess()) {
-            return reply.getReadIndex();
-          } else {
-            throw new CompletionException(new ReadIndexException(getId() +
-                ": Failed to get read index from the leader: " + reply));
-          }
-        });
+      if (reply != null) {
+        return reply;
       }
-
-      return replyFuture
-          .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
-              () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
-          .thenCompose(readIndex -> query.apply(request))
-          .exceptionally(e -> readException2Reply(request, e));
-    } else {
+      return query.apply(request);
+    }
+    if (readOption != RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
       throw new IllegalStateException("Unexpected read option: " + readOption);
     }
+    final LeaderStateImpl leader = role.getLeaderState().orElse(null);
+    final CompletableFuture<Long> replyFuture = leader != null ? getReadIndex(request, leader)
+        : sendReadIndexAsync(request).thenApply(reply -> {
+          if (reply.getServerReply().getSuccess()) {
+            return reply.getReadIndex();
+          }
+          throw new CompletionException(new ReadIndexException(getId()
+              + ": Failed to get read index from the leader: " + reply));
+        });
+    return replyFuture
+        .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
+            () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
+        .thenCompose(readIndex -> query.apply(request))
+        .exceptionally(e -> readException2Reply(request, e));
   }
   private RaftClientReply readException2Reply(RaftClientRequest request, Throwable e) {
     e = JavaUtils.unwrapCompletionException(e);
-    if (e instanceof StateMachineException ) {
+    if (e instanceof StateMachineException) {
       return newExceptionReply(request, (StateMachineException) e);
-    } else if (e instanceof ReadException) {
-      return newExceptionReply(request, (ReadException) e);
-    } else if (e instanceof ReadIndexException) {
-      return newExceptionReply(request, (ReadIndexException) e);
-    } else {
-      throw new CompletionException(e);
     }
+    if (e instanceof ReadException) {
+      return newExceptionReply(request, (ReadException) e);
+    }
+    if (e instanceof ReadIndexException) {
+      return newExceptionReply(request, (ReadIndexException) e);
+    }
+    throw new CompletionException(e);
   }
-
   private CompletableFuture<RaftClientReply> messageStreamAsync(RaftClientRequest request) throws IOException {
     final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
     if (reply != null) {
       return reply;
     }
-
     if (request.getType().getMessageStream().getEndOfRequest()) {
       final CompletableFuture<RaftClientRequest> f = streamEndOfRequestAsync(request);
       if (f.isCompletedExceptionally()) {
@@ -1206,32 +1181,19 @@ class RaftServerImpl implements RaftServer.Division,
       // the message stream has ended and the request become a WRITE request
       return replyFuture(f.join());
     }
-
     return role.getLeaderState()
         .map(ls -> ls.streamAsync(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
             newExceptionReply(request, generateNotLeaderException())));
   }
-
   private CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
     return role.getLeaderState()
         .map(ls -> ls.streamEndOfRequestAsync(request))
         .orElse(null);
   }
-
   CompletableFuture<RaftClientReply> queryStateMachine(RaftClientRequest request) {
     return processQueryFuture(stateMachine.query(request.getMessage()), request);
   }
-
-  CompletableFuture<RaftClientReply> streamReadOnlyStateMachine(
-      RaftClientRequest request, StateMachine.ReadOnlyDataStream stream) {
-    try {
-      return processQueryFuture(stateMachine.data().streamReadOnly(request, stream), request);
-    } catch (UnsupportedOperationException e) {
-      return queryStateMachine(request);
-    }
-  }
-
   CompletableFuture<RaftClientReply> processQueryFuture(
       CompletableFuture<Message> queryFuture, RaftClientRequest request) {
     return queryFuture.thenApply(r -> newReplyBuilder(request).setSuccess().setMessage(r).build())

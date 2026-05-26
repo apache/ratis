@@ -19,7 +19,6 @@ package org.apache.ratis.netty;
 
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffers;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.FilePositionCount;
@@ -160,18 +159,6 @@ public interface NettyDataStreamUtils {
     out.accept(headerLenBuf);
     out.accept(Unpooled.wrappedBuffer(headerBuf));
     out.accept(Unpooled.wrappedBuffer(reply.slice()));
-  }
-
-  static void encodeDataStreamReplyByteBuffers(DataStreamReplyByteBuffers reply, Consumer<ByteBuf> out,
-      ByteBufAllocator allocator) {
-    ByteBuffer headerBuf = getDataStreamReplyHeaderProtoByteBuf(reply);
-    final ByteBuf headerLenBuf = allocator.ioBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
-    headerLenBuf.writeInt(headerBuf.remaining());
-    out.accept(headerLenBuf);
-    out.accept(Unpooled.wrappedBuffer(headerBuf));
-    for (ByteBuffer buffer : reply.slices()) {
-      out.accept(Unpooled.wrappedBuffer(buffer));
-    }
   }
 
   static DataStreamRequestByteBuf decodeDataStreamRequestByteBuf(ByteBuf buf) {

@@ -24,7 +24,6 @@ import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffers;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyDataStreamUtils;
@@ -291,9 +290,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       if (reply instanceof DataStreamReplyByteBuffer) {
         NettyDataStreamUtils.encodeDataStreamReplyByteBuffer(
             (DataStreamReplyByteBuffer) reply, out::add, context.alloc());
-      } else if (reply instanceof DataStreamReplyByteBuffers) {
-        NettyDataStreamUtils.encodeDataStreamReplyByteBuffers(
-            (DataStreamReplyByteBuffers) reply, out::add, context.alloc());
       } else {
         throw new IllegalStateException("Unexpected reply class "
             + reply.getClass());

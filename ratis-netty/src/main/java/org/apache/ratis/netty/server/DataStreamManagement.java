@@ -23,7 +23,6 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffers;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
@@ -44,6 +43,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.RoutingTable;
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.AlreadyExistsException;
 import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.server.RaftConfiguration;
@@ -55,6 +55,7 @@ import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
+import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
 import org.apache.ratis.util.ConcurrentUtils;
@@ -70,8 +71,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -373,26 +374,6 @@ public class DataStreamManagement {
         .build();
   }
 
-  static DataStreamReplyByteBuffers newDataStreamReadOnlyReplyByteBuffers(DataStreamRequestByteBuf request,
-      long streamOffset, Iterable<ByteBuffer> buffers) {
-    final List<ByteBuffer> list = new ArrayList<>();
-    long dataLength = 0;
-    for (ByteBuffer buffer : buffers) {
-      final ByteBuffer readOnlyBuffer = buffer.asReadOnlyBuffer();
-      list.add(readOnlyBuffer);
-      dataLength += readOnlyBuffer.remaining();
-    }
-    return DataStreamReplyByteBuffers.newBuilder()
-        .setClientId(request.getClientId())
-        .setType(Type.STREAM_DATA)
-        .setStreamId(request.getStreamId())
-        .setStreamOffset(streamOffset)
-        .setBuffers(list)
-        .setSuccess(true)
-        .setBytesWritten(dataLength)
-        .build();
-  }
-
   private static CompletableFuture<Void> writeAndFlush(ChannelHandlerContext ctx, DataStreamReply reply) {
     final CompletableFuture<Void> future = new CompletableFuture<>();
     ctx.writeAndFlush(reply).addListener(channelFuture -> {
@@ -588,22 +569,52 @@ public class DataStreamManagement {
   private CompletableFuture<Void> submitReadOnlyRequest(DataStreamRequestByteBuf request,
       RaftClientRequest raftClientRequest, ChannelHandlerContext ctx) {
     try {
-      final StateMachine.ReadOnlyDataStream readOnlyDataStream = new StateMachine.ReadOnlyDataStream() {
+      final StateMachine.DataChannel readOnlyDataStream = new StateMachine.DataChannel() {
         private long streamOffset;
+        private boolean closed;
 
         @Override
-        public synchronized CompletableFuture<Void> writeAsync(ByteBuffer buffer) {
-          final DataStreamReplyByteBuffer reply = newDataStreamReadOnlyReplyByteBuffer(request, streamOffset, buffer);
-          streamOffset += reply.getDataLength();
-          return writeAndFlush(ctx, reply);
+        public synchronized boolean isOpen() {
+          return !closed;
         }
 
         @Override
-        public synchronized CompletableFuture<Void> writeAsync(Iterable<ByteBuffer> buffers) {
-          final DataStreamReplyByteBuffers reply = newDataStreamReadOnlyReplyByteBuffers(
-              request, streamOffset, buffers);
-          streamOffset += reply.getDataLength();
-          return writeAndFlush(ctx, reply);
+        public synchronized void close() {
+          closed = true;
+        }
+
+        @Override
+        public synchronized void force(boolean metadata) throws IOException {
+          if (!isOpen()) {
+            throw new AlreadyClosedException("Channel closed at offset " + streamOffset);
+          }
+          ctx.flush();
+        }
+
+        @Override
+        public synchronized int write(ByteBuffer buffer) throws IOException {
+          if (!isOpen()) {
+            throw new AlreadyClosedException("Channel closed at offset " + streamOffset);
+          }
+          final int length = buffer.remaining();
+          final DataStreamReplyByteBuffer reply = newDataStreamReadOnlyReplyByteBuffer(request, streamOffset, buffer);
+          final ChannelFuture future = ctx.writeAndFlush(reply);
+          try {
+            future.await();
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException(
+                "Interrupted while writing " + length + " bytes at offset " + streamOffset);
+          }
+          if (!future.isSuccess()) {
+            final Throwable cause = future.cause();
+            if (cause instanceof IOException) {
+              throw (IOException) cause;
+            }
+            throw new IOException("Failed to write " + length + " bytes at offset " + streamOffset, cause);
+          }
+          streamOffset += length;
+          return length;
         }
       };
       return server.streamReadOnlyAsync(raftClientRequest, readOnlyDataStream)
