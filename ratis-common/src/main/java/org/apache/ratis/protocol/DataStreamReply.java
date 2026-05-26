@@ -30,10 +30,4 @@ public interface DataStreamReply extends DataStreamPacket {
 
   /** @return the commit information when the reply is created. */
   Collection<CommitInfoProto> getCommitInfos();
-
-  /**
-   * Release resources owned by this reply.
-   */
-  default void release() {
-  }
 }

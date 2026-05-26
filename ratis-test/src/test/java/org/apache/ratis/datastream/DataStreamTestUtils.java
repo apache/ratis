@@ -42,7 +42,6 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
-import org.apache.ratis.statemachine.StateMachine.ReadOnlyDataStream;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
@@ -58,6 +57,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
@@ -189,13 +189,16 @@ public interface DataStreamTestUtils {
     }
 
     @Override
-    public CompletableFuture<Message> streamReadOnly(RaftClientRequest request, ReadOnlyDataStream stream) {
-      CompletableFuture<Void> writes = CompletableFuture.completedFuture(null);
-      for (int i = 0; i < READ_ONLY_STREAM_CHUNKS; i++) {
-        final ByteString chunk = getReadOnlyStreamChunk(request.getMessage().getContent(), i);
-        writes = writes.thenCompose(ignored -> stream.writeAsync(chunk.asReadOnlyByteBuffer()));
+    public CompletableFuture<Message> streamReadOnly(RaftClientRequest request, DataChannel stream) {
+      try {
+        for (int i = 0; i < READ_ONLY_STREAM_CHUNKS; i++) {
+          final ByteString chunk = getReadOnlyStreamChunk(request.getMessage().getContent(), i);
+          stream.write(chunk.asReadOnlyByteBuffer());
+        }
+        return CompletableFuture.completedFuture(Message.valueOf(getId().toByteString()));
+      } catch (IOException e) {
+        return JavaUtils.completeExceptionally(e);
       }
-      return writes.thenApply(ignored -> request.getMessage());
     }
 
     SingleDataStream getSingleDataStream(RaftClientRequest request) {

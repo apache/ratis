@@ -18,7 +18,6 @@
 package org.apache.ratis.netty;
 
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.FilePositionCount;
@@ -31,7 +30,6 @@ import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamPacketHeader;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
-import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
@@ -82,7 +80,7 @@ public interface NettyDataStreamUtils {
         .asReadOnlyByteBuffer();
   }
 
-  static ByteBuffer getDataStreamReplyHeaderProtoByteBuf(DataStreamReply reply) {
+  static ByteBuffer getDataStreamReplyHeaderProtoByteBuf(DataStreamReplyByteBuffer reply) {
     DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto
         .newBuilder()
         .setClientId(reply.getClientId().toByteString())
@@ -222,30 +220,6 @@ public interface NettyDataStreamUtils {
         .map(header -> DataStreamReplyByteBuffer.newBuilder()
             .setDataStreamReplyHeader(header)
             .setBuffer(decodeData(buf, header, NettyDataStreamUtils::copy))
-            .build())
-        .orElse(null);
-  }
-
-  static DataStreamReplyByteBuffer toDataStreamReplyByteBuffer(DataStreamReplyByteBuf reply) {
-    try {
-      return DataStreamReplyByteBuffer.newBuilder()
-          .setDataStreamPacket(reply)
-          .setBuffer(copy(reply.slice()))
-          .setSuccess(reply.isSuccess())
-          .setBytesWritten(reply.getBytesWritten())
-          .setCommitInfos(reply.getCommitInfos())
-          .build();
-    } finally {
-      reply.release();
-    }
-  }
-
-  static DataStreamReplyByteBuf decodeDataStreamReplyByteBuf(ByteBuf buf) {
-    return Optional.ofNullable(decodeDataStreamReplyHeader(buf))
-        .map(header -> checkHeader(header, buf))
-        .map(header -> DataStreamReplyByteBuf.newBuilder()
-            .setDataStreamReplyHeader(header)
-            .setBuffer(decodeData(buf, header, ByteBuf::retainedSlice))
             .build())
         .orElse(null);
   }

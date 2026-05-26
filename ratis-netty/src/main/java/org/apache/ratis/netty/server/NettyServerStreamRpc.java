@@ -31,7 +31,6 @@ import org.apache.ratis.netty.NettyUtils;
 import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamPacket;
-import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.security.TlsConf;
@@ -281,19 +280,13 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
-  static final MessageToMessageEncoder<DataStreamReply> ENCODER = new Encoder();
+  static final MessageToMessageEncoder<DataStreamReplyByteBuffer> ENCODER = new Encoder();
 
   @ChannelHandler.Sharable
-  static class Encoder extends MessageToMessageEncoder<DataStreamReply> {
+  static class Encoder extends MessageToMessageEncoder<DataStreamReplyByteBuffer> {
     @Override
-    protected void encode(ChannelHandlerContext context, DataStreamReply reply, List<Object> out) {
-      if (reply instanceof DataStreamReplyByteBuffer) {
-        NettyDataStreamUtils.encodeDataStreamReplyByteBuffer(
-            (DataStreamReplyByteBuffer) reply, out::add, context.alloc());
-      } else {
-        throw new IllegalStateException("Unexpected reply class "
-            + reply.getClass());
-      }
+    protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> out) {
+      NettyDataStreamUtils.encodeDataStreamReplyByteBuffer(reply, out::add, context.alloc());
     }
   }
 

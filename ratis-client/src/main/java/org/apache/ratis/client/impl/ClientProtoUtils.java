@@ -18,7 +18,6 @@
 package org.apache.ratis.client.impl;
 
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.proto.RaftProtos.AlreadyClosedExceptionProto;
 import org.apache.ratis.proto.RaftProtos.ClientMessageEntryProto;
 import org.apache.ratis.proto.RaftProtos.GroupAddRequestProto;
@@ -379,24 +378,22 @@ public interface ClientProtoUtils {
     return b.build();
   }
 
-  public static RaftClientReply getRaftClientReply(DataStreamReply reply) {
-    try {
-      if (reply instanceof DataStreamReplyByteBuffer) {
-        return toRaftClientReply(((DataStreamReplyByteBuffer) reply).slice());
-      } else if (reply instanceof DataStreamReplyByteBuf) {
-        return toRaftClientReply(((DataStreamReplyByteBuf) reply).slice().nioBuffer());
-      }
+  static RaftClientReply getRaftClientReply(DataStreamReply reply) {
+    if (!(reply instanceof DataStreamReplyByteBuffer)) {
       throw new IllegalStateException("Unexpected " + reply.getClass() + ": reply is " + reply);
+    }
+    try {
+      return toRaftClientReply(((DataStreamReplyByteBuffer) reply).slice());
     } catch (InvalidProtocolBufferException e) {
       throw new IllegalStateException("Failed to getRaftClientReply from " + reply, e);
     }
   }
 
-  public static RaftClientReply toRaftClientReply(ByteBuffer buffer) throws InvalidProtocolBufferException {
+  static RaftClientReply toRaftClientReply(ByteBuffer buffer) throws InvalidProtocolBufferException {
     return toRaftClientReply(RaftClientReplyProto.parseFrom(buffer));
   }
 
-  public static RaftClientReply toRaftClientReply(RaftClientReplyProto replyProto) {
+  static RaftClientReply toRaftClientReply(RaftClientReplyProto replyProto) {
     final RaftRpcReplyProto rp = replyProto.getRpcReply();
     final RaftGroupMemberId serverMemberId = ProtoUtils.toRaftGroupMemberId(rp.getReplyId(), rp.getRaftGroupId());
 
