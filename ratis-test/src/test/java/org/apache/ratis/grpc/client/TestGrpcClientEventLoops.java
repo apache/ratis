@@ -39,13 +39,13 @@ public class TestGrpcClientEventLoops extends BaseTest {
     final RaftPeer p0 = newPeer("s0", 15000);
     final RaftPeer p1 = newPeer("s1", 15001);
     EventLoopGroup clientWorkers = null;
-    try (GrpcClientRpc rpc = new GrpcClientRpc(ClientId.randomId(), properties, null, null)) {
+    try (GrpcClientRpc rpc = GrpcClientRpc.create(ClientId.randomId(), properties, null, null)) {
       rpc.addRaftPeers(Arrays.asList(p0, p1));
       final GrpcClientProtocolClient c0 = rpc.getProxies().getProxy(p0.getId());
       final GrpcClientProtocolClient c1 = rpc.getProxies().getProxy(p1.getId());
 
-      clientWorkers = c0.getWorkerEventLoopGroup();
-      Assertions.assertSame(clientWorkers, c1.getWorkerEventLoopGroup());
+      clientWorkers = c0.getClientWorkersForTesting();
+      Assertions.assertSame(clientWorkers, c1.getClientWorkersForTesting());
       Assertions.assertEquals(1, countEventExecutors(clientWorkers));
       Assertions.assertFalse(clientWorkers.isShuttingDown());
     }

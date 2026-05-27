@@ -56,6 +56,8 @@ import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
@@ -96,16 +98,16 @@ public class GrpcClientProtocolClient implements Closeable {
 
   private final AtomicReference<AsyncStreamObservers> unorderedStreamObservers = new AtomicReference<>();
   private final MetricClientInterceptor metricClientInterceptor;
-  private final EventLoopGroup workerEventLoopGroup;
+  private final MemoizedSupplier<EventLoopGroup> clientWorkers;
 
   GrpcClientProtocolClient(ClientId id, RaftPeer target, RaftProperties properties,
-      SslContext adminSslContext, SslContext clientSslContext, EventLoopGroup workerEventLoopGroup) {
+      SslContext adminSslContext, SslContext clientSslContext, MemoizedSupplier<EventLoopGroup> clientWorkers) {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
     this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
     metricClientInterceptor = new MetricClientInterceptor(getName());
-    this.workerEventLoopGroup = Objects.requireNonNull(workerEventLoopGroup, "workerEventLoopGroup");
+    this.clientWorkers = Objects.requireNonNull(clientWorkers, "clientWorkers");
 
     final String clientAddress = Optional.ofNullable(target.getClientAddress())
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
@@ -139,8 +141,9 @@ public class GrpcClientProtocolClient implements Closeable {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
 
-    channelBuilder.channelType(NettyUtils.getSocketChannelClass(workerEventLoopGroup))
-        .eventLoopGroup(workerEventLoopGroup);
+    final EventLoopGroup eventLoopGroup = clientWorkers.get();
+    channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
+        .eventLoopGroup(eventLoopGroup);
 
     return channelBuilder.flowControlWindow(flowControlWindow.getSizeInt())
         .maxInboundMessageSize(maxMessageSize.getSizeInt())
@@ -163,8 +166,9 @@ public class GrpcClientProtocolClient implements Closeable {
     metricClientInterceptor.close();
   }
 
-  EventLoopGroup getWorkerEventLoopGroup() {
-    return workerEventLoopGroup;
+  EventLoopGroup getClientWorkersForTesting() {
+    Preconditions.assertTrue(clientWorkers.isInitialized());
+    return clientWorkers.get();
   }
 
   RaftClientReplyProto groupAdd(GroupManagementRequestProto request) throws IOException {

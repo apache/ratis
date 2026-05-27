@@ -254,9 +254,14 @@ public final class GrpcServicesImpl
         clientWorkers = NettyUtils.newEventLoopGroup(id + "-client-workers",
             GrpcConfigKeys.Client.workerGroupSize(props), useEpoll);
         return new GrpcServicesImpl(this);
-      } catch (RuntimeException | Error e) {
+      } catch (Throwable t) {
         NettyUtils.shutdownGracefully(clientWorkers, serverWorkers, serverBosses);
-        throw e;
+        if (t instanceof RuntimeException) {
+          throw (RuntimeException) t;
+        } else if (t instanceof Error) {
+          throw (Error) t;
+        }
+        throw new RuntimeException(t);
       }
     }
 

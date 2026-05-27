@@ -39,6 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.util.Objects;
 
 /**
  * This is a RaftClient implementation that supports streaming data to the raft
@@ -67,7 +68,7 @@ class GrpcServerProtocolClient implements Closeable {
     raftPeerId = target.getId();
     LOG.info("Build channel for {}", target);
     useSeparateHBChannel = separateHBChannel;
-    this.eventLoopGroup = eventLoopGroup;
+    this.eventLoopGroup = Objects.requireNonNull(eventLoopGroup, "eventLoopGroup == null");
     channel = buildChannel(target, flowControlWindow, sslContext);
     blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
@@ -96,10 +97,8 @@ class GrpcServerProtocolClient implements Closeable {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
     channelBuilder.disableRetry();
-    if (eventLoopGroup != null) {
-      channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
-          .eventLoopGroup(eventLoopGroup);
-    }
+    channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
+        .eventLoopGroup(eventLoopGroup);
     return channelBuilder.flowControlWindow(flowControlWindow).build();
   }
 
