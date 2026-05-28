@@ -56,7 +56,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClient> {
+public final class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClient> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientRpc.class);
 
   public static GrpcClientRpc create(ClientId clientId, RaftProperties properties,
