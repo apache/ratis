@@ -1110,36 +1110,37 @@ class RaftServerImpl implements RaftServer.Division,
     return writeIndexCache.getWriteIndexFuture(request).thenCompose(leader::getReadIndex);
   }
   private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
-    return readAsync(request, this::queryStateMachine);
-  }
-
-  private CompletableFuture<RaftClientReply> readAsync(
-      RaftClientRequest request, Function<RaftClientRequest, CompletableFuture<RaftClientReply>> query) {
     if (request.getType().getRead().getPreferNonLinearizable()
         || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
       final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
-      if (reply != null) {
-        return reply;
-      }
-      return query.apply(request);
-    }
-    if (readOption != RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
-      throw new IllegalStateException("Unexpected read option: " + readOption);
-    }
-    final LeaderStateImpl leader = role.getLeaderState().orElse(null);
-    final CompletableFuture<Long> replyFuture = leader != null ? getReadIndex(request, leader)
-        : sendReadIndexAsync(request).thenApply(reply -> {
+       if (reply != null) {
+         return reply;
+       }
+       return queryStateMachine(request);
+    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE){
+      final LeaderStateImpl leader = role.getLeaderState().orElse(null);
+      final CompletableFuture<Long> replyFuture;
+      if (leader != null) {
+        replyFuture = getReadIndex(request, leader);
+      } else {
+        replyFuture = sendReadIndexAsync(request).thenApply(reply   -> {
           if (reply.getServerReply().getSuccess()) {
             return reply.getReadIndex();
+          } else {
+            throw new CompletionException(new ReadIndexException(getId() +
+                ": Failed to get read index from the leader: " + reply));
           }
-          throw new CompletionException(new ReadIndexException(getId()
-              + ": Failed to get read index from the leader: " + reply));
         });
-    return replyFuture
-        .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
-            () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
-        .thenCompose(readIndex -> query.apply(request))
-        .exceptionally(e -> readException2Reply(request, e));
+      }
+
+      return replyFuture
+          .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
+              () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
+          .thenCompose(readIndex -> queryStateMachine(request))
+          .exceptionally(e -> readException2Reply(request, e));
+    } else {
+      throw new IllegalStateException("Unexpected read option: " + readOption);
+    }
   }
   private RaftClientReply readException2Reply(RaftClientRequest request, Throwable e) {
     e = JavaUtils.unwrapCompletionException(e);
