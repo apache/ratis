@@ -205,10 +205,18 @@ public final class GrpcServicesImpl
       final NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forAddress(address)
           .withChildOption(ChannelOption.SO_REUSEADDR, true)
           .maxInboundMessageSize(messageSizeMax.getSizeInt())
-          .flowControlWindow(flowControlWindow.getSizeInt())
-          .channelType(NettyUtils.getServerChannelClass(serverBosses))
-          .bossEventLoopGroup(serverBosses)
-          .workerEventLoopGroup(serverWorkers);
+          .flowControlWindow(flowControlWindow.getSizeInt());
+
+      final EventLoopGroup channelGroup = serverBosses != null ? serverBosses : serverWorkers;
+      if (channelGroup != null) {
+        nettyServerBuilder.channelType(NettyUtils.getServerChannelClass(channelGroup));
+      }
+      if (serverBosses != null) {
+        nettyServerBuilder.bossEventLoopGroup(serverBosses);
+      }
+      if (serverWorkers != null) {
+        nettyServerBuilder.workerEventLoopGroup(serverWorkers);
+      }
 
       if (sslContext != null) {
         LOG.info("Setting TLS for {}", address);
@@ -247,12 +255,17 @@ public final class GrpcServicesImpl
       final String id = server.getId() + "";
       final boolean useEpoll = GrpcConfigKeys.useEpoll(props);
       try {
-        serverBosses = NettyUtils.newEventLoopGroup(id + "-boss",
-            GrpcConfigKeys.Server.bossGroupSize(props), useEpoll);
-        serverWorkers = NettyUtils.newEventLoopGroup(id + "-server-workers",
-            GrpcConfigKeys.Server.workerGroupSize(props), useEpoll);
-        clientWorkers = NettyUtils.newEventLoopGroup(id + "-client-workers",
-            GrpcConfigKeys.Client.workerGroupSize(props), useEpoll);
+        final int bossGroupSize = GrpcConfigKeys.Server.bossGroupSize(props);
+        final int serverWorkerGroupSize = GrpcConfigKeys.Server.workerGroupSize(props);
+        if (bossGroupSize > 0 || serverWorkerGroupSize > 0) {
+          serverBosses = NettyUtils.newEventLoopGroup(id + "-boss", bossGroupSize, useEpoll);
+          serverWorkers = NettyUtils.newEventLoopGroup(id + "-server-workers", serverWorkerGroupSize, useEpoll);
+        }
+
+        final int clientWorkerGroupSize = GrpcConfigKeys.Client.workerGroupSize(props);
+        if (clientWorkerGroupSize > 0) {
+          clientWorkers = NettyUtils.newEventLoopGroup(id + "-client-workers", clientWorkerGroupSize, useEpoll);
+        }
         return new GrpcServicesImpl(this);
       } catch (Throwable t) {
         NettyUtils.shutdownGracefully(clientWorkers, serverWorkers, serverBosses);

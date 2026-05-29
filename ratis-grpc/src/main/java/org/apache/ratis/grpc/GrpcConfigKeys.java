@@ -21,7 +21,6 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.server.GrpcServices;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.thirdparty.io.netty.util.NettyRuntime;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -167,10 +166,10 @@ public interface GrpcConfigKeys {
     }
 
     String WORKER_GROUP_SIZE_KEY = PREFIX + ".worker-group.size";
-    int WORKER_GROUP_SIZE_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
+    int WORKER_GROUP_SIZE_DEFAULT = 0;
     static int workerGroupSize(RaftProperties properties) {
       return getInt(properties::getInt, WORKER_GROUP_SIZE_KEY,
-          WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(1), requireMax(65536));
+          WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
     }
     static void setWorkerGroupSize(RaftProperties properties, int size) {
       setInt(properties::setInt, WORKER_GROUP_SIZE_KEY, size);
@@ -323,10 +322,10 @@ public interface GrpcConfigKeys {
     }
 
     String WORKER_GROUP_SIZE_KEY = PREFIX + ".worker-group.size";
-    int WORKER_GROUP_SIZE_DEFAULT = Math.max(1, NettyRuntime.availableProcessors() * 2);
+    int WORKER_GROUP_SIZE_DEFAULT = 0;
     static int workerGroupSize(RaftProperties properties) {
       return getInt(properties::getInt, WORKER_GROUP_SIZE_KEY,
-          WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(1), requireMax(65536));
+          WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
     }
     static void setWorkerGroupSize(RaftProperties properties, int size) {
       setInt(properties::setInt, WORKER_GROUP_SIZE_KEY, size);

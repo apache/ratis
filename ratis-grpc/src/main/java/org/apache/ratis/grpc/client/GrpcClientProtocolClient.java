@@ -107,7 +107,7 @@ public class GrpcClientProtocolClient implements Closeable {
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
     this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
     metricClientInterceptor = new MetricClientInterceptor(getName());
-    this.clientWorkers = Objects.requireNonNull(clientWorkers, "clientWorkers");
+    this.clientWorkers = clientWorkers;
 
     final String clientAddress = Optional.ofNullable(target.getClientAddress())
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
@@ -141,9 +141,11 @@ public class GrpcClientProtocolClient implements Closeable {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
 
-    final EventLoopGroup eventLoopGroup = clientWorkers.get();
-    channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
-        .eventLoopGroup(eventLoopGroup);
+    if (clientWorkers != null) {
+      final EventLoopGroup eventLoopGroup = clientWorkers.get();
+      channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
+          .eventLoopGroup(eventLoopGroup);
+    }
 
     return channelBuilder.flowControlWindow(flowControlWindow.getSizeInt())
         .maxInboundMessageSize(maxMessageSize.getSizeInt())
@@ -167,6 +169,7 @@ public class GrpcClientProtocolClient implements Closeable {
   }
 
   EventLoopGroup getClientWorkersForTesting() {
+    Preconditions.assertTrue(clientWorkers != null);
     Preconditions.assertTrue(clientWorkers.isInitialized());
     return clientWorkers.get();
   }

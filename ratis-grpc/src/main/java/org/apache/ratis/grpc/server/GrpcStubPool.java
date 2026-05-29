@@ -35,7 +35,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +44,6 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcStubPool.class);
 
   static ManagedChannel buildManagedChannel(String address, SslContext sslContext, EventLoopGroup eventLoopGroup) {
-    Objects.requireNonNull(eventLoopGroup, "eventLoopGroup == null");
     NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(address)
         .keepAliveTime(10, TimeUnit.MINUTES)
         .keepAliveWithoutCalls(false)
@@ -57,8 +55,10 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
-    channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
-        .eventLoopGroup(eventLoopGroup);
+    if (eventLoopGroup != null) {
+      channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
+          .eventLoopGroup(eventLoopGroup);
+    }
     ManagedChannel ch = channelBuilder.build();
     ch.getState(true);
     return ch;

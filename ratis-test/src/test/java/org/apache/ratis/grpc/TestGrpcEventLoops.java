@@ -68,10 +68,9 @@ public class TestGrpcEventLoops extends BaseTest {
   public void testConfigKeyDefaults() {
     final RaftProperties properties = new RaftProperties();
     final int expectedWorker = GrpcConfigKeys.Server.WORKER_GROUP_SIZE_DEFAULT;
-    Assertions.assertTrue(expectedWorker > 0,
-        "default worker threads should be positive, but got " + expectedWorker);
     Assertions.assertEquals(expectedWorker, GrpcConfigKeys.Server.workerGroupSize(properties));
     Assertions.assertEquals(expectedWorker, GrpcConfigKeys.Client.workerGroupSize(properties));
+    Assertions.assertEquals(0, expectedWorker);
     Assertions.assertEquals(0, GrpcConfigKeys.Server.bossGroupSize(properties));
     Assertions.assertTrue(GrpcConfigKeys.useEpoll(properties));
   }

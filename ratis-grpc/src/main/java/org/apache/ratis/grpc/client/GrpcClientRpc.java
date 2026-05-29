@@ -61,10 +61,10 @@ public final class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtoc
 
   public static GrpcClientRpc create(ClientId clientId, RaftProperties properties,
       SslContext adminSslContext, SslContext clientSslContext) {
-    final MemoizedSupplier<EventLoopGroup> eventLoopGroup = MemoizedSupplier.valueOf(() -> NettyUtils.newEventLoopGroup(
-        clientId + "-client-workers",
-        GrpcConfigKeys.Client.workerGroupSize(properties),
-        GrpcConfigKeys.useEpoll(properties)));
+    final int workerGroupSize = GrpcConfigKeys.Client.workerGroupSize(properties);
+    final MemoizedSupplier<EventLoopGroup> eventLoopGroup = workerGroupSize > 0 ? MemoizedSupplier.valueOf(
+        () -> NettyUtils.newEventLoopGroup(
+            clientId + "-client-workers", workerGroupSize, GrpcConfigKeys.useEpoll(properties))) : null;
     return new GrpcClientRpc(clientId, properties, adminSslContext, clientSslContext, eventLoopGroup);
   }
 
@@ -233,7 +233,7 @@ public final class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtoc
     try {
       super.close();
     } finally {
-      if (clientWorkers.isInitialized()) {
+      if (clientWorkers != null && clientWorkers.isInitialized()) {
         NettyUtils.shutdownGracefully(clientWorkers.get());
       }
     }
