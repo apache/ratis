@@ -17,34 +17,127 @@
  */
 package org.apache.ratis.netty.server;
 
+import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.StateMachine.DataApi;
+import org.apache.ratis.statemachine.StateMachine.DataChannel;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelInboundHandlerAdapter;
 import org.apache.ratis.thirdparty.io.netty.channel.embedded.EmbeddedChannel;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.io.IOException;
-import java.lang.reflect.Proxy;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class TestDataStreamManagement {
+  @Test
+  void readOnlyRequestInvokesStateMachineDataApiQuery() throws Exception {
+    final RaftPeerId serverId = RaftPeerId.valueOf("s1");
+    final ClientId clientId = ClientId.randomId();
+    final RaftGroupId groupId = RaftGroupId.randomId();
+    final ByteString query = ByteString.copyFromUtf8("query");
+    final ByteString response = ByteString.copyFromUtf8("response");
+
+    final StateMachine stateMachine = mock(StateMachine.class);
+    final DataApi dataApi = mock(DataApi.class);
+    when(stateMachine.data()).thenReturn(dataApi);
+    doAnswer(invocation -> {
+      final DataChannel stream = invocation.getArgument(1);
+      stream.write(response.asReadOnlyByteBuffer());
+      stream.close();
+      return null;
+    }).when(dataApi).query(any(Message.class), any(DataChannel.class));
+
+    final RaftServer.Division division = mock(RaftServer.Division.class);
+    when(division.getStateMachine()).thenReturn(stateMachine);
+    when(division.getCommitInfos()).thenReturn(Collections.emptyList());
+
+    final RaftServer server = newRaftServer(serverId, new RaftProperties());
+    when(server.getDivision(groupId)).thenReturn(division);
+    final NettyServerStreamRpcMetrics metrics = new NettyServerStreamRpcMetrics("s1");
+    final DataStreamManagement management = new DataStreamManagement(server, metrics);
+    final EmbeddedChannel embeddedChannel = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
+
+    final RaftClientRequest raftClientRequest = RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(serverId)
+        .setGroupId(groupId)
+        .setCallId(1L)
+        .setMessage(Message.valueOf(query))
+        .setType(RaftClientRequest.readRequestType())
+        .build();
+    final ByteBuffer header = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(raftClientRequest);
+    final DataStreamRequestByteBuf request = new DataStreamRequestByteBuf(
+        clientId,
+        Type.STREAM_HEADER,
+        raftClientRequest.getCallId(),
+        0L,
+        Collections.singletonList(StandardWriteOption.FLUSH),
+        Unpooled.wrappedBuffer(header));
+    final CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams =
+        (r, p) -> Collections.emptySet();
+
+    try {
+      management.read(request, embeddedChannel.pipeline().firstContext(), getStreams);
+
+      final List<DataStreamReply> replies = new ArrayList<>();
+      JavaUtils.attempt(() -> {
+        for (Object outbound; (outbound = embeddedChannel.readOutbound()) != null;) {
+          replies.add((DataStreamReply) outbound);
+        }
+        assertEquals(2, replies.size());
+      }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "read-only replies", null);
+
+      final ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+      final ArgumentCaptor<DataChannel> streamCaptor = ArgumentCaptor.forClass(DataChannel.class);
+      verify(dataApi).query(messageCaptor.capture(), streamCaptor.capture());
+      assertEquals(query, messageCaptor.getValue().getContent());
+      assertFalse(streamCaptor.getValue().isOpen(), "state machine should close the streaming query channel");
+      assertSuccessReply(Type.STREAM_DATA, response.size(), replies.get(0));
+      assertSuccessReply(Type.STREAM_HEADER, 0, replies.get(1));
+    } finally {
+      embeddedChannel.finishAndReleaseAll();
+      management.shutdown();
+    }
+  }
+
   @Test
   void readCleansChannelMapOnEarlyException() throws Exception {
     // Scenario: STREAM_DATA arrives without prior STREAM_HEADER, so readImpl fails early.
@@ -85,30 +178,17 @@ class TestDataStreamManagement {
     }
   }
 
+  private static void assertSuccessReply(Type expectedType, long expectedBytesWritten, DataStreamReply reply) {
+    assertEquals(expectedType, reply.getType());
+    assertTrue(reply.isSuccess());
+    assertEquals(expectedBytesWritten, reply.getBytesWritten());
+    assertTrue(reply instanceof DataStreamReplyByteBuffer);
+  }
+
   private static RaftServer newRaftServer(RaftPeerId serverId, RaftProperties properties) {
-    return (RaftServer) Proxy.newProxyInstance(TestDataStreamManagement.class.getClassLoader(),
-        new Class<?>[]{RaftServer.class},
-        (proxy, method, args) -> {
-          if (method.getDeclaringClass() == Object.class) {
-            switch (method.getName()) {
-              case "toString":
-                return "RaftServerProxy(" + serverId + ")";
-              case "hashCode":
-                return System.identityHashCode(proxy);
-              case "equals":
-                return proxy == args[0];
-              default:
-                return null;
-            }
-          }
-          switch (method.getName()) {
-            case "getId":
-              return serverId;
-            case "getProperties":
-              return properties;
-            default:
-              throw new UnsupportedOperationException("Unexpected RaftServer call: " + method);
-          }
-        });
+    final RaftServer server = mock(RaftServer.class);
+    when(server.getId()).thenReturn(serverId);
+    when(server.getProperties()).thenReturn(properties);
+    return server;
   }
 }
