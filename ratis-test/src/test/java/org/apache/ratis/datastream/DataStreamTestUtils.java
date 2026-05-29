@@ -189,15 +189,20 @@ public interface DataStreamTestUtils {
     }
 
     @Override
-    public CompletableFuture<Message> streamReadOnly(RaftClientRequest request, DataChannel stream) {
+    public void query(Message request, DataChannel stream) {
       try {
         for (int i = 0; i < READ_ONLY_STREAM_CHUNKS; i++) {
-          final ByteString chunk = getReadOnlyStreamChunk(request.getMessage().getContent(), i);
+          final ByteString chunk = getReadOnlyStreamChunk(request.getContent(), i);
           stream.write(chunk.asReadOnlyByteBuffer());
         }
-        return CompletableFuture.completedFuture(Message.valueOf(getId().toByteString()));
       } catch (IOException e) {
-        return JavaUtils.completeExceptionally(e);
+        throw new CompletionException(e);
+      } finally {
+        try {
+          stream.close();
+        } catch (IOException e) {
+          throw new CompletionException(e);
+        }
       }
     }
 

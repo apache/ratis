@@ -460,13 +460,6 @@ class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> streamReadOnlyAsync(
-      RaftClientRequest request, StateMachine.DataChannel stream) {
-    return getImplFuture(request.getRaftGroupId())
-        .thenCompose(impl -> impl.executeStreamReadOnlyAsync(request, stream));
-  }
-
-  @Override
   public RaftClientReply submitClientRequest(RaftClientRequest request)
       throws IOException {
     return getImpl(request.getRaftGroupId()).submitClientRequest(request);

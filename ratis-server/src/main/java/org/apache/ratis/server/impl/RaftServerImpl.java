@@ -971,31 +971,6 @@ class RaftServerImpl implements RaftServer.Division,
         clientExecutor).join();
   }
 
-  CompletableFuture<RaftClientReply> executeStreamReadOnlyAsync(
-      RaftClientRequest request, StateMachine.DataChannel stream) {
-    return CompletableFuture.supplyAsync(() -> JavaUtils.callAsUnchecked(() -> TraceServer.traceAsyncMethod(() -> {
-      assertLifeCycleState(LifeCycle.States.RUNNING);
-      if (!request.is(TypeCase.READ)) {
-        throw new IOException("Expected a read-only request but got " + request);
-      }
-      LOG.debug("{}: receive read-only stream request({})", getMemberId(), request);
-      final Timekeeper timer = raftServerMetrics.getClientRequestTimer(request.getType());
-      final Optional<Timekeeper.Context> timerContext = Optional.ofNullable(timer).map(Timekeeper::time);
-      return readAsync(request, r -> {
-        try {
-          return processQueryFuture(stateMachine.data().streamReadOnly(r, stream), r);
-        } catch (UnsupportedOperationException e) {
-          return queryStateMachine(r);
-        }
-      }).whenComplete((clientReply, exception) -> {
-        timerContext.ifPresent(Timekeeper.Context::stop);
-        if (exception != null || clientReply.getException() != null) {
-          raftServerMetrics.incFailedRequestCount(request.getType());
-        }
-      });
-    }, request, getMemberId().toString(), SpanNames.SUBMIT_CLIENT_REQUEST_ASYNC), CompletionException::new),
-        clientExecutor).thenCompose(Function.identity());
-  }
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {

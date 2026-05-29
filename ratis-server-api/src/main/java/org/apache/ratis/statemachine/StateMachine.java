@@ -117,15 +117,14 @@ public interface StateMachine extends Closeable {
     }
 
     /**
-     * Stream a read-only state machine request. Implementations may write zero or more data
-     * chunks before completing the returned future with the terminal reply message.
+     * Similar to {@link StateMachine#query(Message)} except below:
+     * - In {@link StateMachine#query(Message)}, the state machine returns the result in a future.
+     * - In this method, the state machine sends the result using the given stream.
      *
-     * @param request the read-only client request
-     * @param stream the output stream for response data chunks
-     * @return a future for the terminal reply message
+     * @param request the client request
+     * @param stream the output stream to send the result. The state machine must close the stream at the end.
      */
-    default CompletableFuture<Message> streamReadOnly(RaftClientRequest request, DataChannel stream) {
-      throw new UnsupportedOperationException("This method is NOT supported.");
+    default void query(Message request, DataChannel stream) {
     }
 
     /**

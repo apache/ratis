@@ -568,60 +568,61 @@ public class DataStreamManagement {
 
   private CompletableFuture<Void> submitReadOnlyRequest(DataStreamRequestByteBuf request,
       RaftClientRequest raftClientRequest, ChannelHandlerContext ctx) {
-    try {
-      final StateMachine.DataChannel readOnlyDataStream = new StateMachine.DataChannel() {
-        private long streamOffset;
-        private boolean closed;
+    final DataChannel readOnlyDataStream = new DataChannel() {
+      private long streamOffset;
+      private boolean closed;
 
-        @Override
-        public synchronized boolean isOpen() {
-          return !closed;
-        }
+      @Override
+      public synchronized boolean isOpen() {
+        return !closed;
+      }
 
-        @Override
-        public synchronized void close() {
-          closed = true;
-        }
+      @Override
+      public synchronized void close() {
+        closed = true;
+      }
 
-        @Override
-        public synchronized void force(boolean metadata) throws IOException {
-          if (!isOpen()) {
-            throw new AlreadyClosedException("Channel closed at offset " + streamOffset);
-          }
-          ctx.flush();
+      @Override
+      public synchronized void force(boolean metadata) throws IOException {
+        if (!isOpen()) {
+          throw new AlreadyClosedException("Channel closed at offset " + streamOffset);
         }
+        ctx.flush();
+      }
 
-        @Override
-        public synchronized int write(ByteBuffer buffer) throws IOException {
-          if (!isOpen()) {
-            throw new AlreadyClosedException("Channel closed at offset " + streamOffset);
-          }
-          final int length = buffer.remaining();
-          final DataStreamReplyByteBuffer reply = newDataStreamReadOnlyReplyByteBuffer(request, streamOffset, buffer);
-          final ChannelFuture future = ctx.writeAndFlush(reply);
-          try {
-            future.await();
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new InterruptedIOException(
-                "Interrupted while writing " + length + " bytes at offset " + streamOffset);
-          }
-          if (!future.isSuccess()) {
-            final Throwable cause = future.cause();
-            if (cause instanceof IOException) {
-              throw (IOException) cause;
-            }
-            throw new IOException("Failed to write " + length + " bytes at offset " + streamOffset, cause);
-          }
-          streamOffset += length;
-          return length;
+      @Override
+      public synchronized int write(ByteBuffer buffer) throws IOException {
+        if (!isOpen()) {
+          throw new AlreadyClosedException("Channel closed at offset " + streamOffset);
         }
-      };
-      return server.streamReadOnlyAsync(raftClientRequest, readOnlyDataStream)
-          .thenCompose(reply -> writeAndFlush(ctx, newDataStreamReplyByteBuffer(request, reply)));
-    } catch (IOException e) {
-      return JavaUtils.completeExceptionally(e);
-    }
+        final int length = buffer.remaining();
+        final DataStreamReplyByteBuffer reply = newDataStreamReadOnlyReplyByteBuffer(request, streamOffset, buffer);
+        final ChannelFuture future = ctx.writeAndFlush(reply);
+        try {
+          future.await();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new InterruptedIOException(
+              "Interrupted while writing " + length + " bytes at offset " + streamOffset);
+        }
+        if (!future.isSuccess()) {
+          throw new IOException("Failed to write " + length + " bytes at offset " + streamOffset, future.cause());
+        }
+        streamOffset += length;
+        return length;
+      }
+    };
+
+    return CompletableFuture.supplyAsync(() -> JavaUtils.callAsUnchecked(() -> {
+      final Division division = server.getDivision(raftClientRequest.getRaftGroupId());
+      division.getStateMachine().data().query(raftClientRequest.getMessage(), readOnlyDataStream);
+      return RaftClientReply.newBuilder()
+          .setRequest(raftClientRequest)
+          .setSuccess()
+          .setCommitInfos(division.getCommitInfos())
+          .build();
+    }, CompletionException::new), requestExecutor)
+        .thenCompose(reply -> writeAndFlush(ctx, newDataStreamReplyByteBuffer(request, reply)));
   }
 
   static void assertReplyCorrespondingToRequest(
