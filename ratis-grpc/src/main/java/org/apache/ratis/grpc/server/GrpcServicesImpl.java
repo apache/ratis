@@ -256,12 +256,7 @@ public final class GrpcServicesImpl
         return new GrpcServicesImpl(this);
       } catch (Throwable t) {
         NettyUtils.shutdownGracefully(clientWorkers, serverWorkers, serverBosses);
-        if (t instanceof RuntimeException) {
-          throw (RuntimeException) t;
-        } else if (t instanceof Error) {
-          throw (Error) t;
-        }
-        throw new RuntimeException(t);
+        throw t;
       }
     }
 
