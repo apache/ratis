@@ -135,38 +135,40 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       killAndRestartLeader = CompletableFuture.completedFuture(null);
     }
 
-    log.info(cluster.printServers());
-
     final SimpleMessage[] messages = SimpleMessage.create(numMessages);
 
-    try (final RaftClient client = cluster.createClient()) {
-      final AtomicInteger asyncReplyCount = new AtomicInteger();
-      final CompletableFuture<Void> f = new CompletableFuture<>();
+    try {
+      log.info(cluster.printServers());
 
-      for (SimpleMessage message : messages) {
+      try (final RaftClient client = cluster.createClient()) {
+        final AtomicInteger asyncReplyCount = new AtomicInteger();
+        final CompletableFuture<Void> f = new CompletableFuture<>();
+
+        for (SimpleMessage message : messages) {
+          if (async) {
+            client.async().send(message).thenAcceptAsync(reply -> {
+              if (!reply.isSuccess()) {
+                f.completeExceptionally(
+                    new AssertionError("Failed with reply " + reply));
+              } else if (asyncReplyCount.incrementAndGet() == messages.length) {
+                f.complete(null);
+              }
+            });
+          } else {
+            final RaftClientReply reply = client.io().send(message);
+            Assertions.assertTrue(reply.isSuccess());
+          }
+        }
         if (async) {
-          client.async().send(message).thenAcceptAsync(reply -> {
-            if (!reply.isSuccess()) {
-              f.completeExceptionally(
-                  new AssertionError("Failed with reply " + reply));
-            } else if (asyncReplyCount.incrementAndGet() == messages.length) {
-              f.complete(null);
-            }
-          });
-        } else {
-          final RaftClientReply reply = client.io().send(message);
-          Assertions.assertTrue(reply.isSuccess());
+          f.join();
+          Assertions.assertEquals(messages.length, asyncReplyCount.get());
         }
       }
-      if (async) {
-        f.join();
-        Assertions.assertEquals(messages.length, asyncReplyCount.get());
-      }
+      Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
+    } finally {
+      CompletableFuture.allOf(killAndRestartFollower, killAndRestartLeader).join();
     }
-    Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
     log.info(cluster.printAllLogs());
-    killAndRestartFollower.join();
-    killAndRestartLeader.join();
 
 
     final List<RaftServer.Division> divisions = cluster.getServerAliveStream().collect(Collectors.toList());

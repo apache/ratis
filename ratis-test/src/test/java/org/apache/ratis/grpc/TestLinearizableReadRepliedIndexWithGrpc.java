@@ -26,6 +26,7 @@ import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.ReplyFlusher;
 import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.JavaUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -89,11 +90,9 @@ public class TestLinearizableReadRepliedIndexWithGrpc
         f0Replies.add(new Reply(0, f0Client.async().sendReadOnly(QUERY, f0)));
         f1Replies.add(new Reply(0, f1Client.async().sendReadOnly(QUERY, f1)));
 
-        // sleep in order to make sure
-        // (1) the count is incremented, and
-        // (2) the reads will wait for the repliedIndex.
-        Thread.sleep(100);
-        assertEquals(count, leaderStateMachine.getCount());
+        // Wait until the leader state machine has applied the write while the ReplyFlusher remains blocked.
+        JavaUtils.attempt(() -> assertEquals(count, leaderStateMachine.getCount()),
+            10, HUNDRED_MILLIS, "leaderStateMachine count " + count, null);
       }
 
       for (int i = 0; i < n; i++) {

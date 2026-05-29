@@ -20,6 +20,8 @@ package org.apache.ratis;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
@@ -30,6 +32,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -179,8 +182,28 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     runWithNewCluster(LinearizableReadTests::runTestFollowerReadOnlyParallel);
   }
 
+  private static long getLogEntryIndex(RaftServer.Division leader, Message message, long startIndex) throws Exception {
+    final long nextIndex = leader.getRaftLog().getNextIndex();
+    for (long index = startIndex; index < nextIndex; index++) {
+      final LogEntryProto entry = leader.getRaftLog().get(index);
+      if (entry != null && entry.hasStateMachineLogEntry()
+          && message.getContent().equals(entry.getStateMachineLogEntry().getLogData())) {
+        return index;
+      }
+    }
+    throw new AssertionError("Failed to find " + message + " from index " + startIndex + " to " + nextIndex);
+  }
+
+  private static void waitForCommitIndex(RaftServer.Division leader, long index) throws Exception {
+    JavaUtils.attempt(() -> {
+      final long commitIndex = leader.getRaftLog().getLastCommittedIndex();
+      Assertions.assertTrue(commitIndex >= index, () -> "commitIndex=" + commitIndex + " < index=" + index);
+    }, 10, HUNDRED_MILLIS, "commitIndex >= " + index, null);
+  }
+
   static <C extends MiniRaftCluster> void runTestFollowerReadOnlyParallel(C cluster) throws Exception {
-    final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId leaderId = leader.getId();
 
     final List<RaftServer.Division> followers = cluster.getFollowers();
     Assertions.assertEquals(2, followers.size());
@@ -199,9 +222,12 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
         assertReplyExact(count, leaderClient.io().send(INCREMENT));
 
         count++;
+        final long nextIndex = leader.getRaftLog().getNextIndex();
         writeReplies.add(new Reply(count, leaderClient.async().send(WAIT_AND_INCREMENT)));
-        // sleep to let the commitIndex/appliedIndex get updated.
-        Thread.sleep(100);
+        final long waitAndIncrementIndex = JavaUtils.attemptRepeatedly(
+            () -> getLogEntryIndex(leader, WAIT_AND_INCREMENT, nextIndex),
+            10, HUNDRED_MILLIS, "WAIT_AND_INCREMENT entry", null);
+        waitForCommitIndex(leader, waitAndIncrementIndex);
         // WAIT_AND_INCREMENT will delay 500ms to update the count, the read must wait for it.
         assertReplyExact(count, f0Client.io().sendReadOnly(QUERY, f0));
         f1Replies.add(new Reply(count, f1Client.async().sendReadOnly(QUERY, f1)));
