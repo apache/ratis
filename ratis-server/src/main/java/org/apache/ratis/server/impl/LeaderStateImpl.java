@@ -1252,18 +1252,17 @@ class LeaderStateImpl implements LeaderState {
     final PendingRequest pending = pendingRequests.remove(termIndex);
     leaderTracer.removePendingRequest(pending);
 
-    final LongSupplier replyMethod = () -> {
+    final Runnable replyMethod = () -> {
       cacheEntry.updateResult(reply);
       if (pending != null) {
         pending.setReply(reply);
       }
-      return termIndex.getIndex();
     };
 
     if (readIndexType == Type.REPLIED_INDEX) {
-      replyFlusher.hold(replyMethod);
+      replyFlusher.hold(termIndex.getIndex(), replyMethod);
     } else {
-      replyMethod.getAsLong();
+      replyMethod.run();
     }
   }
 
