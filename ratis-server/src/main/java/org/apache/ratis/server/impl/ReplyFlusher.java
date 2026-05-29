@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.concurrent.TimeUnit;
-import java.util.function.LongSupplier;
 
 /**
  * Implements the reply flush logic as part of the leader batch write when RepliedIndex is used.
@@ -39,16 +38,33 @@ public class ReplyFlusher {
   private static final String CLASS_NAME = JavaUtils.getClassSimpleName(RaftServerImpl.class);
   public static final String FLUSH = CLASS_NAME + ".flush";
 
-  static class Replies {
-    /** When a {@link LongSupplier} is invoked, it completes a write reply and return the log index. */
-    private LinkedList<LongSupplier> list = new LinkedList<>();
+  private static class HeldReply {
+    private final long logIndex;
+    private final Runnable replyMethod;
 
-    synchronized void add(LongSupplier replyMethod) {
-      list.add(replyMethod);
+    HeldReply(long logIndex, Runnable replyMethod) {
+      this.logIndex = logIndex;
+      this.replyMethod = replyMethod;
     }
 
-    synchronized LinkedList<LongSupplier> getAndSetNewList() {
-      final LinkedList<LongSupplier> old = list;
+    long getLogIndex() {
+      return logIndex;
+    }
+
+    void complete() {
+      replyMethod.run();
+    }
+  }
+
+  static class Replies {
+    private LinkedList<HeldReply> list = new LinkedList<>();
+
+    synchronized void add(HeldReply reply) {
+      list.add(reply);
+    }
+
+    synchronized LinkedList<HeldReply> getAndSetNewList() {
+      final LinkedList<HeldReply> old = list;
       list = new LinkedList<>();
       return old;
     }
@@ -79,8 +95,8 @@ public class ReplyFlusher {
   }
 
   /** Hold a write reply for later batch flushing */
-  void hold(LongSupplier replyMethod) {
-    replies.add(replyMethod);
+  void hold(long logIndex, Runnable replyMethod) {
+    replies.add(new HeldReply(logIndex, replyMethod));
   }
 
   void start(long startIndex) {
@@ -112,16 +128,24 @@ public class ReplyFlusher {
   private void flush() {
     CodeInjectionForTesting.execute(FLUSH, id, null);
 
-    final LinkedList<LongSupplier> toFlush = replies.getAndSetNewList();
+    final LinkedList<HeldReply> toFlush = replies.getAndSetNewList();
     if (toFlush.isEmpty()) {
       return;
     }
-    long maxIndex = toFlush.removeLast().getAsLong();
-    for (LongSupplier held : toFlush) {
-      maxIndex = Math.max(maxIndex, held.getAsLong());
+
+    final int numReplies = toFlush.size();
+    final HeldReply last = toFlush.removeLast();
+    long maxIndex = last.getLogIndex();
+    for (HeldReply held : toFlush) {
+      maxIndex = Math.max(maxIndex, held.getLogIndex());
     }
     repliedIndex.updateToMax(maxIndex, s ->
-        LOG.debug("{}: flushed {} replies, {}", id, toFlush.size(), s));
+        LOG.debug("{}: flushed {} replies, {}", id, numReplies, s));
+
+    last.complete();
+    for (HeldReply held : toFlush) {
+      held.complete();
+    }
   }
 
   /** Stop the reply flusher daemon. */
