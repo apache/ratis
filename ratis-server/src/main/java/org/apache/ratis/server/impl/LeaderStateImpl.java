@@ -1154,6 +1154,10 @@ class LeaderStateImpl implements LeaderState {
 
     final RaftConfigurationImpl conf = server.getRaftConf();
 
+    if (conf.isSingleMode(server.getId())) {
+      return true;
+    }
+
     if (conf.hasMajority(activePeers, server.getId())) {
       // leadership check passed
       return true;
