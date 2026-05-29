@@ -51,6 +51,7 @@ import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -127,13 +128,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     final CompletableFuture<Void> killAndRestartFollower = killAndRestartServer(
         cluster.getFollowers().get(0).getId(), 0, 1000, cluster, log);
-    final CompletableFuture<Void> killAndRestartLeader;
-    if (killLeader) {
-      log.info("killAndRestart leader " + leader.getId());
-      killAndRestartLeader = killAndRestartServer(leader.getId(), 2000, 4000, cluster, log);
-    } else {
-      killAndRestartLeader = CompletableFuture.completedFuture(null);
-    }
+    CompletableFuture<Void> killAndRestartLeader = CompletableFuture.completedFuture(null);
 
     final SimpleMessage[] messages = SimpleMessage.create(numMessages);
 
@@ -141,28 +136,27 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       log.info(cluster.printServers());
 
       try (final RaftClient client = cluster.createClient()) {
-        final AtomicInteger asyncReplyCount = new AtomicInteger();
-        final CompletableFuture<Void> f = new CompletableFuture<>();
+        final List<CompletableFuture<RaftClientReply>> asyncReplies = new ArrayList<>();
 
         for (SimpleMessage message : messages) {
           if (async) {
-            client.async().send(message).thenAcceptAsync(reply -> {
-              if (!reply.isSuccess()) {
-                f.completeExceptionally(
-                    new AssertionError("Failed with reply " + reply));
-              } else if (asyncReplyCount.incrementAndGet() == messages.length) {
-                f.complete(null);
-              }
-            });
+            asyncReplies.add(client.async().send(message));
           } else {
             final RaftClientReply reply = client.io().send(message);
             Assertions.assertTrue(reply.isSuccess());
           }
         }
         if (async) {
-          f.join();
-          Assertions.assertEquals(messages.length, asyncReplyCount.get());
+          CompletableFuture.allOf(asyncReplies.toArray(new CompletableFuture<?>[0])).join();
+          asyncReplies.forEach(f -> {
+            final RaftClientReply reply = f.join();
+            Assertions.assertTrue(reply.isSuccess(), () -> "Failed with reply " + reply);
+          });
         }
+      }
+      if (killLeader) {
+        log.info("killAndRestart leader " + leader.getId());
+        killAndRestartLeader = killAndRestartServer(leader.getId(), 0, 4000, cluster, log);
       }
       Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
     } finally {
