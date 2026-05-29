@@ -99,17 +99,13 @@ public class GrpcClientProtocolClient implements Closeable {
   private final EventLoopGroup workerEventLoopGroup;
 
   GrpcClientProtocolClient(ClientId id, RaftPeer target, RaftProperties properties,
-      SslContext adminSslContext, SslContext clientSslContext) {
+      SslContext adminSslContext, SslContext clientSslContext, EventLoopGroup workerEventLoopGroup) {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
     this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
     metricClientInterceptor = new MetricClientInterceptor(getName());
-
-    this.workerEventLoopGroup = NettyUtils.newEventLoopGroup(
-        getName() + "-client-workers",
-        GrpcConfigKeys.Client.workerGroupSize(properties),
-        GrpcConfigKeys.useEpoll(properties));
+    this.workerEventLoopGroup = Objects.requireNonNull(workerEventLoopGroup, "workerEventLoopGroup");
 
     final String clientAddress = Optional.ofNullable(target.getClientAddress())
         .filter(x -> !x.isEmpty()).orElse(target.getAddress());
@@ -165,7 +161,10 @@ public class GrpcClientProtocolClient implements Closeable {
       GrpcUtil.shutdownManagedChannel(adminChannel);
     }
     metricClientInterceptor.close();
-    NettyUtils.shutdownGracefully(workerEventLoopGroup);
+  }
+
+  EventLoopGroup getWorkerEventLoopGroup() {
+    return workerEventLoopGroup;
   }
 
   RaftClientReplyProto groupAdd(GroupManagementRequestProto request) throws IOException {

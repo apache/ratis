@@ -246,13 +246,18 @@ public final class GrpcServicesImpl
       final RaftProperties props = server.getProperties();
       final String id = server.getId() + "";
       final boolean useEpoll = GrpcConfigKeys.useEpoll(props);
-      serverBosses = NettyUtils.newEventLoopGroup(id + "-boss",
-          GrpcConfigKeys.Server.bossGroupSize(props), useEpoll);
-      serverWorkers = NettyUtils.newEventLoopGroup(id + "-server-workers",
-          GrpcConfigKeys.Server.workerGroupSize(props), useEpoll);
-      clientWorkers = NettyUtils.newEventLoopGroup(id + "-client-workers",
-          GrpcConfigKeys.Client.workerGroupSize(props), useEpoll);
-      return new GrpcServicesImpl(this);
+      try {
+        serverBosses = NettyUtils.newEventLoopGroup(id + "-boss",
+            GrpcConfigKeys.Server.bossGroupSize(props), useEpoll);
+        serverWorkers = NettyUtils.newEventLoopGroup(id + "-server-workers",
+            GrpcConfigKeys.Server.workerGroupSize(props), useEpoll);
+        clientWorkers = NettyUtils.newEventLoopGroup(id + "-client-workers",
+            GrpcConfigKeys.Client.workerGroupSize(props), useEpoll);
+        return new GrpcServicesImpl(this);
+      } catch (RuntimeException | Error e) {
+        NettyUtils.shutdownGracefully(clientWorkers, serverWorkers, serverBosses);
+        throw e;
+      }
     }
 
     public Builder setAdminSslContext(SslContext adminSslContext) {
