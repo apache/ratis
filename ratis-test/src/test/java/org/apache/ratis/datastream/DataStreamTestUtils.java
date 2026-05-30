@@ -61,6 +61,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -153,7 +154,7 @@ public interface DataStreamTestUtils {
     private final ConcurrentMap<ClientInvocationId, SingleDataStream> streams = new ConcurrentHashMap<>();
 
     static ByteString getReadOnlyStreamChunk(ByteString query, int index) {
-      return ByteString.copyFromUtf8(query.toStringUtf8() + "-chunk-" + index);
+      return query.concat(ByteString.copyFromUtf8("-chunk-" + index));
     }
 
     @Override
@@ -189,20 +190,25 @@ public interface DataStreamTestUtils {
     }
 
     @Override
-    public void query(Message request, DataChannel stream) {
+    public void query(Message request, WritableByteChannel stream) {
+      CompletableFuture.supplyAsync(() -> {
+        try {
+          streamReadOnlyImpl(request, stream);
+        } catch (IOException e) {
+          throw new CompletionException("Failed to streamReadOnly for " + request, e);
+        }
+        return null;
+      });
+    }
+
+    private void streamReadOnlyImpl(Message request, WritableByteChannel stream) throws IOException {
       try {
         for (int i = 0; i < READ_ONLY_STREAM_CHUNKS; i++) {
           final ByteString chunk = getReadOnlyStreamChunk(request.getContent(), i);
           stream.write(chunk.asReadOnlyByteBuffer());
         }
-      } catch (IOException e) {
-        throw new CompletionException(e);
       } finally {
-        try {
-          stream.close();
-        } catch (IOException e) {
-          throw new CompletionException(e);
-        }
+        stream.close();
       }
     }
 

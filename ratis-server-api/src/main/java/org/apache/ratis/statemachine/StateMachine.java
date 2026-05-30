@@ -117,14 +117,14 @@ public interface StateMachine extends Closeable {
     }
 
     /**
-     * Similar to {@link StateMachine#query(Message)} except below:
-     * - In {@link StateMachine#query(Message)}, the state machine returns the result in a future.
-     * - In this method, the state machine sends the result using the given stream.
+     * Similar to {@link #query(Message)} except that
+     * {@link #query(Message)} returns the result in a future
+     * while this method sends the result using the given stream.
      *
      * @param request the client request
-     * @param stream the output stream to send the result. The state machine must close the stream at the end.
+     * @param stream the output stream to send the results
      */
-    default void query(Message request, DataChannel stream) {
+    default void query(Message request, WritableByteChannel stream) {
     }
 
     /**
