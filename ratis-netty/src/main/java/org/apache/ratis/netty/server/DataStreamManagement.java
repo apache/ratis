@@ -352,6 +352,7 @@ public class DataStreamManagement {
         .setDataStreamPacket(request)
         .setBuffer(buffer)
         .setSuccess(reply.isSuccess())
+        .setCommitInfos(reply.getCommitInfos())
         .build();
   }
 

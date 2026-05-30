@@ -152,6 +152,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private final ChannelFuture channelFuture;
 
   private final DataStreamManagement requests;
+  private final ReadStreamManagement reads;
   private final ProxiesPool proxies;
 
   private final NettyServerStreamRpcMetrics metrics;
@@ -162,6 +163,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.metrics = new NettyServerStreamRpcMetrics(this.name);
     this.requests = new DataStreamManagement(server, metrics);
+    this.reads = new ReadStreamManagement(server);
 
     final RaftProperties properties = server.getProperties();
 
@@ -235,6 +237,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
         final DataStreamRequestByteBuf request = (DataStreamRequestByteBuf)msg;
         try(UncheckedAutoCloseable autoReset = requestRef.set(request)) {
+          if (reads.process(request, ctx)) {
+            return;
+          }
           requests.read(request, ctx, proxies.get(request)::getDataStreamOutput);
         }
       }
@@ -248,6 +253,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       public void exceptionCaught(ChannelHandlerContext ctx, Throwable throwable) {
         Optional.ofNullable(requestRef.getAndSetNull())
             .ifPresent(request -> requests.replyDataStreamException(throwable, request, ctx));
+        ctx.close();
       }
     };
   }

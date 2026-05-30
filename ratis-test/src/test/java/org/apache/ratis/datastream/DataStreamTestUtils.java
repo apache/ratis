@@ -57,9 +57,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -147,7 +149,13 @@ public interface DataStreamTestUtils {
   }
 
   class MultiDataStreamStateMachine extends BaseStateMachine {
+    static final int READ_ONLY_STREAM_CHUNKS = 3;
+
     private final ConcurrentMap<ClientInvocationId, SingleDataStream> streams = new ConcurrentHashMap<>();
+
+    static ByteString getReadOnlyStreamChunk(ByteString query, int index) {
+      return query.concat(ByteString.copyFromUtf8("-chunk-" + index));
+    }
 
     @Override
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {
@@ -174,6 +182,34 @@ public interface DataStreamTestUtils {
       final SingleDataStream s = getSingleDataStream(ClientInvocationId.valueOf(entry.getStateMachineLogEntry()));
       final ByteString bytesWritten = bytesWritten2ByteString(s.getDataChannel().getBytesWritten());
       return CompletableFuture.completedFuture(() -> bytesWritten);
+    }
+
+    @Override
+    public CompletableFuture<Message> query(Message request) {
+      return CompletableFuture.completedFuture(request);
+    }
+
+    @Override
+    public void query(Message request, WritableByteChannel stream) {
+      CompletableFuture.supplyAsync(() -> {
+        try {
+          streamReadOnlyImpl(request, stream);
+        } catch (IOException e) {
+          throw new CompletionException("Failed to streamReadOnly for " + request, e);
+        }
+        return null;
+      });
+    }
+
+    private void streamReadOnlyImpl(Message request, WritableByteChannel stream) throws IOException {
+      try {
+        for (int i = 0; i < READ_ONLY_STREAM_CHUNKS; i++) {
+          final ByteString chunk = getReadOnlyStreamChunk(request.getContent(), i);
+          stream.write(chunk.asReadOnlyByteBuffer());
+        }
+      } finally {
+        stream.close();
+      }
     }
 
     SingleDataStream getSingleDataStream(RaftClientRequest request) {

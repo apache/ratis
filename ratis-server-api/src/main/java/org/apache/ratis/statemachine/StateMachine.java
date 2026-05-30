@@ -117,6 +117,17 @@ public interface StateMachine extends Closeable {
     }
 
     /**
+     * Similar to {@link #query(Message)} except that
+     * {@link #query(Message)} returns the result in a future
+     * while this method sends the result using the given stream.
+     *
+     * @param request the client request
+     * @param stream the output stream to send the results
+     */
+    default void query(Message request, WritableByteChannel stream) {
+    }
+
+    /**
      * Link asynchronously the given stream with the given log entry.
      * The given stream can be null if it is unavailable due to errors.
      * In such case, the state machine may either recover the data by itself
