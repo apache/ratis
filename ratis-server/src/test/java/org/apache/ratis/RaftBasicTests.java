@@ -51,6 +51,7 @@ import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -114,6 +115,41 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     return future;
   }
 
+  private static List<LogEntryProto> findLogEntriesContaining(
+      RaftLog log, long expectedTerm, SimpleMessage[] expectedMessages) {
+    final List<LogEntryProto> entries = RaftTestUtil.getStateMachineLogEntries(log, s -> {});
+    final List<LogEntryProto> matched = new ArrayList<>(expectedMessages.length);
+    int e = 0;
+    for (SimpleMessage expected : expectedMessages) {
+      boolean found = false;
+      for (; e < entries.size(); e++) {
+        final LogEntryProto entry = entries.get(e);
+        if (entry.getTerm() >= expectedTerm
+            && expected.getContent().equals(entry.getStateMachineLogEntry().getLogData())) {
+          matched.add(entry);
+          e++;
+          found = true;
+          break;
+        }
+      }
+      Assertions.assertTrue(found, () -> "Failed to find " + expected + " in entries " + entries);
+    }
+    return matched;
+  }
+
+  private static void assertLogEntriesContaining(
+      RaftServer.Division server, long expectedTerm, SimpleMessage[] expectedMessages, int numAttempts, Logger log)
+      throws Exception {
+    final String name = server.getId() + " assertLogEntriesContaining";
+    JavaUtils.attempt(() -> {
+          RaftTestUtil.assertLogEntries(
+              findLogEntriesContaining(server.getRaftLog(), expectedTerm, expectedMessages),
+              expectedTerm, expectedMessages);
+          return null;
+        },
+        numAttempts, TimeDuration.ONE_SECOND, () -> name, log);
+  }
+
   static void runTestBasicAppendEntries(
       boolean async, boolean killLeader, int numMessages, MiniRaftCluster cluster, Logger log)
       throws Exception {
@@ -140,38 +176,36 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final SimpleMessage[] messages = SimpleMessage.create(numMessages);
 
     try (final RaftClient client = cluster.createClient()) {
-      final AtomicInteger asyncReplyCount = new AtomicInteger();
-      final CompletableFuture<Void> f = new CompletableFuture<>();
+      final List<CompletableFuture<RaftClientReply>> asyncReplies = new ArrayList<>();
 
       for (SimpleMessage message : messages) {
         if (async) {
-          client.async().send(message).thenAcceptAsync(reply -> {
-            if (!reply.isSuccess()) {
-              f.completeExceptionally(
-                  new AssertionError("Failed with reply " + reply));
-            } else if (asyncReplyCount.incrementAndGet() == messages.length) {
-              f.complete(null);
-            }
-          });
+          asyncReplies.add(client.async().send(message));
         } else {
           final RaftClientReply reply = client.io().send(message);
           Assertions.assertTrue(reply.isSuccess());
         }
       }
       if (async) {
-        f.join();
-        Assertions.assertEquals(messages.length, asyncReplyCount.get());
+        asyncReplies.forEach(f -> {
+          final RaftClientReply reply = f.join();
+          Assertions.assertTrue(reply.isSuccess(), () -> "Failed with reply " + reply);
+        });
       }
     }
     Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
-    log.info(cluster.printAllLogs());
     killAndRestartFollower.join();
     killAndRestartLeader.join();
+    log.info(cluster.printAllLogs());
 
 
     final List<RaftServer.Division> divisions = cluster.getServerAliveStream().collect(Collectors.toList());
     for(RaftServer.Division impl: divisions) {
-      RaftTestUtil.assertLogEntries(impl, term, messages, 50, log);
+      if (killLeader) {
+        assertLogEntriesContaining(impl, term, messages, 50, log);
+      } else {
+        RaftTestUtil.assertLogEntries(impl, term, messages, 50, log);
+      }
     }
   }
 

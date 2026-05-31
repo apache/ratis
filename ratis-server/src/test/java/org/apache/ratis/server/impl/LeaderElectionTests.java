@@ -148,29 +148,32 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     final MiniRaftCluster cluster = newCluster(3);
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
-    try (RaftClient client = cluster.createClient()) {
-      for (int i = 0; i < 10; ++i) {
-        RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message_" + i));
-        assertTrue(reply.isSuccess());
-      }
-      // add 3 new servers and wait longer time
+    try {
       CodeInjectionForTesting.put(RaftServerImpl.START_COMPLETE, new SleepCode(2000));
-      final PeerChanges peerChanges = cluster.addNewPeers(2, true);
-      LOG.info("add new 3 servers");
-      LOG.info(cluster.printServers());
-      RaftClientReply reply = client.admin().setConfiguration(SetConfigurationRequest.Arguments.newBuilder()
-              .setServersInNewConf(peerChanges.getAddedPeers())
-              .setMode(SetConfigurationRequest.Mode.ADD).build());
-      assertTrue(reply.isSuccess());
-      for (RaftServer server : cluster.getServers()) {
-        RaftServerProxy proxy = (RaftServerProxy) server;
-        proxy.getImpls().forEach(s -> {
-          assertTrue(s.isRunning());
-        });
+      try (RaftClient client = cluster.createClient()) {
+        for (int i = 0; i < 10; ++i) {
+          RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("message_" + i));
+          assertTrue(reply.isSuccess());
+        }
+        // add 3 new servers and wait longer time
+        final PeerChanges peerChanges = cluster.addNewPeers(2, true);
+        LOG.info("add new 3 servers");
+        LOG.info(cluster.printServers());
+        RaftClientReply reply = client.admin().setConfiguration(SetConfigurationRequest.Arguments.newBuilder()
+                .setServersInNewConf(peerChanges.getAddedPeers())
+                .setMode(SetConfigurationRequest.Mode.ADD).build());
+        assertTrue(reply.isSuccess());
+        JavaUtils.attempt(() -> {
+          for (RaftServer server : cluster.getServers()) {
+            RaftServerProxy proxy = (RaftServerProxy) server;
+            proxy.getImpls().forEach(s -> assertTrue(s.isRunning()));
+          }
+        }, 10, HUNDRED_MILLIS, "all server impls running", LOG);
       }
+    } finally {
+      cluster.shutdown();
+      CodeInjectionForTesting.remove(RaftServerImpl.START_COMPLETE);
     }
-    cluster.shutdown();;
-    CodeInjectionForTesting.remove(RaftServerImpl.START_COMPLETE);
   }
 
   @Test

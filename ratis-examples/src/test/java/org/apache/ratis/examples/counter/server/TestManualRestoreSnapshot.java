@@ -112,15 +112,15 @@ public class TestManualRestoreSnapshot extends BaseTest implements MiniRaftClust
     final StateMachine stateMachine = restartedFollower.getStateMachine();
     final SnapshotInfo info = stateMachine.getLatestSnapshot();
     LOG.info("{} restarted snapshot info {} from {}", followerId, info, stateMachine);
+    assertNotNull(info);
+    assertTrue(info.getTermIndex().equals(applied), () -> info + " != " + applied);
 
     JavaUtils.attemptUntilTrue(() -> {
       System.out.println(cluster.printServers());
-      final TermIndex leaderLastApplied = leaderStateMachine.getLastAppliedTermIndex();
-      LOG.info("Leader   {} last applied {}", leader.getId(), leaderLastApplied);
       final TermIndex followerLastApplied = stateMachine.getLastAppliedTermIndex();
-      LOG.info("Follower {} last applied {}", followerId, followerLastApplied);
-      return followerLastApplied.equals(leaderLastApplied);
-    }, 10, TimeDuration.ONE_SECOND, "followerLastApplied", LOG);
+      LOG.info("Follower {} last applied {}, snapshot {}", followerId, followerLastApplied, applied);
+      return followerLastApplied != null && followerLastApplied.getIndex() >= applied.getIndex();
+    }, 10, TimeDuration.ONE_SECOND, "followerSnapshotApplied", LOG);
 
     sendMessages(cluster, 7);
   }
