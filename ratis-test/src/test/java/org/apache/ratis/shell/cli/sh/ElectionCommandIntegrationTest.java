@@ -153,11 +153,11 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
     Assertions.assertEquals(2, cluster.getFollowers().size());
-    int ret = shell.run("election", "pause", "-peers", sb.toString(), "-address",
+    int ret = shell.run("election", "pause", "-peers", sb, "-address",
         leader.getPeer().getAddress());
     Assertions.assertEquals(0, ret);
 
-    ret = shell.run("election", "stepDown", "-peers", sb.toString());
+    ret = shell.run("election", "stepDown", "-peers", sb);
     Assertions.assertEquals(0, ret);
     JavaUtils.attempt(() -> Assertions.assertNotEquals(leader.getId(), RaftTestUtil.waitForLeader(cluster).getId()),
         10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionStepDownCommand", LOG);

@@ -115,6 +115,41 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     return future;
   }
 
+  private static List<LogEntryProto> findLogEntriesContaining(
+      RaftLog log, long expectedTerm, SimpleMessage[] expectedMessages) {
+    final List<LogEntryProto> entries = RaftTestUtil.getStateMachineLogEntries(log, s -> {});
+    final List<LogEntryProto> matched = new ArrayList<>(expectedMessages.length);
+    int e = 0;
+    for (SimpleMessage expected : expectedMessages) {
+      boolean found = false;
+      for (; e < entries.size(); e++) {
+        final LogEntryProto entry = entries.get(e);
+        if (entry.getTerm() >= expectedTerm
+            && expected.getContent().equals(entry.getStateMachineLogEntry().getLogData())) {
+          matched.add(entry);
+          e++;
+          found = true;
+          break;
+        }
+      }
+      Assertions.assertTrue(found, () -> "Failed to find " + expected + " in entries " + entries);
+    }
+    return matched;
+  }
+
+  private static void assertLogEntriesContaining(
+      RaftServer.Division server, long expectedTerm, SimpleMessage[] expectedMessages, int numAttempts, Logger log)
+      throws Exception {
+    final String name = server.getId() + " assertLogEntriesContaining";
+    JavaUtils.attempt(() -> {
+          RaftTestUtil.assertLogEntries(
+              findLogEntriesContaining(server.getRaftLog(), expectedTerm, expectedMessages),
+              expectedTerm, expectedMessages);
+          return null;
+        },
+        numAttempts, TimeDuration.ONE_SECOND, () -> name, log);
+  }
+
   static void runTestBasicAppendEntries(
       boolean async, boolean killLeader, int numMessages, MiniRaftCluster cluster, Logger log)
       throws Exception {
@@ -128,46 +163,49 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     final CompletableFuture<Void> killAndRestartFollower = killAndRestartServer(
         cluster.getFollowers().get(0).getId(), 0, 1000, cluster, log);
-    CompletableFuture<Void> killAndRestartLeader = CompletableFuture.completedFuture(null);
+    final CompletableFuture<Void> killAndRestartLeader;
+    if (killLeader) {
+      log.info("killAndRestart leader " + leader.getId());
+      killAndRestartLeader = killAndRestartServer(leader.getId(), 2000, 4000, cluster, log);
+    } else {
+      killAndRestartLeader = CompletableFuture.completedFuture(null);
+    }
+
+    log.info(cluster.printServers());
 
     final SimpleMessage[] messages = SimpleMessage.create(numMessages);
 
-    try {
-      log.info(cluster.printServers());
+    try (final RaftClient client = cluster.createClient()) {
+      final List<CompletableFuture<RaftClientReply>> asyncReplies = new ArrayList<>();
 
-      try (final RaftClient client = cluster.createClient()) {
-        final List<CompletableFuture<RaftClientReply>> asyncReplies = new ArrayList<>();
-
-        for (SimpleMessage message : messages) {
-          if (async) {
-            asyncReplies.add(client.async().send(message));
-          } else {
-            final RaftClientReply reply = client.io().send(message);
-            Assertions.assertTrue(reply.isSuccess());
-          }
-        }
+      for (SimpleMessage message : messages) {
         if (async) {
-          CompletableFuture.allOf(asyncReplies.toArray(new CompletableFuture<?>[0])).join();
-          asyncReplies.forEach(f -> {
-            final RaftClientReply reply = f.join();
-            Assertions.assertTrue(reply.isSuccess(), () -> "Failed with reply " + reply);
-          });
+          asyncReplies.add(client.async().send(message));
+        } else {
+          final RaftClientReply reply = client.io().send(message);
+          Assertions.assertTrue(reply.isSuccess());
         }
       }
-      if (killLeader) {
-        log.info("killAndRestart leader " + leader.getId());
-        killAndRestartLeader = killAndRestartServer(leader.getId(), 0, 4000, cluster, log);
+      if (async) {
+        asyncReplies.forEach(f -> {
+          final RaftClientReply reply = f.join();
+          Assertions.assertTrue(reply.isSuccess(), () -> "Failed with reply " + reply);
+        });
       }
-      Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
-    } finally {
-      CompletableFuture.allOf(killAndRestartFollower, killAndRestartLeader).join();
     }
+    Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
+    killAndRestartFollower.join();
+    killAndRestartLeader.join();
     log.info(cluster.printAllLogs());
 
 
     final List<RaftServer.Division> divisions = cluster.getServerAliveStream().collect(Collectors.toList());
     for(RaftServer.Division impl: divisions) {
-      RaftTestUtil.assertLogEntries(impl, term, messages, 50, log);
+      if (killLeader) {
+        assertLogEntriesContaining(impl, term, messages, 50, log);
+      } else {
+        RaftTestUtil.assertLogEntries(impl, term, messages, 50, log);
+      }
     }
   }
 
