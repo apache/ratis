@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.grpc.util.StreamObserverWithTimeout;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.util.ServerStringUtils;
@@ -31,6 +32,7 @@ import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceBlockingStub;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceStub;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -57,12 +59,15 @@ class GrpcServerProtocolClient implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolClient.class);
   //visible for using in log / error messages AND to use in instrumented tests
   private final RaftPeerId raftPeerId;
+  private final EventLoopGroup eventLoopGroup;
 
   GrpcServerProtocolClient(RaftPeer target, int connections, int flowControlWindow,
-      TimeDuration requestTimeout, SslContext sslContext, boolean separateHBChannel) {
+      TimeDuration requestTimeout, SslContext sslContext, boolean separateHBChannel,
+      EventLoopGroup eventLoopGroup) {
     raftPeerId = target.getId();
     LOG.info("Build channel for {}", target);
     useSeparateHBChannel = separateHBChannel;
+    this.eventLoopGroup = eventLoopGroup;
     channel = buildChannel(target, flowControlWindow, sslContext);
     blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
@@ -75,7 +80,8 @@ class GrpcServerProtocolClient implements Closeable {
   }
 
   GrpcStubPool<RaftServerProtocolServiceStub> newGrpcStubPool(String address, SslContext sslContext, int connections) {
-    return new GrpcStubPool<>(connections, address, sslContext, RaftServerProtocolServiceGrpc::newStub, 16);
+    return new GrpcStubPool<>(connections, address, sslContext, RaftServerProtocolServiceGrpc::newStub, 16,
+        eventLoopGroup);
   }
 
   private ManagedChannel buildChannel(RaftPeer target, int flowControlWindow, SslContext sslContext) {
@@ -90,6 +96,10 @@ class GrpcServerProtocolClient implements Closeable {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
     channelBuilder.disableRetry();
+    if (eventLoopGroup != null) {
+      channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
+          .eventLoopGroup(eventLoopGroup);
+    }
     return channelBuilder.flowControlWindow(flowControlWindow).build();
   }
 

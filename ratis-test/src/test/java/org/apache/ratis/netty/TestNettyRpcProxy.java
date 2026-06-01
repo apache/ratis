@@ -34,6 +34,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.SimpleChannelInboundHandler;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.NettyUtils;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;

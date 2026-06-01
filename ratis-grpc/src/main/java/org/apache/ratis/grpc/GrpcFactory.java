@@ -146,6 +146,6 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
     checkPooledByteBufAllocatorUseCacheForAllThreads(LOG::debug);
 
     final SslContexts forClient = forClientSupplier.get();
-    return new GrpcClientRpc(clientId, properties, forClient.adminSslContext, forClient.clientSslContext);
+    return GrpcClientRpc.create(clientId, properties, forClient.adminSslContext, forClient.clientSslContext);
   }
 }

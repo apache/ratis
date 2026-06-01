@@ -356,16 +356,17 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // Block stateMachine flush data, so that 2nd request will not be
     // completed, and so it will not be removed from pending request map.
     List<RaftClient> clients = new ArrayList<>();
+    final List<CompletableFuture<RaftClientReply>> replies = new ArrayList<>();
 
     try {
       RaftClient client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
       clients.add(client);
-      client.async().send(new SimpleMessage("2nd Message"));
+      replies.add(client.async().send(new SimpleMessage("2nd Message")));
 
       for (int i = 0; i < 10; i++) {
         client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
         clients.add(client);
-        client.async().send(new SimpleMessage("message " + i));
+        replies.add(client.async().send(new SimpleMessage("message " + i)));
       }
 
       // Because we have passed 11 requests, and the element queue size is 10.
@@ -373,6 +374,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
           .getNumRequestQueueLimitHits().getCount() == 1, 300, 5000);
 
       stateMachine.unblockFlushStateMachineData();
+      RaftTestUtil.waitFor(() -> replies.stream().allMatch(CompletableFuture::isDone), 300, 5000);
 
       // Send a message with 1025kb , our byte size limit is 1024kb (1mb) , so it should fail
       // and byte size counter limit will be hit.
