@@ -43,6 +43,7 @@ import org.apache.ratis.trace.SpanNames;
 import org.apache.ratis.trace.TraceConfigKeys;
 import org.apache.ratis.trace.TraceServer;
 import org.apache.ratis.trace.TraceUtils;
+import org.apache.ratis.trace.opentelemetry.OpenTelemetryTraceUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -182,7 +183,7 @@ public class RaftServerImplTracingTests {
         .setSpanKind(SpanKind.CLIENT)
         .startSpan();
     try {
-      return TraceUtils.injectContextToProto(Context.current().with(remoteParent));
+      return OpenTelemetryTraceUtils.injectContextToProto(Context.current().with(remoteParent));
     } finally {
       remoteParent.end();
     }
@@ -253,7 +254,7 @@ public class RaftServerImplTracingTests {
           .setGroupId(RaftGroupId.randomId())
           .setCallId(1L)
           .setType(type)
-          .setSpanContext(TraceUtils.injectContextToProto(clientContext))
+          .setSpanContext(OpenTelemetryTraceUtils.injectContextToProto(clientContext))
           .build();
     } finally {
       clientSpan.end();
@@ -265,4 +266,3 @@ public class RaftServerImplTracingTests {
   }
 
 }
-
