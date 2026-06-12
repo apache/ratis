@@ -35,7 +35,10 @@ import org.apache.ratis.server.impl.FollowerState.UpdateType;
 import org.apache.ratis.server.protocol.RaftServerProtocol.Op;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
+import org.apache.ratis.server.storage.SnapshotManager;
+import org.apache.ratis.server.storage.StorageImplUtils;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.BatchLogger;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.LifeCycle;
@@ -70,6 +73,7 @@ class SnapshotInstallationHandler {
 
   private final RaftServerImpl server;
   private final ServerState state;
+  private final SnapshotManager snapshotManager;
 
   private final boolean installSnapshotEnabled;
   private final AtomicLong inProgressInstallSnapshotIndex = new AtomicLong(INVALID_LOG_INDEX);
@@ -84,6 +88,9 @@ class SnapshotInstallationHandler {
   SnapshotInstallationHandler(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
     this.state = server.getState();
+    final StateMachine stateMachine = server.getStateMachine();
+    this.snapshotManager = StorageImplUtils.newSnapshotManager(server.getId(),
+        () -> state.getStorage().getStorageDir(), stateMachine.getStateMachineStorage());
     this.installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
   }
 
@@ -220,12 +227,14 @@ class SnapshotInstallationHandler {
               + " (the expected index is " + expectedChunkIndex + ")");
         }
         // Append chunks to a temporary location first. Publish only when done=true.
-        state.appendSnapshot(request);
+        final StateMachine stateMachine = server.getStateMachine();
+        snapshotManager.appendSnapshot(request, stateMachine);
         nextChunkIndex.incrementAndGet();
         // update the committed index
         // re-load the state machine if this is the last chunk
         if (snapshotChunkRequest.getDone()) {
-          state.finalizeSnapshot(request);
+          stateMachine.pause(); // pause the SM right before publishing the snapshot atomically
+          snapshotManager.finalizeSnapshot(request);
           state.reloadStateMachine(lastIncluded);
           chunk0CallId.set(-1);
         }

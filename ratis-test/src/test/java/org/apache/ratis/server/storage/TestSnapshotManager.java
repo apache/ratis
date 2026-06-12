@@ -27,11 +27,11 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.MessageDigest;
@@ -39,25 +39,7 @@ import java.security.MessageDigest;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class SnapshotManagerTest {
-  private static final class TestRaftStorageDirectory implements RaftStorageDirectory {
-    private final File root;
-
-    private TestRaftStorageDirectory(File root) {
-      this.root = root;
-    }
-
-    @Override
-    public File getRoot() {
-      return root;
-    }
-
-    @Override
-    public boolean isHealthy() {
-      return true;
-    }
-  }
-
+public class TestSnapshotManager {
   private static final StateMachineStorage EMPTY_STORAGE = new StateMachineStorage() {
     @Override
     public void init(RaftStorage raftStorage) {
@@ -113,8 +95,9 @@ public class SnapshotManagerTest {
   public void testAppendOnlyAndFinalizePublish() throws Exception {
     final File root = Files.createTempDirectory("snapshot-manager-test").toFile();
     try {
+      final RaftStorageDirectoryImpl storageDir = new RaftStorageDirectoryImpl(root, SizeInBytes.ZERO);
       final SnapshotManager manager = new SnapshotManager(
-          RaftPeerId.valueOf("s1"), () -> new TestRaftStorageDirectory(root), EMPTY_STORAGE);
+          RaftPeerId.valueOf("s1"), () -> storageDir, EMPTY_STORAGE);
       final StateMachine stateMachine = mock(StateMachine.class);
       when(stateMachine.getLatestSnapshot()).thenReturn(null);
 
@@ -157,16 +140,15 @@ public class SnapshotManagerTest {
   public void testFinalizeSnapshotRejectsIncompleteRequest() throws Exception {
     final File root = Files.createTempDirectory("snapshot-manager-test-incomplete").toFile();
     try {
+      final RaftStorageDirectoryImpl storageDir = new RaftStorageDirectoryImpl(root, SizeInBytes.ZERO);
       final SnapshotManager manager = new SnapshotManager(
-          RaftPeerId.valueOf("s2"), () -> new TestRaftStorageDirectory(root), EMPTY_STORAGE);
+          RaftPeerId.valueOf("s2"), () -> storageDir, EMPTY_STORAGE);
 
       final InstallSnapshotRequestProto incomplete = newSnapshotRequest(
           "request-2", 0, false,
           new File(RaftStorageDirectory.STATE_MACHINE_DIR_NAME, "f.snapshot").toString(),
           "abc".getBytes(StandardCharsets.UTF_8), 0, 3, true);
-      final IOException ioe = Assertions.assertThrows(IOException.class,
-          () -> manager.finalizeSnapshot(incomplete));
-      Assertions.assertTrue(ioe.getMessage().contains("Cannot finalize incomplete snapshot request"));
+      Assertions.assertThrows(IllegalStateException.class, () -> manager.finalizeSnapshot(incomplete));
     } finally {
       FileUtils.deleteFully(root);
     }

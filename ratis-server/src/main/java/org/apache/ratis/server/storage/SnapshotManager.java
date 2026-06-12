@@ -172,10 +172,7 @@ public class SnapshotManager {
 
   public void finalizeSnapshot(InstallSnapshotRequestProto request) throws IOException {
     final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest = request.getSnapshotChunk();
-    if (!snapshotChunkRequest.getDone()) {
-      throw new IOException("Cannot finalize incomplete snapshot request: "
-          + ServerStringUtils.toInstallSnapshotRequestString(request));
-    }
+    Preconditions.assertTrue(snapshotChunkRequest.getDone());
     final File tmpDir = getSnapshotTmpDir(snapshotChunkRequest.getRequestId());
     rename(tmpDir, snapshotDir.get());
   }
