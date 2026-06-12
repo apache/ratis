@@ -183,7 +183,6 @@
 
     <!-- OpenTelemetry versions -->
     <opentelemetry.version>1.62.0</opentelemetry.version>
-    <opentelemetry-semconv.version>1.41.1</opentelemetry-semconv.version>
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
     <test.exclude.pattern>_</test.exclude.pattern>
@@ -396,18 +395,8 @@
       </dependency>
       <dependency>
         <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-sdk</artifactId>
-        <version>${opentelemetry.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.opentelemetry</groupId>
         <artifactId>opentelemetry-sdk-testing</artifactId>
         <version>${opentelemetry.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.opentelemetry.semconv</groupId>
-        <artifactId>opentelemetry-semconv</artifactId>
-        <version>${opentelemetry-semconv.version}</version>
       </dependency>
       <dependency>
         <groupId>io.opentelemetry</groupId>

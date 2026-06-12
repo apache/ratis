@@ -19,32 +19,22 @@ package org.apache.ratis.trace;
 
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.function.CheckedSupplier;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-/** Server-side tracing helpers. */
-public final class TraceServer {
-  private TraceServer() {
-  }
-
-  /**
-   * Traces {@code submitClientRequestAsync} when tracing is enabled.
-   */
-  public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncMethod(
+public interface TraceProvider {
+  <T, THROWABLE extends Throwable> CompletableFuture<T> traceClientSend(
       CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
-      RaftClientRequest request, String memberId, String spanName) throws THROWABLE {
-    return TraceUtils.getProvider().traceServerRequest(action, request, memberId, spanName);
-  }
+      RaftClientRequest.Type type, RaftPeerId server) throws THROWABLE;
 
-  /**
-   * Traces follower handling of {@link AppendEntriesRequestProto} when the leader attached trace
-   * context (client-originated) for replication.
-   */
-  public static <T> CompletableFuture<T> traceAppendEntriesAsync(
+  <T, THROWABLE extends Throwable> CompletableFuture<T> traceServerRequest(
+      CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
+      RaftClientRequest request, String memberId, String spanName) throws THROWABLE;
+
+  <T> CompletableFuture<T> traceAppendEntries(
       CheckedSupplier<CompletableFuture<T>, IOException> action,
-      AppendEntriesRequestProto request, String memberId) throws IOException {
-    return TraceUtils.getProvider().traceAppendEntries(action, request, memberId);
-  }
+      AppendEntriesRequestProto request, String memberId) throws IOException;
 }

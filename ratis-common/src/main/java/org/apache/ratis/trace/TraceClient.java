@@ -17,19 +17,14 @@
  */
 package org.apache.ratis.trace;
 
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanKind;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedSupplier;
 
 import java.util.concurrent.CompletableFuture;
 
-/** Client-side OpenTelemetry helpers. */
+/** Client-side tracing helpers. */
 public final class TraceClient {
-  private static final String LEADER = "LEADER";
-
   private TraceClient() {
   }
 
@@ -39,25 +34,6 @@ public final class TraceClient {
   public static <T, THROWABLE extends Throwable> CompletableFuture<T> asyncSend(
       CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
       RaftClientRequest.Type type, RaftPeerId server) throws THROWABLE {
-    if (!TraceUtils.isEnabled()) {
-      return action.get();
-    }
-    return TraceUtils.traceAsyncMethod(action,
-        () -> createClientOperationSpan(type, server, SpanNames.ASYNC_SEND));
-  }
-
-  private static Span createClientOperationSpan(RaftClientRequest.Type type, RaftPeerId server,
-      String spanName) {
-    Preconditions.assertNotNull(spanName, () -> "Span name cannot be null");
-    Preconditions.assertTrue(!spanName.isEmpty(), "Span name should not be empty");
-    String peerId = server == null ? LEADER : String.valueOf(server);
-    final Span span = TraceUtils.getGlobalTracer()
-        .spanBuilder(spanName)
-        .setSpanKind(SpanKind.CLIENT)
-        .startSpan();
-    span.setAttribute(RatisAttributes.PEER_ID, peerId);
-    span.setAttribute(RatisAttributes.OPERATION_NAME, spanName);
-    span.setAttribute(RatisAttributes.OPERATION_TYPE, String.valueOf(type));
-    return span;
+    return TraceUtils.getProvider().traceClientSend(action, type, server);
   }
 }
