@@ -23,6 +23,7 @@ import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
@@ -40,6 +41,7 @@ import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.ratis.client.impl.ClientProtoUtils.toRaftClientRequest;
+import static org.apache.ratis.client.impl.ClientProtoUtils.toRaftClientReplyProto;
 import static org.apache.ratis.netty.server.DataStreamManagement.replyDataStreamException;
 
 public class ReadStreamManagement {
@@ -48,13 +50,15 @@ public class ReadStreamManagement {
   static class ReadStream implements WritableByteChannel {
     private final ClientId clientId;
     private final long streamId;
+    private final RaftClientRequest request;
     private final ChannelHandlerContext ctx;
     private final CompletableFuture<Void> closed = new CompletableFuture<>();
     private long streamOffset;
 
-    ReadStream(DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
-      this.clientId = request.getClientId();
-      this.streamId = request.getStreamId();
+    ReadStream(DataStreamRequestByteBuf requestBuf, RaftClientRequest request, ChannelHandlerContext ctx) {
+      this.clientId = requestBuf.getClientId();
+      this.streamId = requestBuf.getStreamId();
+      this.request = request;
       this.ctx = ctx;
     }
 
@@ -64,8 +68,10 @@ public class ReadStreamManagement {
     }
 
     @Override
-    public void close() {
-      closed.complete(null);
+    public synchronized void close() throws IOException {
+      if (closed.complete(null)) {
+        writeAndFlush(newTerminalReply(), 0);
+      }
     }
 
     @Override
@@ -76,19 +82,23 @@ public class ReadStreamManagement {
       buffer = buffer.asReadOnlyBuffer();
       final int length = buffer.remaining();
       final DataStreamReplyByteBuffer reply = newReply(buffer);
+      writeAndFlush(reply, length);
+      streamOffset += length;
+      return length;
+    }
+
+    private synchronized void writeAndFlush(DataStreamReplyByteBuffer reply, int length) throws IOException {
+      final long offset = reply.getStreamOffset();
       final ChannelFuture future = ctx.writeAndFlush(reply);
       try {
         future.await();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        throw new InterruptedIOException(
-            "Interrupted while writing " + length + " bytes at offset " + streamOffset);
+        throw new InterruptedIOException("Interrupted while writing " + length + " bytes at offset " + offset);
       }
       if (!future.isSuccess()) {
-        throw new IOException("Failed to write " + length + " bytes at offset " + streamOffset, future.cause());
+        throw new IOException("Failed to write " + length + " bytes at offset " + offset, future.cause());
       }
-      streamOffset += length;
-      return length;
     }
 
     private synchronized DataStreamReplyByteBuffer newReply(ByteBuffer buffer) {
@@ -100,6 +110,23 @@ public class ReadStreamManagement {
           .setBuffer(buffer)
           .setSuccess(true)
           .setBytesWritten(buffer.remaining())
+          .build();
+    }
+
+    private synchronized DataStreamReplyByteBuffer newTerminalReply() {
+      final RaftClientReply reply = RaftClientReply.newBuilder()
+          .setRequest(request)
+          .setSuccess()
+          .build();
+      final ByteBuffer buffer = toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
+      return DataStreamReplyByteBuffer.newBuilder()
+          .setClientId(clientId)
+          .setType(Type.STREAM_HEADER)
+          .setStreamId(streamId)
+          .setStreamOffset(0)
+          .setBuffer(buffer)
+          .setSuccess(true)
+          .setBytesWritten(0)
           .build();
     }
   }
@@ -146,7 +173,7 @@ public class ReadStreamManagement {
       return true;
     }
 
-    final ReadStream stream = new ReadStream(requestBuf, ctx);
+    final ReadStream stream = new ReadStream(requestBuf, request, ctx);
     division.getStateMachine().data().query(request.getMessage(), stream);
     return true;
   }

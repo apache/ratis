@@ -124,12 +124,14 @@ class TestDataStreamManagement {
         for (Object outbound; (outbound = embeddedChannel.readOutbound()) != null;) {
           replies.add((DataStreamReply) outbound);
         }
-        assertEquals(1, replies.size());
+        assertEquals(2, replies.size());
       }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "read-only replies", null);
 
       assertEquals(query, messageRef.get().getContent());
       assertFalse(streamRef.get().isOpen(), "state machine should close the streaming query channel");
       assertSuccessReply(Type.STREAM_DATA, response.size(), replies.get(0));
+      assertSuccessReply(Type.STREAM_HEADER, 0, replies.get(1));
+      assertTrue(ClientProtoUtils.getRaftClientReply(replies.get(1)).isSuccess());
     } finally {
       embeddedChannel.finishAndReleaseAll();
     }
