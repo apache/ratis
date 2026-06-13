@@ -333,6 +333,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     }
 
     try {
+      reads.shutdown();
+    } catch (Exception e) {
+      LOG.error(this + ": Failed to shutdown read service.", e);
+    }
+
+    try {
       channelFuture.channel().close().sync();
       bossGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
       workerGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);

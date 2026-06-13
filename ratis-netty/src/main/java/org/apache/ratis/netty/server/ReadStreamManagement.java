@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.netty.server;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
@@ -27,10 +28,13 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
+import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +43,7 @@ import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 import static org.apache.ratis.client.impl.ClientProtoUtils.toRaftClientRequest;
 import static org.apache.ratis.client.impl.ClientProtoUtils.toRaftClientReplyProto;
@@ -133,10 +138,25 @@ public class ReadStreamManagement {
 
   private final RaftServer server;
   private final String name;
+  private final ExecutorService requestExecutor;
 
   ReadStreamManagement(RaftServer server) {
     this.server = server;
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
+
+    final RaftProperties properties = server.getProperties();
+    final boolean useCachedThreadPool =
+        RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties);
+    this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(
+        useCachedThreadPool,
+        RaftServerConfigKeys.DataStream.asyncRequestThreadPoolSize(properties),
+        name + "-request-");
+  }
+
+  void shutdown() {
+    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, requestExecutor,
+        timeout -> LOG.warn("{}: requestExecutor shutdown timeout in {}",
+            this, timeout));
   }
 
   boolean process(DataStreamRequestByteBuf requestBuf, ChannelHandlerContext ctx) {
@@ -174,7 +194,13 @@ public class ReadStreamManagement {
     }
 
     final ReadStream stream = new ReadStream(requestBuf, request, ctx);
-    division.getStateMachine().data().query(request.getMessage(), stream);
+    requestExecutor.execute(() -> {
+      try {
+        division.getStateMachine().data().query(request.getMessage(), stream);
+      } catch (Throwable t) {
+        LOG.error("{}: Failed read-only data stream query for {}", this, request, t);
+      }
+    });
     return true;
   }
 
