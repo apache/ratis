@@ -31,7 +31,6 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.memory.MemoryRaftLog;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.*;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
@@ -69,7 +68,6 @@ class ServerState {
   private final MemoizedSupplier<StateMachineUpdater> stateMachineUpdater;
   /** local storage for log and snapshot */
   private final MemoizedCheckedSupplier<RaftStorageImpl, IOException> raftStorage;
-  private final SnapshotManager snapshotManager;
   private final AtomicReference<Timestamp> lastNoLeaderTime;
   private final TimeDuration noLeaderTimeout;
 
@@ -117,9 +115,6 @@ class ServerState {
     final String storageDirName = group.getGroupId().getUuid().toString();
     this.raftStorage = MemoizedCheckedSupplier.valueOf(
         () -> StorageImplUtils.initRaftStorage(storageDirName, option, prop));
-
-    this.snapshotManager = StorageImplUtils.newSnapshotManager(id, () -> getStorage().getStorageDir(),
-        stateMachine.getStateMachineStorage());
 
     // On start the leader is null, start the clock now
     this.lastNoLeaderTime = new AtomicReference<>(Timestamp.currentTime());
@@ -468,13 +463,6 @@ class ServerState {
       throw new IllegalStateException(getMemberId() + ": raftStorage is uninitialized.");
     }
     return raftStorage.getUnchecked();
-  }
-
-  void installSnapshot(InstallSnapshotRequestProto request) throws IOException {
-    // TODO: verify that we need to install the snapshot
-    StateMachine sm = server.getStateMachine();
-    sm.pause(); // pause the SM to prepare for install snapshot
-    snapshotManager.installSnapshot(request, sm);
   }
 
   private SnapshotInfo getLatestSnapshot() {

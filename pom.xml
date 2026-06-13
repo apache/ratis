@@ -183,7 +183,6 @@
 
     <!-- OpenTelemetry versions -->
     <opentelemetry.version>1.62.0</opentelemetry.version>
-    <opentelemetry-semconv.version>1.41.1</opentelemetry-semconv.version>
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
     <test.exclude.pattern>_</test.exclude.pattern>
@@ -193,7 +192,7 @@
     <slf4j.version>2.0.18</slf4j.version>
     <junit-bom.version>5.14.4</junit-bom.version>
     <mockito.version>4.11.0</mockito.version>
-    <jacoco.version>0.8.14</jacoco.version>
+    <jacoco.version>0.8.15</jacoco.version>
     <flaky-test-groups>flaky | org.apache.ratis.test.tag.FlakyTest</flaky-test-groups>
   </properties>
 
@@ -396,18 +395,8 @@
       </dependency>
       <dependency>
         <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-sdk</artifactId>
-        <version>${opentelemetry.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.opentelemetry</groupId>
         <artifactId>opentelemetry-sdk-testing</artifactId>
         <version>${opentelemetry.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.opentelemetry.semconv</groupId>
-        <artifactId>opentelemetry-semconv</artifactId>
-        <version>${opentelemetry-semconv.version}</version>
       </dependency>
       <dependency>
         <groupId>io.opentelemetry</groupId>
