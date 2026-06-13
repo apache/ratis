@@ -122,6 +122,11 @@ public interface ClientProtoUtils {
   }
 
   /** For client requests. */
+  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(ClientId clientId, RaftGroupMemberId serverId) {
+    return toRaftRpcRequestProtoBuilder(clientId.toByteString(), serverId.getPeerId(), serverId.getGroupId());
+  }
+
+  /** For client requests. */
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(RaftClientRequest request) {
     final RaftRpcRequestProto.Builder b = toRaftRpcRequestProtoBuilder(
         request.getClientId().toByteString(), request.getServerId(), request.getRaftGroupId());
@@ -208,13 +213,9 @@ public interface ClientProtoUtils {
   }
 
   static RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request) {
-    return toRaftClientRequestProto(request, true);
-  }
-
-  static RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request, boolean withMsg) {
     final RaftClientRequestProto.Builder b = RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
-    if (withMsg && request.getMessage() != null) {
+    if (request.getMessage() != null) {
       b.setMessage(toClientMessageEntryProtoBuilder(request.getMessage()));
     }
 

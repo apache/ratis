@@ -44,15 +44,21 @@ import org.slf4j.event.Level;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.ratis.ReadOnlyRequestTests.CounterStateMachine;
 import static org.apache.ratis.ReadOnlyRequestTests.INCREMENT;
 import static org.apache.ratis.ReadOnlyRequestTests.QUERY;
 import static org.apache.ratis.ReadOnlyRequestTests.WAIT_AND_INCREMENT;
+import static org.apache.ratis.ReadOnlyRequestTests.assertLongAtLeast;
 import static org.apache.ratis.ReadOnlyRequestTests.assertOption;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyAtLeast;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyExact;
+import static org.apache.ratis.ReadOnlyRequestTests.getCount;
+import static org.apache.ratis.ReadOnlyRequestTests.readOnlyAsync;
+import static org.apache.ratis.ReadOnlyRequestTests.readOnlyAsyncPreferNonLinearizable;
 import static org.apache.ratis.server.RaftServerConfigKeys.Read.Option.LINEARIZABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -153,6 +159,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     final int n = 100;
     final List<Reply> f0Replies = new ArrayList<>(n);
     final List<Reply> f1Replies = new ArrayList<>(n);
+    final List<CompletableFuture<Long>> f0LocalReplies = new ArrayList<>(n);
     try (RaftClient client = cluster.createClient(leaderId);
          RaftClient c0 = cluster.createClient(f0);
          RaftClient c1 = cluster.createClient(f1);
@@ -163,12 +170,24 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
         f0Replies.add(new Reply(count, c0.async().sendReadOnly(QUERY, f0)));
         f1Replies.add(new Reply(count, c1.async().sendReadOnly(QUERY, f1)));
+        f0LocalReplies.add(readOnlyAsync(
+            followers.get(0), () -> CompletableFuture.completedFuture(getCount(followers.get(0)))));
       }
 
       for (int i = 0; i < n; i++) {
         f0Replies.get(i).assertAtLeast();
         f1Replies.get(i).assertAtLeast();
+        assertLongAtLeast(i + 1, f0LocalReplies.get(i).join());
       }
+
+      final AtomicBoolean callbackInvoked = new AtomicBoolean();
+      final CompletableFuture<Long> preferNonLinearizable = readOnlyAsyncPreferNonLinearizable(
+          followers.get(0), () -> {
+            callbackInvoked.set(true);
+            return CompletableFuture.completedFuture(getCount(followers.get(0)));
+          });
+      Assertions.assertThrows(CompletionException.class, preferNonLinearizable::join);
+      Assertions.assertFalse(callbackInvoked.get());
     }
   }
 
