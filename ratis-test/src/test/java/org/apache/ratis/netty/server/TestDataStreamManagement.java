@@ -42,7 +42,10 @@ import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelId;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelInboundHandlerAdapter;
+import org.apache.ratis.thirdparty.io.netty.channel.EventLoop;
+import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.embedded.EmbeddedChannel;
+import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedBiFunction;
@@ -56,7 +59,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -124,14 +129,76 @@ class TestDataStreamManagement {
         for (Object outbound; (outbound = embeddedChannel.readOutbound()) != null;) {
           replies.add((DataStreamReply) outbound);
         }
-        assertEquals(1, replies.size());
+        assertEquals(2, replies.size());
       }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "read-only replies", null);
 
       assertEquals(query, messageRef.get().getContent());
       assertFalse(streamRef.get().isOpen(), "state machine should close the streaming query channel");
       assertSuccessReply(Type.STREAM_DATA, response.size(), replies.get(0));
+      assertSuccessReply(Type.STREAM_HEADER, 0, replies.get(1));
+      assertTrue(ClientProtoUtils.getRaftClientReply(replies.get(1)).isSuccess());
     } finally {
       embeddedChannel.finishAndReleaseAll();
+    }
+  }
+
+  @Test
+  void readOnlyQueryDoesNotRunOnNettyEventLoop() throws Exception {
+    final RaftPeerId serverId = RaftPeerId.valueOf("s1");
+    final ClientId clientId = ClientId.randomId();
+    final RaftGroupId groupId = RaftGroupId.randomId();
+    final CountDownLatch queryDone = new CountDownLatch(1);
+    final AtomicBoolean queryInEventLoop = new AtomicBoolean();
+    final EventLoopGroup eventLoopGroup = new NioEventLoopGroup(1);
+    final EventLoop eventLoop = eventLoopGroup.next();
+    final EmbeddedChannel embeddedChannel = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
+    final ChannelHandlerContext ctx = embeddedChannel.pipeline().firstContext();
+    assertNotNull(ctx, "ChannelHandlerContext should be initialized");
+
+    final DataApi dataApi = new DataApi() {
+      @Override
+      public void query(Message request, WritableByteChannel stream) {
+        queryInEventLoop.set(eventLoop.inEventLoop());
+        queryDone.countDown();
+      }
+    };
+    final StateMachine stateMachine = new BaseStateMachine() {
+      @Override
+      public DataApi data() {
+        return dataApi;
+      }
+    };
+    final RaftServer server = newRaftServer(serverId, new RaftProperties(), groupId, newDivision(stateMachine));
+    final ReadStreamManagement management = new ReadStreamManagement(server);
+
+    final RaftClientRequest raftClientRequest = RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(serverId)
+        .setGroupId(groupId)
+        .setCallId(1L)
+        .setMessage(Message.valueOf(ByteString.copyFromUtf8("query")))
+        .setType(RaftClientRequest.readRequestType())
+        .build();
+    final ByteBuffer header = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(raftClientRequest);
+    final ByteBuf headerBuf = Unpooled.wrappedBuffer(header);
+    final DataStreamRequestByteBuf request = new DataStreamRequestByteBuf(
+        clientId,
+        Type.STREAM_HEADER,
+        raftClientRequest.getCallId(),
+        0L,
+        Collections.singletonList(StandardWriteOption.FLUSH),
+        headerBuf);
+
+    try {
+      eventLoop.submit(() -> assertTrue(management.process(request, ctx))).sync();
+
+      assertTrue(queryDone.await(10, TimeUnit.SECONDS));
+      assertEquals(0, headerBuf.refCnt());
+      assertFalse(queryInEventLoop.get(), "read-only state machine query should not run on Netty event loop");
+    } finally {
+      embeddedChannel.finishAndReleaseAll();
+      management.shutdown();
+      eventLoopGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS).sync();
     }
   }
 

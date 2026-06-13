@@ -28,6 +28,10 @@
     <Bug pattern="EI_EXPOSE_REP" />
   </Match>
   <Match>
+    <Class name="org.apache.ratis.client.impl.DataStreamClientImpl$DataStreamInputImpl" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
     <Class name="org.apache.ratis.client.impl.RaftClientRpcWithProxy" />
     <Bug pattern="EI_EXPOSE_REP" />
   </Match>

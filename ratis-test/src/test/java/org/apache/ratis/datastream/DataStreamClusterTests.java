@@ -18,20 +18,27 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
 import org.apache.ratis.datastream.DataStreamTestUtils.SingleDataStream;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Timestamp;
@@ -39,12 +46,16 @@ import org.apache.ratis.util.function.CheckedConsumer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.EOFException;
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -69,6 +80,17 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
   @Test
   public void testStreamWithInvalidRoutingTable() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::runTestInvalidPrimaryInRoutingTable);
+  }
+
+  @Test
+  public void testStreamReadOnly() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestStreamReadOnly);
+  }
+
+  @Test
+  public void testStreamReadOnlyWithNonLeaderPrimary() throws Exception {
+    RaftServerConfigKeys.Read.setOption(getProperties(), RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    runWithNewCluster(NUM_SERVERS, this::runTestStreamReadOnlyWithNonLeaderPrimary);
   }
 
   void testStreamWrites(CLUSTER cluster) throws Exception {
@@ -103,6 +125,67 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
 
     watchOrSleep(cluster, reply.join().getLogIndex());
     assertLogEntry(cluster, request);
+  }
+
+  void runTestStreamReadOnly(CLUSTER cluster) throws Exception {
+    final RaftPeer leader = waitForLeader(cluster).getPeer();
+    runTestStreamReadOnly(cluster, leader, leader);
+  }
+
+  void runTestStreamReadOnlyWithNonLeaderPrimary(CLUSTER cluster) throws Exception {
+    final RaftPeer leader = waitForLeader(cluster).getPeer();
+    RaftPeer nonLeaderPrimary = null;
+    for (RaftPeer peer : cluster.getGroup().getPeers()) {
+      if (!peer.getId().equals(leader.getId())) {
+        nonLeaderPrimary = peer;
+        break;
+      }
+    }
+    Assertions.assertNotNull(nonLeaderPrimary, "Cannot find non-leader peer");
+    runTestStreamReadOnly(cluster, leader, nonLeaderPrimary);
+  }
+
+  void runTestStreamReadOnly(CLUSTER cluster, RaftPeer leader, RaftPeer primaryServer) throws Exception {
+    final ByteString query = ByteString.copyFromUtf8("stream-read-only");
+    try (RaftClient client = cluster.createClient(leader.getId(), cluster.getGroup(), RetryPolicies.noRetry(),
+        primaryServer);
+         DataStreamInput in = client.getDataStreamApi().streamReadOnly(query.asReadOnlyByteBuffer())) {
+      for (int i = 0; i < MultiDataStreamStateMachine.READ_ONLY_STREAM_CHUNKS; i++) {
+        final ByteString chunk = MultiDataStreamStateMachine.getReadOnlyStreamChunk(query, i);
+        final DataStreamReply data = in.readAsync().join();
+        DataStreamTestUtils.assertSuccessReply(Type.STREAM_DATA, chunk.size(), data);
+        Assertions.assertEquals(chunk, toByteString(data));
+      }
+
+      final DataStreamReply reply = in.readAsync().join();
+      DataStreamTestUtils.assertSuccessReply(Type.STREAM_HEADER, 0, reply);
+
+      try {
+        final RaftClientReply clientReply = ClientProtoUtils.getRaftClientReply(reply);
+        Assertions.assertTrue(clientReply.isSuccess());
+        Assertions.assertEquals(primaryServer.getId(), clientReply.getServerId());
+      } finally {
+        reply.release();
+      }
+
+      final ExecutionException eof = Assertions.assertThrows(ExecutionException.class,
+          () -> in.readAsync().get(1, TimeUnit.SECONDS));
+      Assertions.assertInstanceOf(EOFException.class, eof.getCause());
+    }
+  }
+
+  private static ByteString toByteString(DataStreamReply reply) {
+    try {
+      if (reply instanceof DataStreamReplyByteBuffer) {
+        final ByteBuffer buffer = ((DataStreamReplyByteBuffer) reply).slice();
+        return ByteString.copyFrom(buffer);
+      } else if (reply instanceof DataStreamReplyByteBuf) {
+        return ByteString.copyFrom(((DataStreamReplyByteBuf) reply).slice().nioBuffer());
+      }
+      throw new AssertionError("Unexpected reply " + reply);
+    } finally {
+      reply.release();
+    }
   }
 
   void runTestInvalidPrimaryInRoutingTable(CLUSTER cluster) throws Exception {

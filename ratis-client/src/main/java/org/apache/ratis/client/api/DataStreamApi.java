@@ -50,4 +50,14 @@ public interface DataStreamApi extends Closeable {
 
   /** Create a stream by providing a customized header message and route table. */
   DataStreamOutput stream(ByteBuffer headerMessage, RoutingTable routingTable);
+
+  /**
+   * Create a stream to read data for readonly requests.
+   */
+  default DataStreamInput streamReadOnly() {
+    return streamReadOnly(null);
+  }
+
+  /** Create a stream by providing a customized header message for readonly requests. */
+  DataStreamInput streamReadOnly(ByteBuffer message);
 }

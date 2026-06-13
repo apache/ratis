@@ -20,6 +20,10 @@
     <Bug pattern="EI_EXPOSE_REP2" />
   </Match>
   <Match>
+    <Class name="org.apache.ratis.datastream.impl.DataStreamReplyByteBuf$Builder" />
+    <Bug pattern="EI_EXPOSE_REP2" />
+  </Match>
+  <Match>
     <Class name="org.apache.ratis.protocol.GroupInfoReply" />
     <Bug pattern="EI_EXPOSE_REP2" />
   </Match>
@@ -41,6 +45,10 @@
   </Match>
   <Match>
     <Class name="org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
+  <Match>
+    <Class name="org.apache.ratis.datastream.impl.DataStreamReplyByteBuf" />
     <Bug pattern="EI_EXPOSE_REP" />
   </Match>
   <Match>
