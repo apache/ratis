@@ -102,6 +102,11 @@
       </dependency>
       <dependency>
         <groupId>org.apache.ratis</groupId>
+        <artifactId>ratis-trace-otel</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.ratis</groupId>
         <artifactId>ratis-netty</artifactId>
         <version>${project.version}</version>
       </dependency>

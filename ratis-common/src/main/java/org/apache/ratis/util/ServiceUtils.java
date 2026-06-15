@@ -37,6 +37,10 @@ public final class ServiceUtils {
         throw new IllegalStateException("Failed to load " + defaultClass, e);
       }
     };
+    return load(serviceInterface, defaultInstance);
+  }
+
+  public static <T> T load(Class<T> serviceInterface, Supplier<T> defaultInstance) {
     final List<T> providers = loadServiceProviders(serviceInterface);
     return load(serviceInterface, defaultInstance, providers);
   }
