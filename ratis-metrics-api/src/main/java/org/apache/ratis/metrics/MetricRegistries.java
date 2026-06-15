@@ -18,6 +18,7 @@
 
 package org.apache.ratis.metrics;
 
+import org.apache.ratis.util.ServiceUtils;
 import org.apache.ratis.util.TimeDuration;
 
 import java.util.Collection;
@@ -30,9 +31,10 @@ import java.util.function.Consumer;
  * ref-counting of MetricRegistry's via create() and remove() methods.
  */
 public abstract class MetricRegistries {
+  static final String DEFAULT_CLASS = "org.apache.ratis.metrics.impl.MetricRegistriesImpl";
 
   private static final class LazyHolder {
-    private static final MetricRegistries GLOBAL = MetricRegistriesLoader.load();
+    private static final MetricRegistries GLOBAL = ServiceUtils.load(MetricRegistries.class, DEFAULT_CLASS);
   }
 
   /**
