@@ -20,19 +20,18 @@ package org.apache.ratis.metrics.dropwizard3;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ratis.metrics.MetricRegistries;
-import org.apache.ratis.metrics.MetricRegistriesLoader;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test class for {@link MetricRegistriesLoader}.
+ * Test class for loading {@link Dm3MetricRegistriesImpl}.
  */
 public class TestLoadDm3MetricRegistries {
   @Test
   public void testLoadDm3() {
-    final MetricRegistries r = MetricRegistriesLoader.load();
+    final MetricRegistries r = MetricRegistries.global();
     Assertions.assertSame(Dm3MetricRegistriesImpl.class, r.getClass());
   }
 
