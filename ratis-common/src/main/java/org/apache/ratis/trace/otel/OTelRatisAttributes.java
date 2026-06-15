@@ -15,16 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.trace;
+package org.apache.ratis.trace.otel;
 
 import io.opentelemetry.api.common.AttributeKey;
 
 /**
- * The constants in this class correspond with the guidance outlined by the OpenTelemetry <a href=
- * "https://github.com/open-telemetry/semantic-conventions">Semantic
- * Conventions</a>.
+ * The constants in this class correspond with the guidance outlined by the OpenTelemetry
+ * <a href="https://github.com/open-telemetry/semantic-conventions">Semantic Conventions</a>.
  */
-public final class RatisAttributes {
+public final class OTelRatisAttributes {
   public static final AttributeKey<String> CLIENT_ID = AttributeKey.stringKey("raft.client.id");
   public static final AttributeKey<String> MEMBER_ID = AttributeKey.stringKey("raft.member.id");
   public static final AttributeKey<String> CALL_ID = AttributeKey.stringKey("raft.call.id");
@@ -36,6 +35,6 @@ public final class RatisAttributes {
   /** Number of log entries in a single {@code AppendEntries} RPC (0 for heartbeat). */
   public static final AttributeKey<Long> APPEND_ENTRIES_COUNT = AttributeKey.longKey("raft.append.entries.count");
 
-  private RatisAttributes() {
+  private OTelRatisAttributes() {
   }
 }
