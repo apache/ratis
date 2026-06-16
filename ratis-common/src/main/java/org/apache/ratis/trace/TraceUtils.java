@@ -18,7 +18,7 @@
 package org.apache.ratis.trace;
 
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.trace.opentelemetry.OpenTelemetryTraceProvider;
+import org.apache.ratis.trace.otel.OTelTraceProvider;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -33,9 +33,7 @@ public final class TraceUtils {
 
   /**
    * Initializes tracing from configuration when tracing is enabled, or clears it when disabled.
-   * Call from {@link org.apache.ratis.server.RaftServer} and
-   * {@link org.apache.ratis.client.RaftClient} construction so tracing follows
-   * {@link TraceConfigKeys}.
+   * Call from RaftServer and RaftClient construction so tracing follows {@link TraceConfigKeys}.
    *
    * @param properties raft configuration; tracing is on when {@link TraceConfigKeys#enabled} is true
    */
@@ -63,10 +61,9 @@ public final class TraceUtils {
 
   private static TraceProvider newOpenTelemetryTraceProvider() {
     try {
-      return new OpenTelemetryTraceProvider();
+      return new OTelTraceProvider();
     } catch (Throwable e) {
-      throw new IllegalStateException(
-          "OpenTelemetry tracing is enabled but OpenTelemetry is not available; tracing is disabled", e);
+      throw new IllegalStateException("Failed to create OTelTraceProvider.", e);
     }
   }
 }
