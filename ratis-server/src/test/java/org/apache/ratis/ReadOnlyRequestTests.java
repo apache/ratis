@@ -20,7 +20,9 @@ package org.apache.ratis;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
@@ -42,11 +44,14 @@ import org.slf4j.event.Level;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   extends BaseTest
@@ -85,14 +90,27 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
   static <C extends MiniRaftCluster> void runTestReadOnly(C cluster) throws Exception {
     try {
-      RaftTestUtil.waitForLeader(cluster);
-      final RaftPeerId leaderId = cluster.getLeader().getId();
+      final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+      final RaftPeerId leaderId = leader.getId();
 
       try (final RaftClient client = cluster.createClient(leaderId)) {
         for (int i = 1; i <= 10; i++) {
           assertReplyExact(i, client.io().send(INCREMENT));
           assertReplyExact(i, client.io().sendReadOnly(QUERY));
+          Assertions.assertEquals(i, readOnlyAsync(
+              leader, () -> CompletableFuture.completedFuture(getCount(leader))).get());
         }
+      }
+
+      if (RaftServerConfigKeys.Read.option(cluster.getProperties()) == RaftServerConfigKeys.Read.Option.DEFAULT) {
+        final RaftServer.Division follower = cluster.getFollowers().get(0);
+        final AtomicBoolean callbackInvoked = new AtomicBoolean();
+        final CompletableFuture<Long> read = readOnlyAsync(follower, () -> {
+          callbackInvoked.set(true);
+          return CompletableFuture.completedFuture(getCount(follower));
+        });
+        Assertions.assertThrows(CompletionException.class, read::join);
+        Assertions.assertFalse(callbackInvoked.get());
       }
     } finally {
       cluster.shutdown();
@@ -218,6 +236,20 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     return Integer.parseInt(reply.getMessage().getContent().toString(StandardCharsets.UTF_8));
   }
 
+  static long getCount(RaftServer.Division server) {
+    return ((CounterStateMachine) server.getStateMachine()).getCount();
+  }
+
+  static <T> CompletableFuture<T> readOnlyAsync(
+      RaftServer.Division server, Supplier<CompletableFuture<T>> query) throws IOException {
+    return server.readOnlyAsync(ClientId.randomId(), RaftClientRequest.readRequestType().getRead(), query);
+  }
+
+  static <T> CompletableFuture<T> readOnlyAsyncPreferNonLinearizable(
+      RaftServer.Division server, Supplier<CompletableFuture<T>> query) throws IOException {
+    return server.readOnlyAsync(ClientId.randomId(), RaftClientRequest.readRequestType(true).getRead(), query);
+  }
+
   public static void assertReplyExact(int expectedCount, RaftClientReply reply) {
     Assertions.assertTrue(reply.isSuccess());
     final int retrieved = retrieve(reply);
@@ -229,6 +261,11 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
     final int retrieved = retrieve(reply);
     Assertions.assertTrue(retrieved >= minCount,
         () -> "retrieved = " + retrieved + " < minCount = " + minCount + ", reply=" + reply);
+  }
+
+  public static void assertLongAtLeast(int minCount, long retrieved) {
+    Assertions.assertTrue(retrieved >= minCount,
+        () -> "retrieved = " + retrieved + " < minCount = " + minCount);
   }
 
   /**
