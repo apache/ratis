@@ -18,7 +18,7 @@
 package org.apache.ratis.trace;
 
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.trace.opentelemetry.OpenTelemetryTraceProvider;
+import org.apache.ratis.util.ServiceUtils;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -33,9 +33,7 @@ public final class TraceUtils {
 
   /**
    * Initializes tracing from configuration when tracing is enabled, or clears it when disabled.
-   * Call from {@link org.apache.ratis.server.RaftServer} and
-   * {@link org.apache.ratis.client.RaftClient} construction so tracing follows
-   * {@link TraceConfigKeys}.
+   * Call from RaftServer and RaftClient construction so tracing follows {@link TraceConfigKeys}.
    *
    * @param properties raft configuration; tracing is on when {@link TraceConfigKeys#enabled} is true
    */
@@ -50,7 +48,7 @@ public final class TraceUtils {
    * @param enabled when true, enables the OpenTelemetry provider; when false, clears it
    */
   public static void setTracerWhenEnabled(boolean enabled) {
-    PROVIDER.set(enabled ? newOpenTelemetryTraceProvider() : NoOpTraceProvider.INSTANCE);
+    PROVIDER.set(enabled ? loadTraceProvider() : NoOpTraceProvider.INSTANCE);
   }
 
   public static boolean isEnabled() {
@@ -61,12 +59,11 @@ public final class TraceUtils {
     return PROVIDER.get();
   }
 
-  private static TraceProvider newOpenTelemetryTraceProvider() {
+  private static TraceProvider loadTraceProvider() {
     try {
-      return new OpenTelemetryTraceProvider();
+      return ServiceUtils.load(TraceProvider.class, () -> NoOpTraceProvider.INSTANCE);
     } catch (Throwable e) {
-      throw new IllegalStateException(
-          "OpenTelemetry tracing is enabled but OpenTelemetry is not available; tracing is disabled", e);
+      throw new IllegalStateException("Failed to load " + TraceProvider.class.getSimpleName(), e);
     }
   }
 }

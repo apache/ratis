@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.trace.opentelemetry;
+package org.apache.ratis.trace.otel;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.context.Context;
@@ -28,8 +28,8 @@ import java.util.Optional;
 import java.util.TreeMap;
 
 /** OpenTelemetry-specific helpers. Callers using this class must provide OpenTelemetry jars. */
-public final class OpenTelemetryTraceUtils {
-  private OpenTelemetryTraceUtils() {
+public final class OTelTraceUtils {
+  private OTelTraceUtils() {
   }
 
   public static SpanContextProto injectContextToProto(Context context) {

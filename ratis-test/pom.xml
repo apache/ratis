@@ -65,6 +65,18 @@
     </dependency>
 
     <dependency>
+      <artifactId>ratis-trace-otel</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-trace-otel</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <scope>test</scope>
+      <type>test-jar</type>
+    </dependency>
+
+    <dependency>
       <artifactId>ratis-netty</artifactId>
       <groupId>org.apache.ratis</groupId>
       <scope>test</scope>
@@ -160,6 +172,7 @@
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk-testing</artifactId>
       <scope>test</scope>
+      <version>${opentelemetry.version}</version>
     </dependency>
   </dependencies>
 </project>

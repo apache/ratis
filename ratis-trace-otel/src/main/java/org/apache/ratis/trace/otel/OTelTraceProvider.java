@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.trace.opentelemetry;
+package org.apache.ratis.trace.otel;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
@@ -29,7 +29,6 @@ import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.trace.RatisAttributes;
 import org.apache.ratis.trace.SpanNames;
 import org.apache.ratis.trace.TraceProvider;
 import org.apache.ratis.util.JavaUtils;
@@ -45,8 +44,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
-public final class OpenTelemetryTraceProvider implements TraceProvider {
-  private static final Logger LOG = LoggerFactory.getLogger(OpenTelemetryTraceProvider.class);
+import static org.apache.ratis.trace.otel.OTelRatisAttributes.APPEND_ENTRIES_COUNT;
+import static org.apache.ratis.trace.otel.OTelRatisAttributes.CALL_ID;
+import static org.apache.ratis.trace.otel.OTelRatisAttributes.CLIENT_ID;
+import static org.apache.ratis.trace.otel.OTelRatisAttributes.MEMBER_ID;
+import static org.apache.ratis.trace.otel.OTelRatisAttributes.OPERATION_NAME;
+import static org.apache.ratis.trace.otel.OTelRatisAttributes.OPERATION_TYPE;
+import static org.apache.ratis.trace.otel.OTelRatisAttributes.PEER_ID;
+
+public final class OTelTraceProvider implements TraceProvider {
+  private static final Logger LOG = LoggerFactory.getLogger(OTelTraceProvider.class);
   private static final String LEADER = "LEADER";
 
   private final Tracer tracer = Objects.requireNonNull(
@@ -75,15 +82,15 @@ public final class OpenTelemetryTraceProvider implements TraceProvider {
     final SpanContextProto spanContext = rpc.getSpanContext();
     final Context remoteContext = (spanContext == null || spanContext.getContextMap().isEmpty())
         ? Context.root()
-        : OpenTelemetryTraceUtils.extractContextFromProto(spanContext);
+        : OTelTraceUtils.extractContextFromProto(spanContext);
     return traceAsyncMethod(action, () -> {
       final Span span = tracer.spanBuilder(SpanNames.APPEND_ENTRIES_ASYNC)
           .setParent(remoteContext)
           .setSpanKind(SpanKind.INTERNAL)
           .startSpan();
-      span.setAttribute(RatisAttributes.MEMBER_ID, memberId);
-      span.setAttribute(RatisAttributes.PEER_ID, String.valueOf(RaftPeerId.valueOf(rpc.getRequestorId())));
-      span.setAttribute(RatisAttributes.APPEND_ENTRIES_COUNT, (long) request.getEntriesCount());
+      span.setAttribute(MEMBER_ID, memberId);
+      span.setAttribute(PEER_ID, String.valueOf(RaftPeerId.valueOf(rpc.getRequestorId())));
+      span.setAttribute(APPEND_ENTRIES_COUNT, request.getEntriesCount());
       return span;
     });
   }
@@ -95,21 +102,21 @@ public final class OpenTelemetryTraceProvider implements TraceProvider {
     final Span span = tracer.spanBuilder(spanName)
         .setSpanKind(SpanKind.CLIENT)
         .startSpan();
-    span.setAttribute(RatisAttributes.PEER_ID, peerId);
-    span.setAttribute(RatisAttributes.OPERATION_NAME, spanName);
-    span.setAttribute(RatisAttributes.OPERATION_TYPE, String.valueOf(type));
+    span.setAttribute(PEER_ID, peerId);
+    span.setAttribute(OPERATION_NAME, spanName);
+    span.setAttribute(OPERATION_TYPE, String.valueOf(type));
     return span;
   }
 
   private Span createServerSpanFromClientRequest(RaftClientRequest request, String memberId, String spanName) {
-    final Context remoteContext = OpenTelemetryTraceUtils.extractContextFromProto(request.getSpanContext());
+    final Context remoteContext = OTelTraceUtils.extractContextFromProto(request.getSpanContext());
     final Span span = tracer.spanBuilder(spanName)
         .setParent(remoteContext)
         .setSpanKind(SpanKind.SERVER)
         .startSpan();
-    span.setAttribute(RatisAttributes.CLIENT_ID, String.valueOf(request.getClientId()));
-    span.setAttribute(RatisAttributes.CALL_ID, String.valueOf(request.getCallId()));
-    span.setAttribute(RatisAttributes.MEMBER_ID, memberId);
+    span.setAttribute(CLIENT_ID, String.valueOf(request.getClientId()));
+    span.setAttribute(CALL_ID, String.valueOf(request.getCallId()));
+    span.setAttribute(MEMBER_ID, memberId);
     return span;
   }
 

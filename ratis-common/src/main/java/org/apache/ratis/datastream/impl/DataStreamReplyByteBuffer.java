@@ -18,72 +18,25 @@
 package org.apache.ratis.datastream.impl;
 
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.Collections;
 
 /**
  * Implements {@link DataStreamReply} with {@link ByteBuffer}.
- *
+ * <p>
  * This class is immutable.
  */
 public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer implements DataStreamReply {
-  public static final class Builder {
-    private ClientId clientId;
-    private Type type;
-    private long streamId;
-    private long streamOffset;
+  public static final class Builder extends DataStreamReplyBuilder<Builder> {
     private ByteBuffer buffer;
-
-    private boolean success;
-    private long bytesWritten;
-    private Collection<CommitInfoProto> commitInfos;
 
     private Builder() {}
 
-    public Builder setClientId(ClientId clientId) {
-      this.clientId = clientId;
-      return this;
-    }
-
-    public Builder setType(Type type) {
-      this.type = type;
-      return this;
-    }
-
-    public Builder setStreamId(long streamId) {
-      this.streamId = streamId;
-      return this;
-    }
-
-    public Builder setStreamOffset(long streamOffset) {
-      this.streamOffset = streamOffset;
-      return this;
-    }
-
-    public Builder setBuffer(ByteBuffer buffer) {
-      this.buffer = buffer;
-      return this;
-    }
-
-    public Builder setSuccess(boolean success) {
-      this.success = success;
-      return this;
-    }
-
-    public Builder setBytesWritten(long bytesWritten) {
-      this.bytesWritten = bytesWritten;
-      return this;
-    }
-
-    public Builder setCommitInfos(Collection<CommitInfoProto> commitInfos) {
-      this.commitInfos = commitInfos;
+    @Override
+    Builder getThis() {
       return this;
     }
 
@@ -94,16 +47,13 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
           .setCommitInfos(header.getCommitInfos());
     }
 
-    public Builder setDataStreamPacket(DataStreamPacket packet) {
-      return setClientId(packet.getClientId())
-          .setType(packet.getType())
-          .setStreamId(packet.getStreamId())
-          .setStreamOffset(packet.getStreamOffset());
+    public Builder setBuffer(ByteBuffer buffer) {
+      this.buffer = buffer;
+      return getThis();
     }
 
     public DataStreamReplyByteBuffer build() {
-      return new DataStreamReplyByteBuffer(
-          clientId, type, streamId, streamOffset, buffer, success, bytesWritten, commitInfos);
+      return new DataStreamReplyByteBuffer(this);
     }
   }
 
@@ -115,14 +65,12 @@ public final class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer 
   private final long bytesWritten;
   private final Collection<CommitInfoProto> commitInfos;
 
-  @SuppressWarnings("parameternumber")
-  private DataStreamReplyByteBuffer(ClientId clientId, Type type, long streamId, long streamOffset, ByteBuffer buffer,
-      boolean success, long bytesWritten, Collection<CommitInfoProto> commitInfos) {
-    super(clientId, type, streamId, streamOffset, buffer);
+  private DataStreamReplyByteBuffer(Builder b) {
+    super(b.getClientId(), b.getType(), b.getStreamId(), b.getStreamOffset(), b.buffer);
 
-    this.success = success;
-    this.bytesWritten = bytesWritten;
-    this.commitInfos = commitInfos != null? commitInfos: Collections.emptyList();
+    this.success = b.isSuccess();
+    this.bytesWritten = b.getBytesWritten();
+    this.commitInfos = b.getCommitInfos();
   }
 
   @Override
