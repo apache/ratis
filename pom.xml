@@ -64,14 +64,16 @@
     <module>ratis-grpc</module>
     <module>ratis-netty</module>
 
-    <module>ratis-test</module>
-
-    <module>ratis-examples</module>
     <module>ratis-metrics-api</module>
     <module>ratis-metrics-default</module>
     <module>ratis-metrics-dropwizard3</module>
+    <module>ratis-trace-otel</module>
+
     <module>ratis-tools</module>
     <module>ratis-shell</module>
+    <module>ratis-examples</module>
+    <module>ratis-test</module>
+
     <module>ratis-assembly</module>
     <module>ratis-bom</module>
   </modules>
@@ -270,6 +272,20 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
+
+      <dependency>
+        <artifactId>ratis-trace-otel</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-trace-otel</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
       <dependency>
         <artifactId>ratis-tools</artifactId>
         <groupId>org.apache.ratis</groupId>
@@ -386,25 +402,7 @@
         <artifactId>mockito-core</artifactId>
         <version>${mockito.version}</version>
       </dependency>
-
-      <!-- OpenTelemetry dependencies -->
-      <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-api</artifactId>
-        <version>${opentelemetry.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-sdk-testing</artifactId>
-        <version>${opentelemetry.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-context</artifactId>
-        <version>${opentelemetry.version}</version>
-      </dependency>
     </dependencies>
-
   </dependencyManagement>
 
   <build>

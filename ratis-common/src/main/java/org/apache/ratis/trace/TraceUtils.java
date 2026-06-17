@@ -18,7 +18,7 @@
 package org.apache.ratis.trace;
 
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.trace.otel.OTelTraceProvider;
+import org.apache.ratis.util.ServiceUtils;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -48,7 +48,7 @@ public final class TraceUtils {
    * @param enabled when true, enables the OpenTelemetry provider; when false, clears it
    */
   public static void setTracerWhenEnabled(boolean enabled) {
-    PROVIDER.set(enabled ? newOpenTelemetryTraceProvider() : NoOpTraceProvider.INSTANCE);
+    PROVIDER.set(enabled ? loadTraceProvider() : NoOpTraceProvider.INSTANCE);
   }
 
   public static boolean isEnabled() {
@@ -59,11 +59,11 @@ public final class TraceUtils {
     return PROVIDER.get();
   }
 
-  private static TraceProvider newOpenTelemetryTraceProvider() {
+  private static TraceProvider loadTraceProvider() {
     try {
-      return new OTelTraceProvider();
+      return ServiceUtils.load(TraceProvider.class, () -> NoOpTraceProvider.INSTANCE);
     } catch (Throwable e) {
-      throw new IllegalStateException("Failed to create OTelTraceProvider.", e);
+      throw new IllegalStateException("Failed to load " + TraceProvider.class.getSimpleName(), e);
     }
   }
 }
