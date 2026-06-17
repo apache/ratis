@@ -261,7 +261,7 @@ public interface NettyDataStreamUtils {
         .map(header -> checkHeader(header, buf))
         .map(header -> DataStreamReplyByteBuf.newBuilder()
             .setDataStreamReplyHeader(header)
-            .setBuffer(decodeData(buf, header, ByteBuf::retainedSlice))
+            .setBuf(decodeData(buf, header, ByteBuf::retainedSlice))
             .build())
         .orElse(null);
   }
