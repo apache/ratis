@@ -32,6 +32,10 @@ public final class OTelTraceUtils {
   private OTelTraceUtils() {
   }
 
+  public static SpanContextProto injectContextToProto() {
+    return injectContextToProto(Context.current());
+  }
+
   public static SpanContextProto injectContextToProto(Context context) {
     final Map<String, String> carrier = new TreeMap<>();
     getTextMapPropagator().inject(context, carrier, (map, key, value) -> map.put(key, value));
