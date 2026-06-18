@@ -25,6 +25,7 @@ import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
@@ -272,7 +273,7 @@ public class DataStreamClientImpl implements DataStreamClient {
         final CompletableFuture<DataStreamReply> pending;
         synchronized (this) {
           if (closed) {
-            reply.release();
+            DataStreamReplyByteBuf.release(reply);
             return;
           }
           pending = pendingReads.poll();
@@ -344,7 +345,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     public synchronized void close() {
       closed = true;
       for (DataStreamReply reply; (reply = replies.poll()) != null;) {
-        reply.release();
+        DataStreamReplyByteBuf.release(reply);
       }
       failReads(new AlreadyClosedException(clientId + ": stream already closed, request=" + header));
     }

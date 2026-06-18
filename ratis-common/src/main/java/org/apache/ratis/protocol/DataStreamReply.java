@@ -22,7 +22,7 @@ import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 
 import java.util.Collection;
 
-public interface DataStreamReply extends DataStreamPacket, AutoCloseable {
+public interface DataStreamReply extends DataStreamPacket {
 
   boolean isSuccess();
 
@@ -30,15 +30,4 @@ public interface DataStreamReply extends DataStreamPacket, AutoCloseable {
 
   /** @return the commit information when the reply is created. */
   Collection<CommitInfoProto> getCommitInfos();
-
-  /**
-   * Release resources owned by this reply.
-   */
-  default void release() {
-  }
-
-  @Override
-  default void close() {
-    release();
-  }
 }

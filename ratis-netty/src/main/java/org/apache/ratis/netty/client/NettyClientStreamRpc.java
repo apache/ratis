@@ -348,7 +348,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         replyConsumer.accept(replyToComplete);
       } catch (Throwable t) {
         if (replyToComplete == reply) {
-          reply.release();
+          DataStreamReplyByteBuf.release(reply);
         }
         completeExceptionally(t);
         return true;

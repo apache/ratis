@@ -21,6 +21,7 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
@@ -116,7 +117,7 @@ public class TestDataStreamClientImpl {
 
       Assertions.assertTrue(active.isDone());
       Assertions.assertSame(reply, active.getNow(null));
-      reply.release();
+      DataStreamReplyByteBuf.release(reply);
     }
   }
 }

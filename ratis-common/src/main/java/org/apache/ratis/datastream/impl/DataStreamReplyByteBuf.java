@@ -118,4 +118,10 @@ public final class DataStreamReplyByteBuf extends DataStreamPacketByteBuf implem
     buf.readBytes(bytes);
     return ByteBuffer.wrap(bytes);
   }
+
+  public static void release(DataStreamReply reply) {
+    if (reply instanceof DataStreamReplyByteBuf) {
+      ((DataStreamReplyByteBuf) reply).release();
+    }
+  }
 }

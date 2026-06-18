@@ -165,7 +165,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
         Assertions.assertTrue(clientReply.isSuccess());
         Assertions.assertEquals(primaryServer.getId(), clientReply.getServerId());
       } finally {
-        reply.release();
+        DataStreamReplyByteBuf.release(reply);
       }
 
       final ExecutionException eof = Assertions.assertThrows(ExecutionException.class,
@@ -184,7 +184,7 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
       }
       throw new AssertionError("Unexpected reply " + reply);
     } finally {
-      reply.release();
+      DataStreamReplyByteBuf.release(reply);
     }
   }
 
