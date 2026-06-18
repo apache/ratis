@@ -55,7 +55,6 @@ public class ReadStreamManagement {
   static class ReadStream implements WritableByteChannel {
     private final ClientId clientId;
     private final long streamId;
-    private final RaftClientRequest request;
     private final ChannelHandlerContext ctx;
     private final CompletableFuture<Void> closed = new CompletableFuture<>();
     private final DataStreamReplyByteBuffer terminalReply;
@@ -64,9 +63,20 @@ public class ReadStreamManagement {
     ReadStream(RaftClientRequest request, long streamId, ChannelHandlerContext ctx) {
       this.clientId = request.getClientId();
       this.streamId = streamId;
-      this.request = request;
       this.ctx = ctx;
-      this.terminalReply = newTerminalReply();
+      final RaftClientReply reply = RaftClientReply.newBuilder()
+        .setRequest(request)
+        .setSuccess()
+        .build();
+      this.terminalReply = DataStreamReplyByteBuffer.newBuilder()
+        .setClientId(clientId)
+        .setType(Type.STREAM_HEADER)
+        .setStreamId(streamId)
+        .setStreamOffset(0)
+        .setBuffer(toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer())
+        .setSuccess(true)
+        .setBytesWritten(0)
+        .build();
     }
 
     @Override
@@ -117,23 +127,6 @@ public class ReadStreamManagement {
           .setBuffer(buffer)
           .setSuccess(true)
           .setBytesWritten(buffer.remaining())
-          .build();
-    }
-
-    private synchronized DataStreamReplyByteBuffer newTerminalReply() {
-      final RaftClientReply reply = RaftClientReply.newBuilder()
-          .setRequest(request)
-          .setSuccess()
-          .build();
-      final ByteBuffer buffer = toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
-      return DataStreamReplyByteBuffer.newBuilder()
-          .setClientId(clientId)
-          .setType(Type.STREAM_HEADER)
-          .setStreamId(streamId)
-          .setStreamOffset(0)
-          .setBuffer(buffer)
-          .setSuccess(true)
-          .setBytesWritten(0)
           .build();
     }
   }
