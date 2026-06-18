@@ -258,7 +258,8 @@ public class DataStreamClientImpl implements DataStreamClient {
       final ByteBuffer buffer = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(header);
       final DataStreamRequestHeader h = new DataStreamRequestHeader(header.getClientId(), Type.STREAM_HEADER,
           header.getCallId(), 0, buffer.remaining(), StandardWriteOption.FLUSH, StandardWriteOption.CLOSE);
-      this.replyFuture = dataStreamClientRpc.streamAsync(new DataStreamRequestByteBuffer(h, buffer), this::receive);
+      this.replyFuture = dataStreamClientRpc.streamAsync(new DataStreamRequestByteBuffer(h, buffer),
+          reply -> receive(reply.copy()));
       replyFuture.whenComplete((reply, exception) -> {
         if (exception != null) {
           failReads(exception);

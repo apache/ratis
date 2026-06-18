@@ -21,6 +21,7 @@ package org.apache.ratis.netty.client;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.DataStreamObserver;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
@@ -81,7 +82,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -328,33 +328,38 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   static class ReadOnlyStreamingReply {
     private final NettyClientReplies.RequestEntry terminalEntry;
     private final CompletableFuture<DataStreamReply> replyFuture;
-    private final Consumer<DataStreamReply> replyConsumer;
+    private final DataStreamObserver<DataStreamReplyByteBuf> replyHandler;
     private Supplier<ScheduledFuture<?>> timeoutScheduler;
     private ScheduledFuture<?> timeoutFuture;
 
     ReadOnlyStreamingReply(DataStreamRequest request, CompletableFuture<DataStreamReply> replyFuture,
-        Consumer<DataStreamReply> replyConsumer) {
+        DataStreamObserver<DataStreamReplyByteBuf> replyHandler) {
       this.terminalEntry = new NettyClientReplies.RequestEntry(request);
       this.replyFuture = replyFuture;
-      this.replyConsumer = replyConsumer;
+      this.replyHandler = replyHandler;
     }
 
-    synchronized boolean receiveReply(DataStreamReply reply) {
+    synchronized boolean receiveReply(DataStreamReplyByteBuf reply) {
       NettyUtils.cancel(timeoutFuture);
       final boolean terminal = !reply.isSuccess() || terminalEntry.equals(new NettyClientReplies.RequestEntry(reply));
-      final DataStreamReply replyToComplete = reply instanceof DataStreamReplyByteBuf ?
-          NettyDataStreamUtils.toDataStreamReplyByteBuffer((DataStreamReplyByteBuf) reply) : reply;
+      final DataStreamReply replyToComplete;
       try {
-        replyConsumer.accept(replyToComplete);
+        replyToComplete = terminal? reply.copy(): null;
+        replyHandler.onNext(reply);
       } catch (Throwable t) {
-        if (replyToComplete == reply) {
-          DataStreamReplyByteBuf.release(replyToComplete);
-        }
         completeExceptionally(t);
         return true;
       }
 
       if (terminal) {
+        try {
+          if (reply.isSuccess()) {
+            replyHandler.onCompleted();
+          }
+        } catch (Throwable t) {
+          completeExceptionally(t);
+          return true;
+        }
         replyFuture.complete(replyToComplete);
         return true;
       }
@@ -364,6 +369,11 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
     synchronized void completeExceptionally(Throwable t) {
       NettyUtils.cancel(timeoutFuture);
+      try {
+        replyHandler.onError(t);
+      } catch (Throwable e) {
+        LOG.warn("Failed to notify read-only stream observer", e);
+      }
       replyFuture.completeExceptionally(t);
     }
 
@@ -599,11 +609,11 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   @Override
   public CompletableFuture<DataStreamReply> streamAsync(
-      DataStreamRequest request, Consumer<DataStreamReply> replyConsumer) {
+      DataStreamRequest request, DataStreamObserver<DataStreamReplyByteBuf> replyHandler) {
     final CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
     final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(request.getClientId(),
         request.getStreamId());
-    final ReadOnlyStreamingReply replyEntry = new ReadOnlyStreamingReply(request, f, replyConsumer);
+    final ReadOnlyStreamingReply replyEntry = new ReadOnlyStreamingReply(request, f, replyHandler);
     if (readOnlyStreamingReplies.putIfAbsent(clientInvocationId, replyEntry) != null) {
       f.completeExceptionally(new AlreadyClosedException(this + ": A read-only stream already exists for "
           + clientInvocationId));

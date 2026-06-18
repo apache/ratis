@@ -21,6 +21,7 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.DataStreamObserver;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
@@ -32,13 +33,13 @@ import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 public class TestDataStreamClientImpl {
   private static RaftPeer newPeer(String id) {
@@ -47,18 +48,18 @@ public class TestDataStreamClientImpl {
 
   private static class RecordingDataStreamClientRpc implements DataStreamClientRpc {
     private final AtomicReference<RaftClientRequest> request = new AtomicReference<>();
-    private final AtomicReference<Consumer<DataStreamReply>> replyConsumer = new AtomicReference<>();
+    private final AtomicReference<DataStreamObserver<DataStreamReplyByteBuf>> replyHandler = new AtomicReference<>();
 
     @Override
     public CompletableFuture<DataStreamReply> streamAsync(
-        DataStreamRequest dataStreamRequest, Consumer<DataStreamReply> replyConsumer) {
+        DataStreamRequest dataStreamRequest, DataStreamObserver<DataStreamReplyByteBuf> replyHandler) {
       try {
         final ByteBuffer buffer = ((DataStreamRequestByteBuffer) dataStreamRequest).slice();
         request.set(ClientProtoUtils.toRaftClientRequest(RaftClientRequestProto.parseFrom(buffer)));
       } catch (Exception e) {
         throw new IllegalStateException(e);
       }
-      this.replyConsumer.set(replyConsumer);
+      this.replyHandler.set(replyHandler);
       return new CompletableFuture<>();
     }
 
@@ -66,8 +67,10 @@ public class TestDataStreamClientImpl {
       return request.get();
     }
 
-    void receive(DataStreamReply reply) {
-      replyConsumer.get().accept(reply);
+    void receive(DataStreamReplyByteBuf reply) {
+      try (DataStreamReplyByteBuf r = reply) {
+        replyHandler.get().onNext(r);
+      }
     }
 
     @Override
@@ -105,19 +108,20 @@ public class TestDataStreamClientImpl {
       final CompletableFuture<DataStreamReply> active = input.readAsync();
       cancelled.cancel(false);
 
-      final DataStreamReply reply = DataStreamReplyByteBuffer.newBuilder()
+      final DataStreamReplyByteBuf reply = DataStreamReplyByteBuf.newBuilder()
           .setClientId(ClientId.randomId())
           .setType(Type.STREAM_DATA)
           .setStreamId(1)
           .setStreamOffset(0)
-          .setBuffer(ByteBuffer.allocate(0))
+          .setBuf(Unpooled.EMPTY_BUFFER)
           .setSuccess(true)
           .build();
       dataStreamClientRpc.receive(reply);
 
       Assertions.assertTrue(active.isDone());
-      Assertions.assertSame(reply, active.getNow(null));
-      DataStreamReplyByteBuf.release(reply);
+      final DataStreamReply received = active.getNow(null);
+      Assertions.assertInstanceOf(DataStreamReplyByteBuffer.class, received);
+      Assertions.assertEquals(Type.STREAM_DATA, received.getType());
     }
   }
 }
