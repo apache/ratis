@@ -37,6 +37,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.thirdparty.io.netty.util.concurrent.Future;
+import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -228,6 +229,12 @@ public interface NettyUtils {
     }
     if (!completed) {
       LOG.warn("closeChannel {} is not yet completed in {}", name, CLOSE_TIMEOUT);
+    }
+  }
+
+  static void cancel(ScheduledFuture<?> future) {
+    if (future != null) {
+      future.cancel(true);
     }
   }
 }

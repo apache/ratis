@@ -23,6 +23,7 @@ import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.netty.NettyConfigKeys;
@@ -31,6 +32,7 @@ import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamPacket;
+import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.security.TlsConf;
@@ -286,13 +288,19 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
-  static final MessageToMessageEncoder<DataStreamReplyByteBuffer> ENCODER = new Encoder();
+  static final MessageToMessageEncoder<DataStreamReply> ENCODER = new Encoder();
 
   @ChannelHandler.Sharable
-  static class Encoder extends MessageToMessageEncoder<DataStreamReplyByteBuffer> {
+  static class Encoder extends MessageToMessageEncoder<DataStreamReply> {
     @Override
-    protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> out) {
-      NettyDataStreamUtils.encodeDataStreamReplyByteBuffer(reply, out::add, context.alloc());
+    protected void encode(ChannelHandlerContext context, DataStreamReply reply, List<Object> out) {
+      if (reply instanceof DataStreamReplyByteBuffer) {
+        NettyDataStreamUtils.encodeDataStreamReply((DataStreamReplyByteBuffer) reply, out::add, context.alloc());
+      } else if (reply instanceof DataStreamReplyByteBuf) {
+        NettyDataStreamUtils.encodeDataStreamReply((DataStreamReplyByteBuf) reply, out::add, context.alloc());
+      } else {
+        throw new IllegalArgumentException("Unexpected DataStreamReply class " + reply.getClass());
+      }
     }
   }
 
@@ -319,6 +327,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       requests.shutdown();
     } catch (Exception e) {
       LOG.error(this + ": Failed to shutdown request service.", e);
+    }
+
+    try {
+      reads.shutdown();
+    } catch (Exception e) {
+      LOG.error(this + ": Failed to shutdown read service.", e);
     }
 
     try {

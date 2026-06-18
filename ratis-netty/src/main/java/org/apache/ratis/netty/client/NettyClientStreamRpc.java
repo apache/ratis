@@ -23,6 +23,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
@@ -353,11 +354,16 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        if (!(msg instanceof DataStreamReply)) {
+        if (!(msg instanceof DataStreamReplyByteBuf)) {
           LOG.error("{}: unexpected message {}", name, msg.getClass());
           return;
         }
-        final DataStreamReply reply = (DataStreamReply) msg;
+        try (DataStreamReplyByteBuf reply = (DataStreamReplyByteBuf) msg) {
+          process(reply);
+        }
+      }
+
+      private void process(DataStreamReplyByteBuf reply) {
         LOG.debug("{}: read {}", name, reply);
         final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(
             reply.getClientId(), reply.getStreamId());
@@ -370,7 +376,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         try {
           replyMap.receiveReply(reply);
         } catch (Throwable cause) {
-          LOG.warn("{} : channelRead error:", name, cause);
+          LOG.warn("{} : channelRead error for {}", name, reply, cause);
           replyMap.completeExceptionally(cause);
         }
       }
@@ -456,7 +462,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
       @Override
       protected void decode(ChannelHandlerContext context, ByteBuf buf, List<Object> out) {
-        Optional.ofNullable(NettyDataStreamUtils.decodeDataStreamReplyByteBuffer(buf)).ifPresent(out::add);
+        Optional.ofNullable(NettyDataStreamUtils.decodeDataStreamReplyByteBuf(buf)).ifPresent(out::add);
       }
     };
   }
@@ -464,7 +470,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   @Override
   public CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
     final CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
-    ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
+    final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(request);
     final boolean isClose = request.getWriteOptionList().contains(StandardWriteOption.CLOSE);
 
     final NettyClientReplies.ReplyMap replyMap = replies.getOrCreateReplyMap(clientInvocationId);

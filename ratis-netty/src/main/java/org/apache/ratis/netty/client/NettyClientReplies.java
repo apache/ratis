@@ -18,12 +18,14 @@
 
 package org.apache.ratis.netty.client;
 
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,7 +65,7 @@ public class NettyClientReplies {
       return map.computeIfAbsent(requestEntry, r -> new ReplyEntry(isClose, f));
     }
 
-    void receiveReply(DataStreamReply reply) {
+    void receiveReply(DataStreamReplyByteBuf reply) {
       final RequestEntry requestEntry = new RequestEntry(reply);
       final ReplyEntry replyEntry = map.remove(requestEntry);
       LOG.debug("remove: {}; replyEntry: {}; reply: {}", requestEntry, replyEntry, reply);
@@ -162,19 +164,13 @@ public class NettyClientReplies {
     }
 
     synchronized void complete(DataStreamReply reply) {
-      cancel(timeoutFuture);
+      NettyUtils.cancel(timeoutFuture);
       replyFuture.complete(reply);
     }
 
     synchronized void completeExceptionally(Throwable t) {
-      cancel(timeoutFuture);
+      NettyUtils.cancel(timeoutFuture);
       replyFuture.completeExceptionally(t);
-    }
-
-    static void cancel(ScheduledFuture<?> future) {
-      if (future != null) {
-        future.cancel(true);
-      }
     }
 
     synchronized void scheduleTimeout(Supplier<ScheduledFuture<?>> scheduleMethod) {

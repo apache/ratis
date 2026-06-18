@@ -17,19 +17,24 @@
  */
 package org.apache.ratis.netty.server;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
+import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,8 +43,10 @@ import java.io.InterruptedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 import static org.apache.ratis.client.impl.ClientProtoUtils.toRaftClientRequest;
+import static org.apache.ratis.client.impl.ClientProtoUtils.toRaftClientReplyProto;
 import static org.apache.ratis.netty.server.DataStreamManagement.replyDataStreamException;
 
 public class ReadStreamManagement {
@@ -50,12 +57,27 @@ public class ReadStreamManagement {
     private final long streamId;
     private final ChannelHandlerContext ctx;
     private final CompletableFuture<Void> closed = new CompletableFuture<>();
+    private final DataStreamReplyByteBuffer terminalReply;
     private long streamOffset;
 
-    ReadStream(DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
+    ReadStream(RaftClientRequest request, long streamId, ChannelHandlerContext ctx) {
       this.clientId = request.getClientId();
-      this.streamId = request.getStreamId();
+      this.streamId = streamId;
       this.ctx = ctx;
+
+      final RaftClientReply reply = RaftClientReply.newBuilder()
+          .setRequest(request)
+          .setSuccess()
+          .build();
+      this.terminalReply = DataStreamReplyByteBuffer.newBuilder()
+          .setClientId(clientId)
+          .setType(Type.STREAM_HEADER)
+          .setStreamId(streamId)
+          .setStreamOffset(0)
+          .setBuffer(toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer())
+          .setSuccess(true)
+          .setBytesWritten(0)
+          .build();
     }
 
     @Override
@@ -64,8 +86,10 @@ public class ReadStreamManagement {
     }
 
     @Override
-    public void close() {
-      closed.complete(null);
+    public synchronized void close() throws IOException {
+      if (closed.complete(null)) {
+        writeAndFlush(terminalReply, 0);
+      }
     }
 
     @Override
@@ -76,19 +100,23 @@ public class ReadStreamManagement {
       buffer = buffer.asReadOnlyBuffer();
       final int length = buffer.remaining();
       final DataStreamReplyByteBuffer reply = newReply(buffer);
+      writeAndFlush(reply, length);
+      streamOffset += length;
+      return length;
+    }
+
+    private synchronized void writeAndFlush(DataStreamReplyByteBuffer reply, int length) throws IOException {
+      final long offset = reply.getStreamOffset();
       final ChannelFuture future = ctx.writeAndFlush(reply);
       try {
         future.await();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        throw new InterruptedIOException(
-            "Interrupted while writing " + length + " bytes at offset " + streamOffset);
+        throw new InterruptedIOException("Interrupted while writing " + length + " bytes at offset " + offset);
       }
       if (!future.isSuccess()) {
-        throw new IOException("Failed to write " + length + " bytes at offset " + streamOffset, future.cause());
+        throw new IOException("Failed to write " + length + " bytes at offset " + offset, future.cause());
       }
-      streamOffset += length;
-      return length;
     }
 
     private synchronized DataStreamReplyByteBuffer newReply(ByteBuffer buffer) {
@@ -106,10 +134,22 @@ public class ReadStreamManagement {
 
   private final RaftServer server;
   private final String name;
+  private final ExecutorService requestExecutor;
 
   ReadStreamManagement(RaftServer server) {
     this.server = server;
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
+
+    final RaftProperties properties = server.getProperties();
+    this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(
+        RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties),
+        RaftServerConfigKeys.DataStream.asyncRequestThreadPoolSize(properties),
+        name + "-request-");
+  }
+
+  void shutdown() {
+    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, requestExecutor,
+        timeout -> LOG.warn("{}: requestExecutor shutdown timeout in {}", this, timeout));
   }
 
   boolean process(DataStreamRequestByteBuf requestBuf, ChannelHandlerContext ctx) {
@@ -146,8 +186,14 @@ public class ReadStreamManagement {
       return true;
     }
 
-    final ReadStream stream = new ReadStream(requestBuf, ctx);
-    division.getStateMachine().data().query(request.getMessage(), stream);
+    final ReadStream stream = new ReadStream(request, requestBuf.getStreamId(), ctx);
+    requestExecutor.execute(() -> {
+      try {
+        division.getStateMachine().data().query(request.getMessage(), stream);
+      } catch (Throwable t) {
+        LOG.error("{}: Failed read-only data stream query for {}", this, request, t);
+      }
+    });
     return true;
   }
 
