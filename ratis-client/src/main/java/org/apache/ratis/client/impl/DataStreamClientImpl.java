@@ -373,18 +373,20 @@ public class DataStreamClientImpl implements DataStreamClient {
           () -> "Primary peer mismatched: the routing table has " + routingTable.getPrimary()
               + " but the client has " + dataStreamServer.getId());
     }
-    final Message message =
-        Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
-    RaftClientRequest request = RaftClientRequest.newBuilder()
+    return new DataStreamOutputImpl(newBuilder(headerMessage)
+        .setType(RaftClientRequest.dataStreamRequestType())
+        .setRoutingTable(routingTable)
+        .build());
+  }
+
+  private RaftClientRequest.Builder newBuilder(ByteBuffer headerMessage) {
+    final Message message = headerMessage == null ? null : Message.valueOf(headerMessage);
+    return RaftClientRequest.newBuilder()
         .setClientId(clientId)
         .setServerId(dataStreamServer.getId())
         .setGroupId(groupId)
         .setCallId(CallId.getAndIncrement())
-        .setMessage(message)
-        .setType(RaftClientRequest.dataStreamRequestType())
-        .setRoutingTable(routingTable)
-        .build();
-    return new DataStreamOutputImpl(request);
+        .setMessage(message);
   }
 
   @Override

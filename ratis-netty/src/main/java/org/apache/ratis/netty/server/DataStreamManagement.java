@@ -424,7 +424,7 @@ public class DataStreamManagement {
   void read(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams) {
     LOG.debug("{}: read {}", this, request);
-    final ClientInvocationId key = ClientInvocationId.valueOf(request.getClientId(), request.getStreamId());
+    final ClientInvocationId key = ClientInvocationId.valueOf(request);
     final ChannelId channelId = ctx.channel().id();
     try {
       readImpl(request, ctx, getStreams, key, channelId);

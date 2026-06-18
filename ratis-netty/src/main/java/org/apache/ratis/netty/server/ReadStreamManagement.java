@@ -58,13 +58,27 @@ public class ReadStreamManagement {
     private final RaftClientRequest request;
     private final ChannelHandlerContext ctx;
     private final CompletableFuture<Void> closed = new CompletableFuture<>();
+    private final DataStreamReplyByteBuffer terminalReply;
     private long streamOffset;
 
-    ReadStream(DataStreamRequestByteBuf requestBuf, RaftClientRequest request, ChannelHandlerContext ctx) {
-      this.clientId = requestBuf.getClientId();
-      this.streamId = requestBuf.getStreamId();
-      this.request = request;
+    ReadStream(RaftClientRequest request, long streamId, ChannelHandlerContext ctx) {
+      this.clientId = request.getClientId();
+      this.streamId = streamId;
       this.ctx = ctx;
+
+      final RaftClientReply reply = RaftClientReply.newBuilder()
+          .setRequest(request)
+          .setSuccess()
+          .build();
+      this.terminalReply = DataStreamReplyByteBuffer.newBuilder()
+          .setClientId(clientId)
+          .setType(Type.STREAM_HEADER)
+          .setStreamId(streamId)
+          .setStreamOffset(0)
+          .setBuffer(toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer())
+          .setSuccess(true)
+          .setBytesWritten(0)
+          .build();
     }
 
     @Override
@@ -75,7 +89,7 @@ public class ReadStreamManagement {
     @Override
     public synchronized void close() throws IOException {
       if (closed.complete(null)) {
-        writeAndFlush(newTerminalReply(), 0);
+        writeAndFlush(terminalReply, 0);
       }
     }
 
@@ -145,18 +159,15 @@ public class ReadStreamManagement {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
 
     final RaftProperties properties = server.getProperties();
-    final boolean useCachedThreadPool =
-        RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties);
     this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(
-        useCachedThreadPool,
+        RaftServerConfigKeys.DataStream.asyncRequestThreadPoolCached(properties),
         RaftServerConfigKeys.DataStream.asyncRequestThreadPoolSize(properties),
         name + "-request-");
   }
 
   void shutdown() {
     ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, requestExecutor,
-        timeout -> LOG.warn("{}: requestExecutor shutdown timeout in {}",
-            this, timeout));
+        timeout -> LOG.warn("{}: requestExecutor shutdown timeout in {}", this, timeout));
   }
 
   boolean process(DataStreamRequestByteBuf requestBuf, ChannelHandlerContext ctx) {
@@ -193,7 +204,7 @@ public class ReadStreamManagement {
       return true;
     }
 
-    final ReadStream stream = new ReadStream(requestBuf, request, ctx);
+    final ReadStream stream = new ReadStream(request, requestBuf.getStreamId(), ctx);
     requestExecutor.execute(() -> {
       try {
         division.getStateMachine().data().query(request.getMessage(), stream);

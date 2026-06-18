@@ -295,12 +295,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     @Override
     protected void encode(ChannelHandlerContext context, DataStreamReply reply, List<Object> out) {
       if (reply instanceof DataStreamReplyByteBuffer) {
-        NettyDataStreamUtils.encodeDataStreamReplyByteBuffer((DataStreamReplyByteBuffer) reply, out::add,
-            context.alloc());
+        NettyDataStreamUtils.encodeDataStreamReply((DataStreamReplyByteBuffer) reply, out::add, context.alloc());
       } else if (reply instanceof DataStreamReplyByteBuf) {
-        try (DataStreamReplyByteBuf byteBufReply = (DataStreamReplyByteBuf) reply) {
-          NettyDataStreamUtils.encodeDataStreamReplyByteBuf(byteBufReply, out::add, context.alloc());
-        }
+        NettyDataStreamUtils.encodeDataStreamReply((DataStreamReplyByteBuf) reply, out::add, context.alloc());
       } else {
         throw new IllegalArgumentException("Unexpected DataStreamReply class " + reply.getClass());
       }

@@ -23,6 +23,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.StringUtils;
 
+import java.nio.ByteBuffer;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -53,6 +54,10 @@ public interface Message {
 
   static Message valueOf(ByteString bytes) {
     return valueOf(bytes, () -> "Message:" + StringUtils.bytes2ShortString(bytes));
+  }
+
+  static Message valueOf(ByteBuffer bytes) {
+    return valueOf(ByteString.copyFrom(bytes));
   }
 
   static Message valueOf(String string) {

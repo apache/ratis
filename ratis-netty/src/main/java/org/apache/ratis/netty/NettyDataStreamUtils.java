@@ -151,14 +151,22 @@ public interface NettyDataStreamUtils {
     out.accept(new DefaultFileRegion(f.getFile(), f.getPosition(), f.getCount()));
   }
 
-  static void encodeDataStreamReplyByteBuffer(DataStreamReplyByteBuffer reply, Consumer<ByteBuf> out,
+  static void encodeDataStreamReply(DataStreamReply reply, ByteBuf body, Consumer<Object> out,
       ByteBufAllocator allocator) {
-    ByteBuffer headerBuf = getDataStreamReplyHeaderProtoByteBuf(reply);
+    final ByteBuffer headerBuf = getDataStreamReplyHeaderProtoByteBuf(reply);
     final ByteBuf headerLenBuf = allocator.ioBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
     headerLenBuf.writeInt(headerBuf.remaining());
     out.accept(headerLenBuf);
     out.accept(Unpooled.wrappedBuffer(headerBuf));
-    out.accept(Unpooled.wrappedBuffer(reply.slice()));
+    encodeByteBuf(body, out);
+  }
+
+  static void encodeDataStreamReply(DataStreamReplyByteBuffer reply, Consumer<Object> out, ByteBufAllocator allocator) {
+    encodeDataStreamReply(reply, Unpooled.wrappedBuffer(reply.slice()), out, allocator);
+  }
+
+  static void encodeDataStreamReply(DataStreamReplyByteBuf reply, Consumer<Object> out, ByteBufAllocator allocator) {
+    encodeDataStreamReply(reply, reply.slice(), out, allocator);
   }
 
   static void encodeDataStreamReplyByteBuf(DataStreamReplyByteBuf reply, Consumer<ByteBuf> out,
@@ -226,18 +234,12 @@ public interface NettyDataStreamUtils {
     }
   }
 
-  static ByteBuffer copy(ByteBuf buf) {
-    final byte[] bytes = new byte[buf.readableBytes()];
-    buf.readBytes(bytes);
-    return ByteBuffer.wrap(bytes);
-  }
-
-  static DataStreamReplyByteBuffer decodeDataStreamReplyByteBuffer(ByteBuf buf) {
+  static DataStreamReplyByteBuf decodeDataStreamReplyByteBuf(ByteBuf buf) {
     return Optional.ofNullable(decodeDataStreamReplyHeader(buf))
         .map(header -> checkHeader(header, buf))
-        .map(header -> DataStreamReplyByteBuffer.newBuilder()
+        .map(header -> DataStreamReplyByteBuf.newBuilder()
             .setDataStreamReplyHeader(header)
-            .setBuffer(decodeData(buf, header, NettyDataStreamUtils::copy))
+            .setBuf(decodeData(buf, header, ByteBuf::retainedSlice))
             .build())
         .orElse(null);
   }
