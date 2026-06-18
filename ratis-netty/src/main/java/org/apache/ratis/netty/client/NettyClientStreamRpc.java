@@ -340,15 +340,15 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     }
 
     synchronized boolean receiveReply(DataStreamReply reply) {
-      NettyClientReplies.ReplyEntry.cancel(timeoutFuture);
+      NettyUtils.cancel(timeoutFuture);
       final boolean terminal = !reply.isSuccess() || terminalEntry.equals(new NettyClientReplies.RequestEntry(reply));
-      final DataStreamReply replyToComplete = terminal && reply instanceof DataStreamReplyByteBuf ?
+      final DataStreamReply replyToComplete = reply instanceof DataStreamReplyByteBuf ?
           NettyDataStreamUtils.toDataStreamReplyByteBuffer((DataStreamReplyByteBuf) reply) : reply;
       try {
         replyConsumer.accept(replyToComplete);
       } catch (Throwable t) {
         if (replyToComplete == reply) {
-          DataStreamReplyByteBuf.release(reply);
+          DataStreamReplyByteBuf.release(replyToComplete);
         }
         completeExceptionally(t);
         return true;
@@ -363,7 +363,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     }
 
     synchronized void completeExceptionally(Throwable t) {
-      NettyClientReplies.ReplyEntry.cancel(timeoutFuture);
+      NettyUtils.cancel(timeoutFuture);
       replyFuture.completeExceptionally(t);
     }
 
@@ -450,13 +450,10 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
         final DataStreamReply replyToReceive;
         try {
-          replyToReceive = reply instanceof DataStreamReplyByteBuf ?
-              NettyDataStreamUtils.toDataStreamReplyByteBuffer((DataStreamReplyByteBuf) reply) : reply;
+          replyToReceive = NettyDataStreamUtils.toDataStreamReplyByteBuffer(reply);
         } catch (Throwable cause) {
-          try (DataStreamReply replyToClose = reply) {
-            LOG.warn("{} : channelRead error for {}:", name, replyToClose.getClass().getSimpleName(), cause);
-            replyMap.completeExceptionally(cause);
-          }
+          LOG.warn("{} : channelRead error for {}:", name, reply.getClass().getSimpleName(), cause);
+          replyMap.completeExceptionally(cause);
           return;
         }
 

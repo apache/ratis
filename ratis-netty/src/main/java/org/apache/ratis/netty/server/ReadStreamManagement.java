@@ -64,21 +64,9 @@ public class ReadStreamManagement {
     ReadStream(RaftClientRequest request, long streamId, ChannelHandlerContext ctx) {
       this.clientId = request.getClientId();
       this.streamId = streamId;
+      this.request = request;
       this.ctx = ctx;
-
-      final RaftClientReply reply = RaftClientReply.newBuilder()
-          .setRequest(request)
-          .setSuccess()
-          .build();
-      this.terminalReply = DataStreamReplyByteBuffer.newBuilder()
-          .setClientId(clientId)
-          .setType(Type.STREAM_HEADER)
-          .setStreamId(streamId)
-          .setStreamOffset(0)
-          .setBuffer(toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer())
-          .setSuccess(true)
-          .setBytesWritten(0)
-          .build();
+      this.terminalReply = newTerminalReply();
     }
 
     @Override

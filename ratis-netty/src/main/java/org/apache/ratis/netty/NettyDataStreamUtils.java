@@ -246,26 +246,10 @@ public interface NettyDataStreamUtils {
 
   static DataStreamReplyByteBuffer toDataStreamReplyByteBuffer(DataStreamReplyByteBuf reply) {
     try {
-      return DataStreamReplyByteBuffer.newBuilder()
-          .setDataStreamPacket(reply)
-          .setBuffer(copy(reply.slice()))
-          .setSuccess(reply.isSuccess())
-          .setBytesWritten(reply.getBytesWritten())
-          .setCommitInfos(reply.getCommitInfos())
-          .build();
+      return reply.copy();
     } finally {
       reply.release();
     }
-  }
-
-  static DataStreamReplyByteBuf decodeDataStreamReplyByteBuf(ByteBuf buf) {
-    return Optional.ofNullable(decodeDataStreamReplyHeader(buf))
-        .map(header -> checkHeader(header, buf))
-        .map(header -> DataStreamReplyByteBuf.newBuilder()
-            .setDataStreamReplyHeader(header)
-            .setBuf(decodeData(buf, header, ByteBuf::retainedSlice))
-            .build())
-        .orElse(null);
   }
 
   static DataStreamReplyHeader decodeDataStreamReplyHeader(ByteBuf buf) {
