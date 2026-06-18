@@ -18,6 +18,7 @@
 package org.apache.ratis.netty;
 
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestFilePositionCount;
 import org.apache.ratis.io.FilePositionCount;
@@ -30,6 +31,7 @@ import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamPacketHeader;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
+import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
@@ -80,7 +82,7 @@ public interface NettyDataStreamUtils {
         .asReadOnlyByteBuffer();
   }
 
-  static ByteBuffer getDataStreamReplyHeaderProtoByteBuf(DataStreamReplyByteBuffer reply) {
+  static ByteBuffer getDataStreamReplyHeaderProtoByteBuf(DataStreamReply reply) {
     DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto
         .newBuilder()
         .setClientId(reply.getClientId().toByteString())
@@ -149,14 +151,22 @@ public interface NettyDataStreamUtils {
     out.accept(new DefaultFileRegion(f.getFile(), f.getPosition(), f.getCount()));
   }
 
-  static void encodeDataStreamReplyByteBuffer(DataStreamReplyByteBuffer reply, Consumer<ByteBuf> out,
+  static void encodeDataStreamReply(DataStreamReply reply, ByteBuf body, Consumer<Object> out,
       ByteBufAllocator allocator) {
-    ByteBuffer headerBuf = getDataStreamReplyHeaderProtoByteBuf(reply);
+    final ByteBuffer headerBuf = getDataStreamReplyHeaderProtoByteBuf(reply);
     final ByteBuf headerLenBuf = allocator.ioBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
     headerLenBuf.writeInt(headerBuf.remaining());
     out.accept(headerLenBuf);
     out.accept(Unpooled.wrappedBuffer(headerBuf));
-    out.accept(Unpooled.wrappedBuffer(reply.slice()));
+    encodeByteBuf(body, out);
+  }
+
+  static void encodeDataStreamReply(DataStreamReplyByteBuffer reply, Consumer<Object> out, ByteBufAllocator allocator) {
+    encodeDataStreamReply(reply, Unpooled.wrappedBuffer(reply.slice()), out, allocator);
+  }
+
+  static void encodeDataStreamReply(DataStreamReplyByteBuf reply, Consumer<Object> out, ByteBufAllocator allocator) {
+    encodeDataStreamReply(reply, reply.slice(), out, allocator);
   }
 
   static DataStreamRequestByteBuf decodeDataStreamRequestByteBuf(ByteBuf buf) {
@@ -208,18 +218,12 @@ public interface NettyDataStreamUtils {
     }
   }
 
-  static ByteBuffer copy(ByteBuf buf) {
-    final byte[] bytes = new byte[buf.readableBytes()];
-    buf.readBytes(bytes);
-    return ByteBuffer.wrap(bytes);
-  }
-
-  static DataStreamReplyByteBuffer decodeDataStreamReplyByteBuffer(ByteBuf buf) {
+  static DataStreamReplyByteBuf decodeDataStreamReplyByteBuf(ByteBuf buf) {
     return Optional.ofNullable(decodeDataStreamReplyHeader(buf))
         .map(header -> checkHeader(header, buf))
-        .map(header -> DataStreamReplyByteBuffer.newBuilder()
+        .map(header -> DataStreamReplyByteBuf.newBuilder()
             .setDataStreamReplyHeader(header)
-            .setBuffer(decodeData(buf, header, NettyDataStreamUtils::copy))
+            .setBuf(decodeData(buf, header, ByteBuf::retainedSlice))
             .build())
         .orElse(null);
   }

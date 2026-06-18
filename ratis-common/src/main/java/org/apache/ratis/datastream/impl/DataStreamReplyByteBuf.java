@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 
@@ -30,7 +31,7 @@ import java.util.Collections;
  * <p>
  * This class is immutable.
  */
-public final class DataStreamReplyByteBuf extends DataStreamPacketByteBuf implements DataStreamReply {
+public final class DataStreamReplyByteBuf extends DataStreamPacketByteBuf implements DataStreamReply, AutoCloseable {
   public static final class Builder extends DataStreamReplyBuilder<Builder> {
     private ByteBuf buf;
 
@@ -91,9 +92,30 @@ public final class DataStreamReplyByteBuf extends DataStreamPacketByteBuf implem
   }
 
   @Override
+  public void close() {
+    release();
+  }
+
+  @Override
   public String toString() {
     return super.toString()
         + "," + (success ? "SUCCESS" : "FAILED")
         + ",bytesWritten=" + bytesWritten;
+  }
+
+  public DataStreamReplyByteBuffer copy() {
+    return DataStreamReplyByteBuffer.newBuilder()
+        .setDataStreamPacket(this)
+        .setBuffer(copy(slice()))
+        .setSuccess(isSuccess())
+        .setBytesWritten(getBytesWritten())
+        .setCommitInfos(getCommitInfos())
+        .build();
+  }
+
+  static ByteBuffer copy(ByteBuf buf) {
+    final byte[] bytes = new byte[buf.readableBytes()];
+    buf.readBytes(bytes);
+    return ByteBuffer.wrap(bytes);
   }
 }

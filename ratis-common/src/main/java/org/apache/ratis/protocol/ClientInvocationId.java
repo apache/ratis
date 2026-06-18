@@ -37,6 +37,10 @@ public final class ClientInvocationId {
     return valueOf(message.getClientId(), message.getCallId());
   }
 
+  public static ClientInvocationId valueOf(DataStreamPacket packet) {
+    return valueOf(packet.getClientId(), packet.getStreamId());
+  }
+
   public static ClientInvocationId valueOf(StateMachineLogEntryProto proto) {
     return valueOf(ClientId.valueOf(proto.getClientId()), proto.getCallId());
   }
