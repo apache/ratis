@@ -24,7 +24,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
 import org.apache.ratis.datastream.DataStreamTestUtils.SingleDataStream;
@@ -155,17 +154,6 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
         final DataStreamReply data = in.readAsync().join();
         DataStreamTestUtils.assertSuccessReply(Type.STREAM_DATA, chunk.size(), data);
         Assertions.assertEquals(chunk, toByteString(data));
-      }
-
-      final DataStreamReply reply = in.readAsync().join();
-      DataStreamTestUtils.assertSuccessReply(Type.STREAM_HEADER, 0, reply);
-
-      try {
-        final RaftClientReply clientReply = ClientProtoUtils.getRaftClientReply(reply);
-        Assertions.assertTrue(clientReply.isSuccess());
-        Assertions.assertEquals(primaryServer.getId(), clientReply.getServerId());
-      } finally {
-        DataStreamReplyByteBuf.release(reply);
       }
 
       final ExecutionException eof = Assertions.assertThrows(ExecutionException.class,

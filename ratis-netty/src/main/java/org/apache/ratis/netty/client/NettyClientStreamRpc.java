@@ -345,21 +345,17 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       final DataStreamReply replyToComplete;
       try {
         replyToComplete = terminal? reply.copy(): null;
-        replyHandler.onNext(reply);
+        if (terminal && reply.isSuccess()) {
+          replyHandler.onCompleted();
+        } else {
+          replyHandler.onNext(reply);
+        }
       } catch (Throwable t) {
         completeExceptionally(t);
         return true;
       }
 
       if (terminal) {
-        try {
-          if (reply.isSuccess()) {
-            replyHandler.onCompleted();
-          }
-        } catch (Throwable t) {
-          completeExceptionally(t);
-          return true;
-        }
         replyFuture.complete(replyToComplete);
         return true;
       }

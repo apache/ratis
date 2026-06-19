@@ -25,6 +25,7 @@ import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.DataStreamObserver;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -259,7 +260,22 @@ public class DataStreamClientImpl implements DataStreamClient {
       final DataStreamRequestHeader h = new DataStreamRequestHeader(header.getClientId(), Type.STREAM_HEADER,
           header.getCallId(), 0, buffer.remaining(), StandardWriteOption.FLUSH, StandardWriteOption.CLOSE);
       this.replyFuture = dataStreamClientRpc.streamAsync(new DataStreamRequestByteBuffer(h, buffer),
-          reply -> receive(reply.copy()));
+          new DataStreamObserver<DataStreamReplyByteBuf>() {
+            @Override
+            public void onNext(DataStreamReplyByteBuf reply) {
+              receive(reply.copy());
+            }
+
+            @Override
+            public void onError(Throwable t) {
+              failReads(t);
+            }
+
+            @Override
+            public void onCompleted() {
+              markEndOfStream();
+            }
+          });
       replyFuture.whenComplete((reply, exception) -> {
         if (exception != null) {
           failReads(exception);
