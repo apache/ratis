@@ -18,23 +18,28 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.client.api.DataStreamInput;
+import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
 import org.apache.ratis.datastream.DataStreamTestUtils.SingleDataStream;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.DataStreamRequest;
+import org.apache.ratis.protocol.DataStreamRequestHeader;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -45,14 +50,13 @@ import org.apache.ratis.util.function.CheckedConsumer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.io.EOFException;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -147,33 +151,58 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
   void runTestStreamReadOnly(CLUSTER cluster, RaftPeer leader, RaftPeer primaryServer) throws Exception {
     final ByteString query = ByteString.copyFromUtf8("stream-read-only");
     try (RaftClient client = cluster.createClient(leader.getId(), cluster.getGroup(), RetryPolicies.noRetry(),
-        primaryServer);
-         DataStreamInput in = client.getDataStreamApi().streamReadOnly(query.asReadOnlyByteBuffer())) {
-      for (int i = 0; i < MultiDataStreamStateMachine.READ_ONLY_STREAM_CHUNKS; i++) {
-        final ByteString chunk = MultiDataStreamStateMachine.getReadOnlyStreamChunk(query, i);
-        final DataStreamReply data = in.readAsync().join();
-        DataStreamTestUtils.assertSuccessReply(Type.STREAM_DATA, chunk.size(), data);
-        Assertions.assertEquals(chunk, toByteString(data));
-      }
+        primaryServer)) {
+      final AtomicInteger replyCount = new AtomicInteger();
+      final CompletableFuture<Void> completed = new CompletableFuture<>();
+      final DataStreamClient dataStreamClient = (DataStreamClient) client.getDataStreamApi();
+      final CompletableFuture<DataStreamReply> terminalReplyFuture = dataStreamClient.getClientRpc().streamAsync(
+          newReadOnlyStreamRequest(client, primaryServer, query), new DataStreamObserver<DataStreamReplyByteBuf>() {
+            @Override
+            public void onNext(DataStreamReplyByteBuf reply) {
+              final int i = replyCount.getAndIncrement();
+              Assertions.assertTrue(i < MultiDataStreamStateMachine.READ_ONLY_STREAM_CHUNKS);
 
-      final ExecutionException eof = Assertions.assertThrows(ExecutionException.class,
-          () -> in.readAsync().get(1, TimeUnit.SECONDS));
-      Assertions.assertInstanceOf(EOFException.class, eof.getCause());
+              final ByteString chunk = MultiDataStreamStateMachine.getReadOnlyStreamChunk(query, i);
+              DataStreamTestUtils.assertSuccessReply(Type.STREAM_DATA, chunk.size(), reply);
+              Assertions.assertEquals(chunk, ByteString.copyFrom(reply.slice().nioBuffer()));
+            }
+
+            @Override
+            public void onError(Throwable t) {
+              completed.completeExceptionally(t);
+            }
+
+            @Override
+            public void onCompleted() {
+              completed.complete(null);
+            }
+          });
+
+      completed.get(1, TimeUnit.SECONDS);
+      Assertions.assertEquals(MultiDataStreamStateMachine.READ_ONLY_STREAM_CHUNKS, replyCount.get());
+      final DataStreamReply terminalReply = terminalReplyFuture.get(1, TimeUnit.SECONDS);
+      try {
+        DataStreamTestUtils.assertSuccessReply(Type.STREAM_HEADER, 0, terminalReply);
+      } finally {
+        DataStreamReplyByteBuf.release(terminalReply);
+      }
     }
   }
 
-  private static ByteString toByteString(DataStreamReply reply) {
-    try {
-      if (reply instanceof DataStreamReplyByteBuffer) {
-        final ByteBuffer buffer = ((DataStreamReplyByteBuffer) reply).slice();
-        return ByteString.copyFrom(buffer);
-      } else if (reply instanceof DataStreamReplyByteBuf) {
-        return ByteString.copyFrom(((DataStreamReplyByteBuf) reply).slice().nioBuffer());
-      }
-      throw new AssertionError("Unexpected reply " + reply);
-    } finally {
-      DataStreamReplyByteBuf.release(reply);
-    }
+  private static DataStreamRequest newReadOnlyStreamRequest(RaftClient client, RaftPeer primaryServer,
+      ByteString query) {
+    final RaftClientRequest request = RaftClientRequest.newBuilder()
+        .setClientId(client.getId())
+        .setServerId(primaryServer.getId())
+        .setGroupId(client.getGroupId())
+        .setCallId(CallId.getAndIncrement())
+        .setMessage(Message.valueOf(query))
+        .setType(RaftClientRequest.readRequestType())
+        .build();
+    final ByteBuffer buffer = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(request);
+    final DataStreamRequestHeader header = new DataStreamRequestHeader(request.getClientId(), Type.STREAM_HEADER,
+        request.getCallId(), 0, buffer.remaining(), StandardWriteOption.FLUSH, StandardWriteOption.CLOSE);
+    return new DataStreamRequestByteBuffer(header, buffer);
   }
 
   void runTestInvalidPrimaryInRoutingTable(CLUSTER cluster) throws Exception {

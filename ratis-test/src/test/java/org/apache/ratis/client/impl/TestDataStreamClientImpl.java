@@ -37,8 +37,10 @@ import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.EOFException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TestDataStreamClientImpl {
@@ -49,6 +51,7 @@ public class TestDataStreamClientImpl {
   private static class RecordingDataStreamClientRpc implements DataStreamClientRpc {
     private final AtomicReference<RaftClientRequest> request = new AtomicReference<>();
     private final AtomicReference<DataStreamObserver<DataStreamReplyByteBuf>> replyHandler = new AtomicReference<>();
+    private final AtomicReference<CompletableFuture<DataStreamReply>> replyFuture = new AtomicReference<>();
 
     @Override
     public CompletableFuture<DataStreamReply> streamAsync(
@@ -60,7 +63,9 @@ public class TestDataStreamClientImpl {
         throw new IllegalStateException(e);
       }
       this.replyHandler.set(replyHandler);
-      return new CompletableFuture<>();
+      final CompletableFuture<DataStreamReply> future = new CompletableFuture<>();
+      replyFuture.set(future);
+      return future;
     }
 
     RaftClientRequest getRequest() {
@@ -71,6 +76,16 @@ public class TestDataStreamClientImpl {
       try (DataStreamReplyByteBuf r = reply) {
         replyHandler.get().onNext(r);
       }
+    }
+
+    void complete() {
+      replyHandler.get().onCompleted();
+      replyFuture.get().complete(null);
+    }
+
+    void completeExceptionally(Throwable cause) {
+      replyHandler.get().onError(cause);
+      replyFuture.get().completeExceptionally(cause);
     }
 
     @Override
@@ -123,5 +138,44 @@ public class TestDataStreamClientImpl {
       Assertions.assertInstanceOf(DataStreamReplyByteBuffer.class, received);
       Assertions.assertEquals(Type.STREAM_DATA, received.getType());
     }
+  }
+
+  @Test
+  public void testReadOnlyInputCompletesPendingReadOnCompleted() throws Exception {
+    final RaftPeer follower = newPeer("follower");
+    final RecordingDataStreamClientRpc dataStreamClientRpc = new RecordingDataStreamClientRpc();
+
+    try (DataStreamClient dataStreamClient = newDataStreamClient(follower, dataStreamClientRpc);
+         DataStreamInput input = dataStreamClient.streamReadOnly(ByteBuffer.wrap(new byte[] {1}))) {
+      final CompletableFuture<DataStreamReply> pending = input.readAsync();
+
+      dataStreamClientRpc.complete();
+
+      assertFutureCause(pending, EOFException.class);
+      assertFutureCause(input.readAsync(), EOFException.class);
+    }
+  }
+
+  @Test
+  public void testReadOnlyInputNotifiesPendingReadOnError() throws Exception {
+    final RaftPeer follower = newPeer("follower");
+    final RecordingDataStreamClientRpc dataStreamClientRpc = new RecordingDataStreamClientRpc();
+
+    try (DataStreamClient dataStreamClient = newDataStreamClient(follower, dataStreamClientRpc);
+         DataStreamInput input = dataStreamClient.streamReadOnly(ByteBuffer.wrap(new byte[] {1}))) {
+      final CompletableFuture<DataStreamReply> pending = input.readAsync();
+      final Throwable cause = new IllegalStateException("test");
+
+      dataStreamClientRpc.completeExceptionally(cause);
+
+      Assertions.assertSame(cause, assertFutureCause(pending, IllegalStateException.class));
+      Assertions.assertSame(cause, assertFutureCause(input.readAsync(), IllegalStateException.class));
+    }
+  }
+
+  private static <T extends Throwable> Throwable assertFutureCause(
+      CompletableFuture<?> future, Class<T> expectedCauseClass) {
+    final ExecutionException exception = Assertions.assertThrows(ExecutionException.class, future::get);
+    return Assertions.assertInstanceOf(expectedCauseClass, exception.getCause());
   }
 }

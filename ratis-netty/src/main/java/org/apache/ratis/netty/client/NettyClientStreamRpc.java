@@ -454,19 +454,10 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
           return;
         }
 
-        final DataStreamReply replyToReceive;
         try {
-          replyToReceive = NettyDataStreamUtils.toDataStreamReplyByteBuffer(reply);
+          replyMap.receiveReply(NettyDataStreamUtils.toDataStreamReplyByteBuffer(reply));
         } catch (Throwable cause) {
           LOG.warn("{} : channelRead error for {}:", name, reply.getClass().getSimpleName(), cause);
-          replyMap.completeExceptionally(cause);
-          return;
-        }
-
-        try {
-          replyMap.receiveReply(replyToReceive);
-        } catch (Throwable cause) {
-          LOG.warn("{} : channelRead error for {}", name, reply, cause);
           replyMap.completeExceptionally(cause);
         }
       }
