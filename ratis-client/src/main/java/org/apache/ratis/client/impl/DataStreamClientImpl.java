@@ -344,6 +344,9 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     @Override
     public synchronized void close() {
+      if (closed) {
+          return;
+      }
       closed = true;
       for (DataStreamReply reply; (reply = replies.poll()) != null;) {
         DataStreamReplyByteBuf.release(reply);
