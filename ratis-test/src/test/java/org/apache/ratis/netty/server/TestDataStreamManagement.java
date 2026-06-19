@@ -87,37 +87,14 @@ class TestDataStreamManagement {
         streamRef.set(stream);
       }
     };
-    final StateMachine stateMachine = new BaseStateMachine() {
-      @Override
-      public DataApi data() {
-        return dataApi;
-      }
-    };
-    final RaftServer server = newRaftServer(serverId, new RaftProperties(), groupId, newDivision(stateMachine));
-    final ReadStreamManagement management = new ReadStreamManagement(server);
+    final ReadStreamManagement management = newReadStreamManagement(serverId, groupId, dataApi);
     final EmbeddedChannel embeddedChannel = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
 
-    final RaftClientRequest raftClientRequest = RaftClientRequest.newBuilder()
-        .setClientId(clientId)
-        .setServerId(serverId)
-        .setGroupId(groupId)
-        .setCallId(1L)
-        .setMessage(Message.valueOf(query))
-        .setType(RaftClientRequest.readRequestType())
-        .build();
-    final ByteBuffer header = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(raftClientRequest);
-    final ByteBuf headerBuf = Unpooled.wrappedBuffer(header);
-    final DataStreamRequestByteBuf request = new DataStreamRequestByteBuf(
-        clientId,
-        Type.STREAM_HEADER,
-        raftClientRequest.getCallId(),
-        0L,
-        Collections.singletonList(StandardWriteOption.FLUSH),
-        headerBuf);
+    final ReadOnlyRequest readOnlyRequest = newReadOnlyRequest(clientId, serverId, groupId, 1L, query);
 
     try {
-      assertTrue(management.process(request, embeddedChannel.pipeline().firstContext()));
-      assertEquals(0, headerBuf.refCnt());
+      assertTrue(management.process(readOnlyRequest.request, embeddedChannel.pipeline().firstContext()));
+      assertEquals(0, readOnlyRequest.headerBuf.refCnt());
 
       final WritableByteChannel stream = streamRef.get();
       assertNotNull(stream);
@@ -162,38 +139,15 @@ class TestDataStreamManagement {
         queryDone.countDown();
       }
     };
-    final StateMachine stateMachine = new BaseStateMachine() {
-      @Override
-      public DataApi data() {
-        return dataApi;
-      }
-    };
-    final RaftServer server = newRaftServer(serverId, new RaftProperties(), groupId, newDivision(stateMachine));
-    final ReadStreamManagement management = new ReadStreamManagement(server);
-
-    final RaftClientRequest raftClientRequest = RaftClientRequest.newBuilder()
-        .setClientId(clientId)
-        .setServerId(serverId)
-        .setGroupId(groupId)
-        .setCallId(1L)
-        .setMessage(Message.valueOf(ByteString.copyFromUtf8("query")))
-        .setType(RaftClientRequest.readRequestType())
-        .build();
-    final ByteBuffer header = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(raftClientRequest);
-    final ByteBuf headerBuf = Unpooled.wrappedBuffer(header);
-    final DataStreamRequestByteBuf request = new DataStreamRequestByteBuf(
-        clientId,
-        Type.STREAM_HEADER,
-        raftClientRequest.getCallId(),
-        0L,
-        Collections.singletonList(StandardWriteOption.FLUSH),
-        headerBuf);
+    final ReadStreamManagement management = newReadStreamManagement(serverId, groupId, dataApi);
+    final ReadOnlyRequest readOnlyRequest = newReadOnlyRequest(
+        clientId, serverId, groupId, 1L, ByteString.copyFromUtf8("query"));
 
     try {
-      eventLoop.submit(() -> assertTrue(management.process(request, ctx))).sync();
+      eventLoop.submit(() -> assertTrue(management.process(readOnlyRequest.request, ctx))).sync();
 
       assertTrue(queryDone.await(10, TimeUnit.SECONDS));
-      assertEquals(0, headerBuf.refCnt());
+      assertEquals(0, readOnlyRequest.headerBuf.refCnt());
       assertFalse(queryInEventLoop.get(), "read-only state machine query should not run on Netty event loop");
     } finally {
       embeddedChannel.finishAndReleaseAll();
@@ -240,6 +194,49 @@ class TestDataStreamManagement {
       embeddedChannel.finishAndReleaseAll();
       management.shutdown();
     }
+  }
+
+  private static class ReadOnlyRequest {
+    private final DataStreamRequestByteBuf request;
+    private final ByteBuf headerBuf;
+
+    ReadOnlyRequest(DataStreamRequestByteBuf request, ByteBuf headerBuf) {
+      this.request = request;
+      this.headerBuf = headerBuf;
+    }
+  }
+
+  private static ReadStreamManagement newReadStreamManagement(
+      RaftPeerId serverId, RaftGroupId groupId, DataApi dataApi) {
+    final StateMachine stateMachine = new BaseStateMachine() {
+      @Override
+      public DataApi data() {
+        return dataApi;
+      }
+    };
+    final RaftServer server = newRaftServer(serverId, new RaftProperties(), groupId, newDivision(stateMachine));
+    return new ReadStreamManagement(server);
+  }
+
+  private static ReadOnlyRequest newReadOnlyRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
+      long callId, ByteString query) {
+    final RaftClientRequest raftClientRequest = RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(serverId)
+        .setGroupId(groupId)
+        .setCallId(callId)
+        .setMessage(Message.valueOf(query))
+        .setType(RaftClientRequest.readRequestType())
+        .build();
+    final ByteBuffer header = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(raftClientRequest);
+    final ByteBuf headerBuf = Unpooled.wrappedBuffer(header);
+    return new ReadOnlyRequest(new DataStreamRequestByteBuf(
+        clientId,
+        Type.STREAM_HEADER,
+        raftClientRequest.getCallId(),
+        0L,
+        Collections.singletonList(StandardWriteOption.FLUSH),
+        headerBuf), headerBuf);
   }
 
   private static void assertSuccessReply(Type expectedType, long expectedBytesWritten, DataStreamReply reply) {

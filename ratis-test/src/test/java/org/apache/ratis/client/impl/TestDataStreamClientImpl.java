@@ -101,18 +101,6 @@ public class TestDataStreamClientImpl {
   }
 
   @Test
-  public void testStreamReadOnlyUsesPrimaryDataStreamServer() throws Exception {
-    final RaftPeer follower = newPeer("follower");
-    final RecordingDataStreamClientRpc dataStreamClientRpc = new RecordingDataStreamClientRpc();
-
-    try (DataStreamClient dataStreamClient = newDataStreamClient(follower, dataStreamClientRpc);
-         DataStreamInput input = dataStreamClient.streamReadOnly(ByteBuffer.wrap(new byte[] {1}))) {
-      Assertions.assertNotNull(input);
-      Assertions.assertEquals(follower.getId(), dataStreamClientRpc.getRequest().getServerId());
-    }
-  }
-
-  @Test
   public void testReceiveSkipsCancelledPendingRead() throws Exception {
     final RaftPeer follower = newPeer("follower");
     final RecordingDataStreamClientRpc dataStreamClientRpc = new RecordingDataStreamClientRpc();
@@ -122,6 +110,7 @@ public class TestDataStreamClientImpl {
       final CompletableFuture<DataStreamReply> cancelled = input.readAsync();
       final CompletableFuture<DataStreamReply> active = input.readAsync();
       cancelled.cancel(false);
+      Assertions.assertEquals(follower.getId(), dataStreamClientRpc.getRequest().getServerId());
 
       final DataStreamReplyByteBuf reply = DataStreamReplyByteBuf.newBuilder()
           .setClientId(ClientId.randomId())
