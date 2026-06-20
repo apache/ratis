@@ -18,6 +18,7 @@
 package org.apache.ratis.client.api;
 
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
@@ -28,10 +29,10 @@ import java.util.concurrent.CompletableFuture;
 public interface DataStreamInput extends Closeable {
   /**
    * Read the next chunk in the stream asynchronously.
-   * The caller owns the returned {@link DataStreamReply} and should call
-   * {@link DataStreamReply#release()} after consuming it.
+   * The caller owns the returned {@link DataStreamReply} which is a {@link ReferenceCountedObject}.
+   * It must call {@link ReferenceCountedObject#release()} after consuming it.
    *
-   * @return a future of the reply.
+   * @return a future of the reference-counted reply.
    */
-  CompletableFuture<DataStreamReply> readAsync();
+  CompletableFuture<ReferenceCountedObject<DataStreamReply>> readAsync();
 }

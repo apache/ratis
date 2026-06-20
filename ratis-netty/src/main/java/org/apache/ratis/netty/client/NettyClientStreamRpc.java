@@ -19,9 +19,10 @@
 package org.apache.ratis.netty.client;
 
 import org.apache.ratis.client.DataStreamClientRpc;
+import org.apache.ratis.datastream.DataStreamObserver;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.DataStreamObserver;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
@@ -57,7 +58,6 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
-import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedFunction;
 import org.apache.ratis.util.MemoizedSupplier;
@@ -66,6 +66,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -325,72 +326,11 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     }
   }
 
-  static class ReadOnlyStreamingReply {
-    private final NettyClientReplies.RequestEntry terminalEntry;
-    private final CompletableFuture<DataStreamReply> replyFuture;
-    private final DataStreamObserver<DataStreamReplyByteBuf> replyHandler;
-    private Supplier<ScheduledFuture<?>> timeoutScheduler;
-    private ScheduledFuture<?> timeoutFuture;
-
-    ReadOnlyStreamingReply(DataStreamRequest request, CompletableFuture<DataStreamReply> replyFuture,
-        DataStreamObserver<DataStreamReplyByteBuf> replyHandler) {
-      this.terminalEntry = new NettyClientReplies.RequestEntry(request);
-      this.replyFuture = replyFuture;
-      this.replyHandler = replyHandler;
-    }
-
-    synchronized boolean receiveReply(DataStreamReplyByteBuf reply) {
-      NettyUtils.cancel(timeoutFuture);
-      final boolean terminal = !reply.isSuccess() || terminalEntry.equals(new NettyClientReplies.RequestEntry(reply));
-      final DataStreamReply replyToComplete;
-      try {
-        replyToComplete = terminal? reply.copy(): null;
-        if (terminal && reply.isSuccess()) {
-          replyHandler.onCompleted();
-        } else {
-          replyHandler.onNext(reply);
-        }
-      } catch (Throwable t) {
-        completeExceptionally(t);
-        return true;
-      }
-
-      if (terminal) {
-        replyFuture.complete(replyToComplete);
-        return true;
-      }
-      scheduleTimeout();
-      return false;
-    }
-
-    synchronized void completeExceptionally(Throwable t) {
-      NettyUtils.cancel(timeoutFuture);
-      try {
-        replyHandler.onError(t);
-      } catch (Throwable e) {
-        LOG.warn("Failed to notify read-only stream observer", e);
-      }
-      replyFuture.completeExceptionally(t);
-    }
-
-    synchronized void scheduleTimeout(Supplier<ScheduledFuture<?>> scheduleMethod) {
-      timeoutScheduler = scheduleMethod;
-      scheduleTimeout();
-    }
-
-    private void scheduleTimeout() {
-      if (!replyFuture.isDone() && timeoutScheduler != null) {
-        timeoutFuture = timeoutScheduler.get();
-      }
-    }
-  }
-
   private final String name;
   private final Connection connection;
 
   private final NettyClientReplies replies = new NettyClientReplies();
-  private final ConcurrentMap<ClientInvocationId, ReadOnlyStreamingReply> readOnlyStreamingReplies
-      = new ConcurrentHashMap<>();
+  private final ConcurrentMap<ClientInvocationId, ClientReadStream> readStreams = new ConcurrentHashMap<>();
   private final TimeDuration requestTimeout;
   private final TimeDuration closeTimeout;
 
@@ -424,38 +364,48 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
           LOG.error("{}: unexpected message {}", name, msg.getClass());
           return;
         }
-        try (DataStreamReplyByteBuf reply = (DataStreamReplyByteBuf) msg) {
-          process(reply);
+        final DataStreamReplyByteBuf reply = (DataStreamReplyByteBuf) msg;
+        final ReferenceCountedObject<DataStreamReply> ref = ReferenceCountedObject.<DataStreamReply>newBuilder()
+            .setValue((DataStreamReplyByteBuf) msg)
+            .setReleaseMethod(r -> {
+              if (r != null) {
+                Preconditions.assertSame(reply, r, "reply");
+                reply.release();
+              }
+            }).build();
+        try (UncheckedAutoCloseableSupplier<DataStreamReply> ignored = ref.retainAndReleaseOnClose()) {
+          process(ref);
         }
       }
 
-      private void process(DataStreamReplyByteBuf reply) {
-        LOG.debug("{}: read {}", name, reply);
-        final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(
-            reply.getClientId(), reply.getStreamId());
-        final ReadOnlyStreamingReply readOnlyStreamingReply = readOnlyStreamingReplies.get(clientInvocationId);
-        if (readOnlyStreamingReply != null) {
+      private void process(ReferenceCountedObject<DataStreamReply> ref) {
+        final DataStreamReplyByteBuf replyByteBuf = (DataStreamReplyByteBuf) ref.get();
+        LOG.debug("{}: read {}", name, replyByteBuf);
+        final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(replyByteBuf);
+        final ClientReadStream clientReadStream = readStreams.get(clientInvocationId);
+        if (clientReadStream != null) {
           try {
-            if (readOnlyStreamingReply.receiveReply(reply)) {
-              readOnlyStreamingReplies.remove(clientInvocationId, readOnlyStreamingReply);
+            if (clientReadStream.receiveReply(ref)) {
+              readStreams.remove(clientInvocationId, clientReadStream);
             }
           } catch (Throwable cause) {
             LOG.warn("{} : channelRead error:", name, cause);
-            readOnlyStreamingReplies.remove(clientInvocationId, readOnlyStreamingReply);
-            readOnlyStreamingReply.completeExceptionally(cause);
+            readStreams.remove(clientInvocationId, clientReadStream);
+            clientReadStream.completeExceptionally(cause);
           }
           return;
         }
 
+        // just copy it for write requests
+        final DataStreamReplyByteBuffer reply = replyByteBuf.copy();
         final NettyClientReplies.ReplyMap replyMap = replies.getReplyMap(clientInvocationId);
         if (replyMap == null) {
           LOG.error("{}: {} replyMap not found for reply: {}", name, clientInvocationId, reply);
-          reply.release();
           return;
         }
 
         try {
-          replyMap.receiveReply(NettyDataStreamUtils.toDataStreamReplyByteBuffer(reply));
+          replyMap.receiveReply(reply);
         } catch (Throwable cause) {
           LOG.warn("{} : channelRead error for {}:", name, reply.getClass().getSimpleName(), cause);
           replyMap.completeExceptionally(cause);
@@ -595,13 +545,12 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   }
 
   @Override
-  public CompletableFuture<DataStreamReply> streamAsync(
-      DataStreamRequest request, DataStreamObserver<DataStreamReplyByteBuf> replyHandler) {
+  public CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request,
+      DataStreamObserver<ReferenceCountedObject<DataStreamReply>> replyHandler) {
     final CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
-    final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(request.getClientId(),
-        request.getStreamId());
-    final ReadOnlyStreamingReply replyEntry = new ReadOnlyStreamingReply(request, f, replyHandler);
-    if (readOnlyStreamingReplies.putIfAbsent(clientInvocationId, replyEntry) != null) {
+    final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(request);
+    final ClientReadStream replyEntry = new ClientReadStream(request, f, replyHandler);
+    if (readStreams.putIfAbsent(clientInvocationId, replyEntry) != null) {
       f.completeExceptionally(new AlreadyClosedException(this + ": A read-only stream already exists for "
           + clientInvocationId));
       return f;
@@ -613,7 +562,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     synchronized (replyEntry) {
       channel = connection.getChannelUninterruptibly();
       if (channel == null) {
-        readOnlyStreamingReplies.remove(clientInvocationId, replyEntry);
+        readStreams.remove(clientInvocationId, replyEntry);
         f.completeExceptionally(new AlreadyClosedException(this + ": Failed to send " + request));
         return f;
       }
@@ -623,7 +572,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     }
     channelFuture.addListener(future -> {
       if (!future.isSuccess()) {
-        readOnlyStreamingReplies.remove(clientInvocationId, replyEntry);
+        readStreams.remove(clientInvocationId, replyEntry);
         final IOException e = new IOException(this + ": Failed to send " + request + " to " + channel.remoteAddress(),
             future.cause());
         replyEntry.completeExceptionally(e);
@@ -633,7 +582,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
         replyEntry.scheduleTimeout(() -> channel.eventLoop().schedule(() -> {
           if (!f.isDone()) {
-            readOnlyStreamingReplies.remove(clientInvocationId, replyEntry);
+            readStreams.remove(clientInvocationId, replyEntry);
             replyEntry.completeExceptionally(new TimeoutIOException(
                 "Timeout " + requestTimeout + ": Failed to send " + request + " via channel " + channel));
           }

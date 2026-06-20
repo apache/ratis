@@ -25,11 +25,8 @@ import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.DataStreamObserver;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
-import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.io.FilePositionCount;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.io.WriteOption;
@@ -46,7 +43,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.rpc.CallId;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -56,16 +52,12 @@ import org.apache.ratis.util.SlidingWindow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -245,132 +237,6 @@ public class DataStreamClientImpl implements DataStreamClient {
     }
   }
 
-  public final class DataStreamInputImpl implements DataStreamInput {
-    private final RaftClientRequest header;
-    private final CompletableFuture<DataStreamReply> replyFuture;
-    private final Queue<DataStreamReply> replies = new ArrayDeque<>();
-    private final Queue<CompletableFuture<DataStreamReply>> pendingReads = new ArrayDeque<>();
-    private Throwable readException;
-    private boolean endOfStream;
-    private boolean closed;
-
-    private DataStreamInputImpl(RaftClientRequest request) {
-      this.header = request;
-      final ByteBuffer buffer = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(header);
-      final DataStreamRequestHeader h = new DataStreamRequestHeader(header.getClientId(), Type.STREAM_HEADER,
-          header.getCallId(), 0, buffer.remaining(), StandardWriteOption.FLUSH, StandardWriteOption.CLOSE);
-      this.replyFuture = dataStreamClientRpc.streamAsync(new DataStreamRequestByteBuffer(h, buffer),
-          new DataStreamObserver<DataStreamReplyByteBuf>() {
-            @Override
-            public void onNext(DataStreamReplyByteBuf reply) {
-              receive(reply.copy());
-            }
-
-            @Override
-            public void onError(Throwable t) {
-              failReads(t);
-            }
-
-            @Override
-            public void onCompleted() {
-              markEndOfStream();
-            }
-          });
-      replyFuture.whenComplete((reply, exception) -> {
-        if (exception != null) {
-          failReads(exception);
-        } else {
-          markEndOfStream();
-        }
-      });
-    }
-
-    private void receive(DataStreamReply reply) {
-      for (;;) {
-        final CompletableFuture<DataStreamReply> pending;
-        synchronized (this) {
-          if (closed) {
-            DataStreamReplyByteBuf.release(reply);
-            return;
-          }
-          pending = pendingReads.poll();
-          if (pending == null) {
-            replies.add(reply);
-            return;
-          }
-        }
-        if (pending.complete(reply)) {
-          return;
-        }
-      }
-    }
-
-    private void failReads(Throwable t) {
-      for (;;) {
-        final CompletableFuture<DataStreamReply> pending;
-        synchronized (this) {
-          readException = t;
-          pending = pendingReads.poll();
-          if (pending == null) {
-            return;
-          }
-        }
-        pending.completeExceptionally(t);
-      }
-    }
-
-    private EOFException newEndOfStreamException() {
-      return new EOFException(clientId + ": end of stream, request=" + header);
-    }
-
-    private void markEndOfStream() {
-      for (;;) {
-        final CompletableFuture<DataStreamReply> pending;
-        synchronized (this) {
-          endOfStream = true;
-          pending = pendingReads.poll();
-          if (pending == null) {
-            return;
-          }
-        }
-        pending.completeExceptionally(newEndOfStreamException());
-      }
-    }
-
-    @Override
-    public synchronized CompletableFuture<DataStreamReply> readAsync() {
-      if (closed) {
-        return JavaUtils.completeExceptionally(new AlreadyClosedException(
-            clientId + ": stream already closed, request=" + header));
-      }
-      final DataStreamReply reply = replies.poll();
-      if (reply != null) {
-        return CompletableFuture.completedFuture(reply);
-      }
-      if (readException != null) {
-        return JavaUtils.completeExceptionally(readException);
-      }
-      if (endOfStream) {
-        return JavaUtils.completeExceptionally(newEndOfStreamException());
-      }
-      final CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
-      pendingReads.add(f);
-      return f;
-    }
-
-    @Override
-    public synchronized void close() {
-      if (closed) {
-          return;
-      }
-      closed = true;
-      for (DataStreamReply reply; (reply = replies.poll()) != null;) {
-        DataStreamReplyByteBuf.release(reply);
-      }
-      failReads(new AlreadyClosedException(clientId + ": stream already closed, request=" + header));
-    }
-  }
-
   @Override
   public DataStreamClientRpc getClientRpc() {
     return dataStreamClientRpc;
@@ -400,6 +266,12 @@ public class DataStreamClientImpl implements DataStreamClient {
         .build());
   }
 
+  @Override
+  public DataStreamInput streamReadOnly(ByteBuffer headerMessage) {
+    return new DataStreamInputImpl(dataStreamClientRpc,
+        newBuilder(headerMessage).setType(RaftClientRequest.readRequestType()).build());
+  }
+
   private RaftClientRequest.Builder newBuilder(ByteBuffer headerMessage) {
     final Message message = headerMessage == null ? null : Message.valueOf(headerMessage);
     return RaftClientRequest.newBuilder()
@@ -408,21 +280,6 @@ public class DataStreamClientImpl implements DataStreamClient {
         .setGroupId(groupId)
         .setCallId(CallId.getAndIncrement())
         .setMessage(message);
-  }
-
-  @Override
-  public DataStreamInput streamReadOnly(ByteBuffer headerMessage) {
-    final Message message =
-        Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
-    final RaftClientRequest request = RaftClientRequest.newBuilder()
-        .setClientId(clientId)
-        .setServerId(dataStreamServer.getId())
-        .setGroupId(groupId)
-        .setCallId(CallId.getAndIncrement())
-        .setMessage(message)
-        .setType(RaftClientRequest.readRequestType())
-        .build();
-    return new DataStreamInputImpl(request);
   }
 
   @Override

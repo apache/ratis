@@ -139,15 +139,38 @@ class TestDataStreamManagement {
         queryDone.countDown();
       }
     };
-    final ReadStreamManagement management = newReadStreamManagement(serverId, groupId, dataApi);
-    final ReadOnlyRequest readOnlyRequest = newReadOnlyRequest(
-        clientId, serverId, groupId, 1L, ByteString.copyFromUtf8("query"));
+    final StateMachine stateMachine = new BaseStateMachine() {
+      @Override
+      public DataApi data() {
+        return dataApi;
+      }
+    };
+    final RaftServer server = newRaftServer(serverId, new RaftProperties(), groupId, newDivision(stateMachine));
+    final ReadStreamManagement management = new ReadStreamManagement(server);
+
+    final RaftClientRequest raftClientRequest = RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(serverId)
+        .setGroupId(groupId)
+        .setCallId(1L)
+        .setMessage(Message.valueOf(ByteString.copyFromUtf8("query")))
+        .setType(RaftClientRequest.readRequestType())
+        .build();
+    final ByteBuffer header = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(raftClientRequest);
+    final ByteBuf headerBuf = Unpooled.wrappedBuffer(header);
+    final DataStreamRequestByteBuf request = new DataStreamRequestByteBuf(
+        clientId,
+        Type.STREAM_HEADER,
+        raftClientRequest.getCallId(),
+        0L,
+        Collections.singletonList(StandardWriteOption.FLUSH),
+        headerBuf);
 
     try {
-      eventLoop.submit(() -> assertTrue(management.process(readOnlyRequest.request, ctx))).sync();
+      eventLoop.submit(() -> assertTrue(management.process(request, ctx))).sync();
 
       assertTrue(queryDone.await(10, TimeUnit.SECONDS));
-      assertEquals(0, readOnlyRequest.headerBuf.refCnt());
+      assertEquals(0, headerBuf.refCnt());
       assertFalse(queryInEventLoop.get(), "read-only state machine query should not run on Netty event loop");
     } finally {
       embeddedChannel.finishAndReleaseAll();

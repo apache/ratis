@@ -17,14 +17,23 @@
  */
 package org.apache.ratis.datastream;
 
-/** An interface similar to gRPC {@link org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver}. */
-@FunctionalInterface
+import java.util.function.BiConsumer;
+
+/** An interface similar to gRPC {@link  org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver}. */
 public interface DataStreamObserver<V> {
   void onNext(V value);
 
-  default void onError(Throwable t) {
-  }
+  void onCompleted();
 
-  default void onCompleted() {
+  void onError(Throwable throwable);
+
+  default <T> BiConsumer<T, Throwable> asWhenCompleteBiConsumer() {
+    return (v, throwable) -> {
+      if (throwable != null) {
+        onError(throwable);
+      } else  {
+        onCompleted();
+      }
+    };
   }
 }
