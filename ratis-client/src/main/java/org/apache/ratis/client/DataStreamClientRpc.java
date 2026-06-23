@@ -18,9 +18,11 @@
 
 package org.apache.ratis.client;
 
+import org.apache.ratis.datastream.DataStreamObserver;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +35,19 @@ import java.util.concurrent.CompletableFuture;
 public interface DataStreamClientRpc extends Closeable {
   /** Async call to send a request. */
   default CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
+    throw new UnsupportedOperationException(getClass() + " does not support "
+        + JavaUtils.getCurrentStackTraceElement().getMethodName());
+  }
+
+  /**
+   * Async call to send a request to receive a stream of intermediate replies and a final reply.
+   *
+   * @param request the request
+   * @param replyHandler to handle intermediate replies
+   * @return a future the final reply
+   */
+  default CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request,
+      DataStreamObserver<ReferenceCountedObject<DataStreamReply>> replyHandler) {
     throw new UnsupportedOperationException(getClass() + " does not support "
         + JavaUtils.getCurrentStackTraceElement().getMethodName());
   }

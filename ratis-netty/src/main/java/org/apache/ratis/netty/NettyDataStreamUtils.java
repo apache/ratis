@@ -169,6 +169,22 @@ public interface NettyDataStreamUtils {
     encodeDataStreamReply(reply, reply.slice(), out, allocator);
   }
 
+  static void encodeDataStreamReplyByteBuf(DataStreamReplyByteBuf reply, Consumer<ByteBuf> out,
+      ByteBufAllocator allocator) {
+    ByteBuffer headerBuf = getDataStreamReplyHeaderProtoByteBuf(reply);
+    final ByteBuf headerLenBuf = allocator.ioBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
+    headerLenBuf.writeInt(headerBuf.remaining());
+    out.accept(headerLenBuf);
+    out.accept(Unpooled.wrappedBuffer(headerBuf));
+
+    final ByteBuf data = reply.slice();
+    if (data.readableBytes() == 0) {
+      out.accept(Unpooled.EMPTY_BUFFER);
+    } else {
+      out.accept(data.retain());
+    }
+  }
+
   static DataStreamRequestByteBuf decodeDataStreamRequestByteBuf(ByteBuf buf) {
     return Optional.ofNullable(decodeDataStreamRequestHeader(buf))
         .map(header -> checkHeader(header, buf))
@@ -226,6 +242,14 @@ public interface NettyDataStreamUtils {
             .setBuf(decodeData(buf, header, ByteBuf::retainedSlice))
             .build())
         .orElse(null);
+  }
+
+  static DataStreamReplyByteBuffer toDataStreamReplyByteBuffer(DataStreamReplyByteBuf reply) {
+    try {
+      return reply.copy();
+    } finally {
+      reply.release();
+    }
   }
 
   static DataStreamReplyHeader decodeDataStreamReplyHeader(ByteBuf buf) {

@@ -18,7 +18,6 @@
 
 package org.apache.ratis.netty.client;
 
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamPacket;
@@ -65,7 +64,7 @@ public class NettyClientReplies {
       return map.computeIfAbsent(requestEntry, r -> new ReplyEntry(isClose, f));
     }
 
-    void receiveReply(DataStreamReplyByteBuf reply) {
+    void receiveReply(DataStreamReply reply) {
       final RequestEntry requestEntry = new RequestEntry(reply);
       final ReplyEntry replyEntry = map.remove(requestEntry);
       LOG.debug("remove: {}; replyEntry: {}; reply: {}", requestEntry, replyEntry, reply);

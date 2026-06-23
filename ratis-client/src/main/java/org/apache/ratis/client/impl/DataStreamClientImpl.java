@@ -23,6 +23,7 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -263,6 +264,12 @@ public class DataStreamClientImpl implements DataStreamClient {
         .setType(RaftClientRequest.dataStreamRequestType())
         .setRoutingTable(routingTable)
         .build());
+  }
+
+  @Override
+  public DataStreamInput streamReadOnly(ByteBuffer headerMessage) {
+    return new DataStreamInputImpl(dataStreamClientRpc,
+        newBuilder(headerMessage).setType(RaftClientRequest.readRequestType()).build());
   }
 
   private RaftClientRequest.Builder newBuilder(ByteBuffer headerMessage) {

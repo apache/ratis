@@ -19,8 +19,10 @@
 package org.apache.ratis.netty.client;
 
 import org.apache.ratis.client.DataStreamClientRpc;
+import org.apache.ratis.datastream.DataStreamObserver;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
@@ -64,6 +66,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.function.UncheckedAutoCloseableSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,6 +77,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -325,6 +330,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   private final Connection connection;
 
   private final NettyClientReplies replies = new NettyClientReplies();
+  private final ConcurrentMap<ClientInvocationId, ClientReadStream> readStreams = new ConcurrentHashMap<>();
   private final TimeDuration requestTimeout;
   private final TimeDuration closeTimeout;
 
@@ -358,15 +364,33 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
           LOG.error("{}: unexpected message {}", name, msg.getClass());
           return;
         }
-        try (DataStreamReplyByteBuf reply = (DataStreamReplyByteBuf) msg) {
-          process(reply);
+        final DataStreamReplyByteBuf reply = (DataStreamReplyByteBuf) msg;
+        final ReferenceCountedObject<DataStreamReply> ref = DataStreamReplyByteBuf.asReferenceCounted(reply);
+        try (UncheckedAutoCloseableSupplier<DataStreamReply> ignored = ref.retainAndReleaseOnClose()) {
+          process(ref);
         }
       }
 
-      private void process(DataStreamReplyByteBuf reply) {
-        LOG.debug("{}: read {}", name, reply);
-        final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(
-            reply.getClientId(), reply.getStreamId());
+      private void process(ReferenceCountedObject<DataStreamReply> ref) {
+        final DataStreamReplyByteBuf replyByteBuf = (DataStreamReplyByteBuf) ref.get();
+        LOG.debug("{}: read {}", name, replyByteBuf);
+        final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(replyByteBuf);
+        final ClientReadStream clientReadStream = readStreams.get(clientInvocationId);
+        if (clientReadStream != null) {
+          try {
+            if (clientReadStream.receiveReply(ref)) {
+              readStreams.remove(clientInvocationId, clientReadStream);
+            }
+          } catch (Throwable cause) {
+            LOG.warn("{} : channelRead error:", name, cause);
+            readStreams.remove(clientInvocationId, clientReadStream);
+            clientReadStream.completeExceptionally(cause);
+          }
+          return;
+        }
+
+        // just copy it for write requests
+        final DataStreamReplyByteBuffer reply = replyByteBuf.copy();
         final NettyClientReplies.ReplyMap replyMap = replies.getReplyMap(clientInvocationId);
         if (replyMap == null) {
           LOG.error("{}: {} replyMap not found for reply: {}", name, clientInvocationId, reply);
@@ -376,7 +400,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         try {
           replyMap.receiveReply(reply);
         } catch (Throwable cause) {
-          LOG.warn("{} : channelRead error for {}", name, reply, cause);
+          LOG.warn("{} : channelRead error for {}:", name, reply.getClass().getSimpleName(), cause);
           replyMap.completeExceptionally(cause);
         }
       }
@@ -508,6 +532,54 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
             replyMap.fail(requestEntry);
           }
         }, timeout.getDuration(), timeout.getUnit()));
+      }
+    });
+    return f;
+  }
+
+  @Override
+  public CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request,
+      DataStreamObserver<ReferenceCountedObject<DataStreamReply>> replyHandler) {
+    final CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
+    final ClientInvocationId clientInvocationId = ClientInvocationId.valueOf(request);
+    final ClientReadStream readStream = new ClientReadStream(request, f, replyHandler);
+    if (readStreams.putIfAbsent(clientInvocationId, readStream) != null) {
+      f.completeExceptionally(new AlreadyClosedException(this + ": Read stream already exists for "
+          + clientInvocationId + ", request=" + request));
+      return f;
+    }
+
+    final ChannelFuture channelFuture;
+    final Channel channel;
+    LOG.debug("{}: write read-only stream begin {}", this, request);
+    synchronized (readStream) {
+      channel = connection.getChannelUninterruptibly();
+      if (channel == null) {
+        readStreams.remove(clientInvocationId, readStream);
+        f.completeExceptionally(new AlreadyClosedException(this + ": Failed to getChannel for " + request));
+        return f;
+      }
+      final Function<DataStreamRequest, ChannelFuture> writeMethod = outstandingRequests.shouldFlush(
+          flushRequestCountMin, flushRequestBytesMin, request)? channel::writeAndFlush: channel::write;
+      channelFuture = writeMethod.apply(request);
+    }
+    channelFuture.addListener(future -> {
+      if (!future.isSuccess()) {
+        readStreams.remove(clientInvocationId, readStream);
+        final IOException e = new IOException(this + ": Failed to send " + request + " to " + channel.remoteAddress(),
+            future.cause());
+        readStream.completeExceptionally(e);
+        LOG.error("Channel write failed", e);
+      } else {
+        LOG.debug("{}: write read-only stream after {}", this, request);
+
+        readStream.scheduleTimeout(() -> channel.eventLoop().schedule(() -> {
+          if (!f.isDone()) {
+            readStreams.remove(clientInvocationId, readStream);
+            readStream.completeExceptionally(new TimeoutIOException(
+                "Timeout " + requestTimeout + ": Failed to send " + request + " via channel " + channel));
+          }
+        }, requestTimeout.getDuration(), requestTimeout.getUnit()));
       }
     });
     return f;

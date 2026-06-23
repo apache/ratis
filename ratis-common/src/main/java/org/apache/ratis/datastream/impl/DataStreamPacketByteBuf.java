@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>
  * This class is immutable.
  */
-class DataStreamPacketByteBuf extends DataStreamPacketImpl {
+public class DataStreamPacketByteBuf extends DataStreamPacketImpl {
   private final AtomicReference<ByteBuf> buf;
 
   DataStreamPacketByteBuf(ClientId clientId, Type type, long streamId, long streamOffset, ByteBuf buf) {
@@ -48,7 +48,8 @@ class DataStreamPacketByteBuf extends DataStreamPacketImpl {
 
   @Override
   public final long getDataLength() {
-    return getBuf().readableBytes();
+    final ByteBuf got = buf.get();
+    return got != null ? got.readableBytes() : -1;
   }
 
   public final ByteBuf slice() {
