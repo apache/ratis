@@ -64,19 +64,20 @@ public class ReadStreamManagement {
       this.clientId = request.getClientId();
       this.streamId = streamId;
       this.ctx = ctx;
+
       final RaftClientReply reply = RaftClientReply.newBuilder()
-        .setRequest(request)
-        .setSuccess()
-        .build();
+          .setRequest(request)
+          .setSuccess()
+          .build();
       this.terminalReply = DataStreamReplyByteBuffer.newBuilder()
-        .setClientId(clientId)
-        .setType(Type.STREAM_HEADER)
-        .setStreamId(streamId)
-        .setStreamOffset(0)
-        .setBuffer(toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer())
-        .setSuccess(true)
-        .setBytesWritten(0)
-        .build();
+          .setClientId(clientId)
+          .setType(Type.STREAM_HEADER)
+          .setStreamId(streamId)
+          .setStreamOffset(0)
+          .setBuffer(toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer())
+          .setSuccess(true)
+          .setBytesWritten(0)
+          .build();
     }
 
     @Override

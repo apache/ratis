@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.io.EOFException;
@@ -47,7 +48,8 @@ final class DataStreamInputImpl implements DataStreamInput,
 
   /*
    * null                  : the stream is open.
-   * AlreadyClosedException: the stream is closed.
+   * EOFException          : the stream is ended, i.e. no more data.
+   * AlreadyClosedException: the stream is closed by the caller.
    * Other exception       : the stream is failed.
    */
   private Throwable readException;
@@ -69,17 +71,18 @@ final class DataStreamInputImpl implements DataStreamInput,
     }
 
     reply.retain();
-    for (CompletableFuture<ReferenceCountedObject<DataStreamReply>> pending;
-         (pending = pendingReads.poll()) != null; ) {
-      if (pending.complete(reply)) {
-        return;
-      }
+    final CompletableFuture<ReferenceCountedObject<DataStreamReply>> pending = pendingReads.poll();
+    if (pending != null) {
+      final boolean completed = pending.complete(reply);
+      Preconditions.assertTrue(completed);
+      return;
     }
     replies.add(reply);
   }
 
   @Override
   public synchronized void onError(Throwable throwable) {
+    Objects.requireNonNull(throwable, "throwable == null");
     // An error case, release the replies
     releaseReplies();
     if (readException == null) {
@@ -120,8 +123,7 @@ final class DataStreamInputImpl implements DataStreamInput,
     if (readException != null) {
       return JavaUtils.completeExceptionally(readException);
     }
-    final CompletableFuture<ReferenceCountedObject<DataStreamReply>> f =
-      new CompletableFuture<>();
+    final CompletableFuture<ReferenceCountedObject<DataStreamReply>> f = new CompletableFuture<>();
     pendingReads.add(f);
     return f;
   }
