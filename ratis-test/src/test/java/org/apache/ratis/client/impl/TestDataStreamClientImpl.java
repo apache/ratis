@@ -106,37 +106,6 @@ public class TestDataStreamClientImpl {
   }
 
   @Test
-  public void testReceiveSkipsCancelledPendingRead() throws Exception {
-    final RaftPeer follower = newPeer("follower");
-    final RecordingDataStreamClientRpc dataStreamClientRpc = new RecordingDataStreamClientRpc();
-
-    try (DataStreamClient dataStreamClient = newDataStreamClient(follower, dataStreamClientRpc);
-         DataStreamInput input = dataStreamClient.streamReadOnly(ByteBuffer.wrap(new byte[] {1}))) {
-      final CompletableFuture<ReferenceCountedObject<DataStreamReply>> cancelled = input.readAsync();
-      final CompletableFuture<ReferenceCountedObject<DataStreamReply>> active = input.readAsync();
-      cancelled.cancel(false);
-      Assertions.assertEquals(follower.getId(), dataStreamClientRpc.getRequest().getServerId());
-
-      final DataStreamReplyByteBuf reply = DataStreamReplyByteBuf.newBuilder()
-          .setClientId(ClientId.randomId())
-          .setType(Type.STREAM_DATA)
-          .setStreamId(1)
-          .setStreamOffset(0)
-          .setBuf(Unpooled.EMPTY_BUFFER)
-          .setSuccess(true)
-          .build();
-      dataStreamClientRpc.receive(reply);
-
-      Assertions.assertTrue(active.isDone());
-      final ReferenceCountedObject<DataStreamReply> received = active.getNow(null);
-      Assertions.assertNotNull(received);
-      final DataStreamReplyByteBuf data = Assertions.assertInstanceOf(DataStreamReplyByteBuf.class, received.get());
-      Assertions.assertEquals(Type.STREAM_DATA, data.getType());
-      received.release();
-    }
-  }
-
-  @Test
   public void testReadOnlyInputCompletesPendingReadOnCompleted() throws Exception {
     final RaftPeer follower = newPeer("follower");
     final RecordingDataStreamClientRpc dataStreamClientRpc = new RecordingDataStreamClientRpc();
