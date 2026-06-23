@@ -21,10 +21,13 @@ import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
+import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReferenceCountedObject;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Objects;
 
 /**
  * Implements {@link DataStreamReply} with {@link ByteBuf}.
@@ -62,6 +65,18 @@ public final class DataStreamReplyByteBuf extends DataStreamPacketByteBuf implem
 
   public static Builder newBuilder() {
     return new Builder();
+  }
+
+  public static ReferenceCountedObject<DataStreamReply> asReferenceCounted(DataStreamReplyByteBuf reply) {
+    Objects.requireNonNull(reply, "reply == null");
+    return ReferenceCountedObject.<DataStreamReply>newBuilder()
+        .setValue(reply)
+        .setReleaseMethod(r -> {
+          if (r != null) {
+            Preconditions.assertSame(reply, r, "reply").release();
+          }
+        })
+        .build();
   }
 
   private final boolean success;

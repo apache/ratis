@@ -365,10 +365,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
           return;
         }
         final DataStreamReplyByteBuf reply = (DataStreamReplyByteBuf) msg;
-        final ReferenceCountedObject<DataStreamReply> ref = ReferenceCountedObject.<DataStreamReply>newBuilder()
-            .setValue((DataStreamReplyByteBuf) msg)
-            .setReleaseMethod(r -> Preconditions.assertSame(reply, r, "reply").release())
-            .build();
+        final ReferenceCountedObject<DataStreamReply> ref = DataStreamReplyByteBuf.asReferenceCounted(reply);
         try (UncheckedAutoCloseableSupplier<DataStreamReply> ignored = ref.retainAndReleaseOnClose()) {
           process(ref);
         }

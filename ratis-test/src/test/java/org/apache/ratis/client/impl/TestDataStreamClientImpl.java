@@ -33,7 +33,6 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -75,10 +74,7 @@ public class TestDataStreamClientImpl {
     }
 
     void receive(DataStreamReplyByteBuf reply) {
-      final ReferenceCountedObject<DataStreamReply> ref = ReferenceCountedObject.<DataStreamReply>newBuilder()
-          .setValue(reply)
-          .setReleaseMethod(r -> Preconditions.assertSame(reply, r, "reply").release())
-          .build();
+      final ReferenceCountedObject<DataStreamReply> ref = DataStreamReplyByteBuf.asReferenceCounted(reply);
       ref.retain();
       try {
         replyHandler.get().onNext(ref);
