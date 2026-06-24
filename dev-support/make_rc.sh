@@ -130,9 +130,11 @@ mvnFun() {
   cd "$RCDIR"
   cp "$projectdir/ratis-assembly/target/ratis-assembly-${RATISVERSION}-bin.tar.gz" "apache-ratis-${RATISVERSION}-bin.tar.gz"
   cp "$projectdir/ratis-assembly/target/ratis-assembly-${RATISVERSION}-src.tar.gz" "apache-ratis-${RATISVERSION}-src.tar.gz"
-  for i in *.tar.gz; do gpg  -u "${CODESIGNINGKEY}" --armor --output "${i}.asc" --detach-sig "${i}"; done
-  for i in *.tar.gz; do gpg --print-md SHA512 "${i}" > "${i}.sha512"; done
-  for i in *.tar.gz; do gpg --print-mds "${i}" > "${i}.mds"; done
+  for i in *.tar.gz; do
+    gpg -u "${CODESIGNINGKEY}" --armor --output "${i}.asc" --detach-sig "${i}"
+    gpg --print-md SHA512 "${i}" > "${i}.sha512"
+    gpg --print-mds "${i}" > "${i}.mds"
+  done
   cd "$SVNDISTDIR"
   # skip svn add in CI
   if [[ -z "${CI:-}" ]]; then
