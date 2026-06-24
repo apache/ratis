@@ -17,14 +17,11 @@
 # limitations under the License.
 
 
-# Script that assembles all you need to make an RC. Does build of the tar.gzs
-# which it stashes into a dir above $(pwd) named for the script with a
-# timestamp suffix. Deploys builds to maven.
-#
-# To finish, check what was build.  If good copy to people.apache.org and
-# close the maven repos.  Call a vote.
+# Script that assembles artifacts for release candidates.
+# Run without arguments for help.
 #
 # Presumes your settings.xml all set up so can sign artifacts published to mvn, etc.
+
 set -e
 # Set mvn and mvnopts
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
