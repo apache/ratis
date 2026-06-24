@@ -49,6 +49,10 @@ if [ ! "$RC" ]; then
    exit 1
 fi
 
+if [ ! "$CODESIGNINGKEY" ]; then
+  echo "Please specify your signing key ID in the CODESIGNINGKEY environment variable"
+  exit 1
+fi
 
 # Check project name
 projectname=$(mvnGet project.name)
@@ -77,12 +81,6 @@ echo "Repo dir: ${repodir}"
 SVNDISTDIR=${SVNDISTDIR:-$projectdir/../svndistratis}
 if [ ! -d "$SVNDISTDIR" ]; then
   svn co https://dist.apache.org/repos/dist/dev/ratis "$SVNDISTDIR"
-fi
-
-
-if [ ! "$CODESIGNINGKEY" ]; then
-  echo "Please specify your signing key ID in the CODESIGNINGKEY environment variable"
-  exit 1
 fi
 
 
