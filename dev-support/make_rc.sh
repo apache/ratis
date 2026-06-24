@@ -39,21 +39,6 @@ mvnGet() {
     org.codehaus.mojo:exec-maven-plugin:exec 2>/dev/null
 }
 
-
-# Check project name
-projectname=$(mvnGet project.name)
-projectversion=$(mvnGet project.version)
-if [ "${projectname}" = "Apache Ratis" ]; then
-  echo
-  echo "Prepare release artifacts for $projectname ${projectversion}"
-  echo
-else
-  echo "Unexpected project name \"${projectname}\"."
-  echo
-  echo "Please run this script ($0) under the root directory of Apache Ratis."
-  exit 1;
-fi
-
 if [ ! "$RATISVERSION" ]; then
   echo "Please set the RATISVERSION environment variable (eg. export RATISVERSION=0.3.0)"
   exit 1
@@ -62,6 +47,20 @@ fi
 if [ ! "$RC" ]; then
    echo "Please set the RC number. (eg. export RC=\"-rc2\")"
    exit 1
+fi
+
+
+# Check project name
+projectname=$(mvnGet project.name)
+if [ "${projectname}" = "Apache Ratis" ]; then
+  echo
+  echo "Prepare release artifacts for $projectname ${RATISVERSION}${RC}"
+  echo
+else
+  echo "Unexpected project name \"${projectname}\"."
+  echo
+  echo "Please run this script ($0) under the root directory of Apache Ratis."
+  exit 1;
 fi
 
 
