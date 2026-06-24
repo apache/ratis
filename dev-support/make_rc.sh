@@ -93,7 +93,7 @@ mvnFun() {
   git reset --hard
   git clean -fdx
   mvnFun versions:set -DnewVersion="$RATISVERSION" -DprocessAllModules
-  git commit --allow-empty -a -m "Change version for the version $RATISVERSION $RC"
+  git commit -a -m "[RELEASE] Update version to $RATISVERSION" || echo "<version> up to date, nothing to commit"
 
   git config user.signingkey "${CODESIGNINGKEY}"
   git tag -s -m "Release $RATISVERSION $RC" ratis-"${RATISVERSION}${RC}"
