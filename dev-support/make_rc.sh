@@ -157,18 +157,18 @@ Please choose from available phases (eg. make_rc.sh 1-prepare-src):
 
    1-prepare-src:  This is the first step. It modifies the mvn version, creates the git tag and
                    builds the project to create the source artifacts.
-                   IT INCLUDES A GIT RESET + CLEAN. ALL THE LOCAL CHANGES WILL BE LOST!
+                   IT INCLUDES A GIT RESET + CLEAN. ALL LOCAL CHANGES WILL BE LOST!
 
    2-verify-bin:   The source artifact is copied to the $WORKINGDIR and the binary artifact is created from the source.
                    This is an additional check as the the released source artifact should be enough to build the whole project.
 
    3-publish-mvn:  Performs the final build, and uploads the artifacts to the maven staging repository
 
-   4-assembly:     This step copies all the required artifacts to the svn directory and ($SVNDISTDIR) creates the signatures/checksum files.
+   4-assembly:     This step copies all the required artifacts to the svn directory ($SVNDISTDIR) and creates the signatures/checksum files.
 
    5-publish-git:  Only do it if everything is fine. It pushes the rc tag and release branch to the repository.
 
-   6-publish-svn:  Uploads the artifacts to the apache dev staging area to start the vote.
+   6-publish-svn:  Uploads the artifacts to the apache dev staging area.
 
 The next steps of the release process are not scripted:
 
