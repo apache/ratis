@@ -17,10 +17,14 @@
  */
 package org.apache.ratis.examples.filestore;
 
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.*;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
@@ -45,6 +49,15 @@ public interface FileStoreCommon {
 
   static ByteString toByteString(Path p) {
     return ProtoUtils.toByteString(p.toString());
+  }
+
+  static ByteBuffer getReplyBuffer(DataStreamReply reply) {
+    if (reply instanceof DataStreamReplyByteBuf) {
+      return ((DataStreamReplyByteBuf) reply).slice().nioBuffer();
+    } else if (reply instanceof DataStreamReplyByteBuffer) {
+      return ((DataStreamReplyByteBuffer) reply).slice();
+    }
+    throw new IllegalArgumentException("Unexpected reply: " + reply);
   }
 
   static <T> CompletableFuture<T> completeExceptionally(

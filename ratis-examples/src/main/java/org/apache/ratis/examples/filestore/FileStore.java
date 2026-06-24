@@ -43,6 +43,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -100,6 +101,11 @@ public class FileStore implements Closeable {
       if (previous instanceof FileInfo.Watch) {
         ((FileInfo.Watch) previous).complete(uc);
       }
+    }
+
+    void putReadOnly(ReadOnly ro) {
+      LOG.trace("{}: putReadOnly {}", name, ro.getRelativePath());
+      map.put(ro.getRelativePath(), ro);
     }
 
     ReadOnly close(UnderConstruction uc) {
@@ -208,6 +214,12 @@ public class FileStore implements Closeable {
     return submit(task, reader);
   }
 
+  void streamRead(String relative, long offset, long length, WritableByteChannel stream)
+      throws IOException {
+    final FileInfo info = files.get(relative);
+    info.streamRead(this::resolve, offset, length, stream);
+  }
+
   CompletableFuture<Path> delete(long index, String relative) {
     final Supplier<String> name = () -> "delete(" + relative + ") @" + getId() + ":" + index;
     final CheckedSupplier<Path, IOException> task = LogUtils.newCheckedSupplier(LOG, () -> {
@@ -284,13 +296,18 @@ public class FileStore implements Closeable {
 
   CompletableFuture<StreamWriteReplyProto> streamCommit(String p, long bytesWritten) {
     return CompletableFuture.supplyAsync(() -> {
+      final Path relative = normalize(p);
       final long len;
-      try (RandomAccessFile file = new RandomAccessFile(resolve(normalize(p)).toFile(), "r")) {
+      try (RandomAccessFile file = new RandomAccessFile(resolve(relative).toFile(), "r")) {
         len = file.length();
-        return StreamWriteReplyProto.newBuilder().setIsSuccess(len == bytesWritten).setByteWritten(len).build();
       } catch (IOException e) {
         throw new CompletionException("Failed to commit stream " + p + " with " + bytesWritten + " B.", e);
       }
+      final boolean success = len == bytesWritten;
+      if (success) {
+        files.putReadOnly(new ReadOnly(relative, len));
+      }
+      return StreamWriteReplyProto.newBuilder().setIsSuccess(success).setByteWritten(len).build();
     }, committer);
   }
 
