@@ -19,6 +19,7 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.client.api.DataStreamInput;
+import org.apache.ratis.client.api.DataStreamReadChunk;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RoutingTable;
@@ -28,7 +29,6 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.datastream.DataStreamTestUtils.MultiDataStreamStateMachine;
 import org.apache.ratis.datastream.DataStreamTestUtils.SingleDataStream;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.DataStreamReply;
@@ -153,19 +153,17 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
          DataStreamInput in = client.getDataStreamApi().streamReadOnly(query.asReadOnlyByteBuffer())) {
       for (int i = 0; i < MultiDataStreamStateMachine.READ_ONLY_STREAM_CHUNKS; i++) {
         final ByteString chunk = MultiDataStreamStateMachine.getReadOnlyStreamChunk(query, i);
-        final ReferenceCountedObject<DataStreamReply> ref = in.readAsync().join();
-        final DataStreamReplyByteBuf data = (DataStreamReplyByteBuf) ref.get();
-        DataStreamTestUtils.assertSuccessReply(Type.STREAM_DATA, chunk.size(), data);
-        Assertions.assertEquals(chunk, ByteString.copyFrom(data.slice().nioBuffer()));
-        ref.release();
+        final ReferenceCountedObject<DataStreamReadChunk> ref = in.readAsync().join();
+        try {
+          Assertions.assertEquals(chunk, ByteString.copyFrom(ref.get().nioBuffers()[0]));
+        } finally {
+          ref.release();
+        }
       }
 
-      final ReferenceCountedObject<DataStreamReply> ref = in.readAsync().join();
+      final ReferenceCountedObject<DataStreamReadChunk> ref = in.readAsync().join();
       try {
-        final DataStreamReplyByteBuf reply = (DataStreamReplyByteBuf) ref.get();
-        DataStreamTestUtils.assertSuccessReply(Type.STREAM_HEADER, 0, reply);
-
-        final RaftClientReply clientReply = ClientProtoUtils.getRaftClientReply(reply);
+        final RaftClientReply clientReply = ClientProtoUtils.toRaftClientReply(ref.get().nioBuffers()[0]);
         Assertions.assertTrue(clientReply.isSuccess());
         Assertions.assertEquals(primaryServer.getId(), clientReply.getServerId());
       } finally {

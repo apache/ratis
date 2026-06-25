@@ -15,23 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ratis.client.api;
 
-import org.apache.ratis.util.ReferenceCountedObject;
+import java.nio.ByteBuffer;
 
-import java.io.Closeable;
-import java.util.concurrent.CompletableFuture;
-
-/**
- * An asynchronous input stream supporting zero buffer copying.
- */
-public interface DataStreamInput extends Closeable {
-  /**
-   * Read the next chunk in the stream asynchronously.
-   * The caller owns the returned {@link DataStreamReadChunk} which is a {@link ReferenceCountedObject}.
-   * It must call {@link ReferenceCountedObject#release()} after consuming it.
-   *
-   * @return a future of the reference-counted reply.
-   */
-  CompletableFuture<ReferenceCountedObject<DataStreamReadChunk>> readAsync();
+/* A chunk returned from the streaming read API. */
+public interface DataStreamReadChunk {
+    ByteBuffer[] nioBuffers();
 }

@@ -20,6 +20,7 @@ package org.apache.ratis.client.impl;
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.api.DataStreamInput;
+import org.apache.ratis.client.api.DataStreamReadChunk;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.DataStreamObserver;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
@@ -112,7 +113,7 @@ public class TestDataStreamClientImpl {
 
     try (DataStreamClient dataStreamClient = newDataStreamClient(follower, dataStreamClientRpc);
          DataStreamInput input = dataStreamClient.streamReadOnly(ByteBuffer.wrap(new byte[] {1}))) {
-      final CompletableFuture<ReferenceCountedObject<DataStreamReply>> pending = input.readAsync();
+      final CompletableFuture<ReferenceCountedObject<DataStreamReadChunk>> pending = input.readAsync();
 
       dataStreamClientRpc.complete();
 
@@ -128,7 +129,7 @@ public class TestDataStreamClientImpl {
 
     try (DataStreamClient dataStreamClient = newDataStreamClient(follower, dataStreamClientRpc);
          DataStreamInput input = dataStreamClient.streamReadOnly(ByteBuffer.wrap(new byte[] {1}))) {
-      final CompletableFuture<ReferenceCountedObject<DataStreamReply>> pending = input.readAsync();
+      final CompletableFuture<ReferenceCountedObject<DataStreamReadChunk>> pending = input.readAsync();
       final Throwable cause = new IllegalStateException("test");
 
       dataStreamClientRpc.completeExceptionally(cause);
