@@ -30,7 +30,7 @@ import java.util.concurrent.CompletableFuture;
 public interface DataStreamInput extends Closeable {
   /**
    * Read the next chunk in the stream asynchronously.
-   * The caller owns the returned {@link DataStreamReply}, which is a {@link ReferenceCountedObject}
+   * The caller owns the returned {@link DataStreamReply} which is a {@link ReferenceCountedObject}.
    * and a {@link DataStreamPacket}. Access the buffer via {@link DataStreamPacket#nioBuffer()}
    * or {@link DataStreamPacket#nioBuffers()}.
    * It must call {@link ReferenceCountedObject#release()} after consuming it.

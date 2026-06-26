@@ -154,17 +154,17 @@ public abstract class DataStreamClusterTests<CLUSTER extends MiniRaftCluster> ex
       for (int i = 0; i < MultiDataStreamStateMachine.READ_ONLY_STREAM_CHUNKS; i++) {
         final ByteString chunk = MultiDataStreamStateMachine.getReadOnlyStreamChunk(query, i);
         final ReferenceCountedObject<DataStreamReply> ref = in.readAsync().join();
-        try {
-          Assertions.assertEquals(chunk, ByteString.copyFrom(ref.get().nioBuffers()[0]));
-        } finally {
-          ref.release();
-        }
+        final DataStreamReplyByteBuf data = (DataStreamReplyByteBuf) ref.get();
+        DataStreamTestUtils.assertSuccessReply(Type.STREAM_DATA, chunk.size(), data);
+        Assertions.assertEquals(chunk, ByteString.copyFrom(data.slice().nioBuffer()));
+        ref.release();
       }
 
       final ReferenceCountedObject<DataStreamReply> ref = in.readAsync().join();
       try {
         final DataStreamReplyByteBuf reply = (DataStreamReplyByteBuf) ref.get();
         DataStreamTestUtils.assertSuccessReply(Type.STREAM_HEADER, 0, reply);
+
         final RaftClientReply clientReply = ClientProtoUtils.getRaftClientReply(reply);
         Assertions.assertTrue(clientReply.isSuccess());
         Assertions.assertEquals(primaryServer.getId(), clientReply.getServerId());
