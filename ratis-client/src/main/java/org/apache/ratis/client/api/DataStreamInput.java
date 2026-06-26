@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.client.api;
 
-import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.util.ReferenceCountedObject;
 
