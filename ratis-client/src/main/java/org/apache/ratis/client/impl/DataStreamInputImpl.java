@@ -19,10 +19,7 @@ package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.api.DataStreamInput;
-import org.apache.ratis.client.api.DataStreamReadChunk;
 import org.apache.ratis.datastream.DataStreamObserver;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
@@ -46,8 +43,8 @@ final class DataStreamInputImpl implements DataStreamInput,
     DataStreamObserver<ReferenceCountedObject<DataStreamReply>> {
   private final RaftClientRequest header;
   private final ClientId clientId;
-  private final Queue<ReferenceCountedObject<DataStreamReadChunk>> chunks = new LinkedList<>();
-  private final Queue<CompletableFuture<ReferenceCountedObject<DataStreamReadChunk>>> pendingReads = new LinkedList<>();
+  private final Queue<ReferenceCountedObject<DataStreamReply>> replies = new LinkedList<>();
+  private final Queue<CompletableFuture<ReferenceCountedObject<DataStreamReply>>> pendingReads = new LinkedList<>();
 
   /*
    * null                  : the stream is open.
@@ -73,21 +70,21 @@ final class DataStreamInputImpl implements DataStreamInput,
       return;
     }
 
-    final ReferenceCountedObject<DataStreamReadChunk> chunkRef = buildAndTransferChunk(reply);
-    final CompletableFuture<ReferenceCountedObject<DataStreamReadChunk>> pending = pendingReads.poll();
+    reply.retain();
+    final CompletableFuture<ReferenceCountedObject<DataStreamReply>> pending = pendingReads.poll();
     if (pending != null) {
-      final boolean completed = pending.complete(chunkRef);
+      final boolean completed = pending.complete(reply);
       Preconditions.assertTrue(completed);
       return;
     }
-    chunks.add(chunkRef);
+    replies.add(reply);
   }
 
   @Override
   public synchronized void onError(Throwable throwable) {
     Objects.requireNonNull(throwable, "throwable == null");
     // An error case, release the replies
-    releaseChunks();
+    releaseReplies();
     if (readException == null) {
       readException = throwable;
       failPendingReads();
@@ -104,29 +101,29 @@ final class DataStreamInputImpl implements DataStreamInput,
     }
   }
 
-  private void releaseChunks() {
-    for (ReferenceCountedObject<DataStreamReadChunk> chunk; (chunk = chunks.poll()) != null; ) {
-      chunk.release();
+  private void releaseReplies() {
+    for (ReferenceCountedObject<DataStreamReply> reply; (reply = replies.poll()) != null; ) {
+      reply.release();
     }
   }
 
   private void failPendingReads() {
     Objects.requireNonNull(readException, "readException == null");
-    for (CompletableFuture<ReferenceCountedObject<DataStreamReadChunk>> p; (p = pendingReads.poll()) != null; ) {
+    for (CompletableFuture<ReferenceCountedObject<DataStreamReply>> p; (p = pendingReads.poll()) != null; ) {
       p.completeExceptionally(readException);
     }
   }
 
   @Override
-  public synchronized CompletableFuture<ReferenceCountedObject<DataStreamReadChunk>> readAsync() {
-    final ReferenceCountedObject<DataStreamReadChunk> chunkRef = chunks.poll();
-    if (chunkRef != null) {
-      return CompletableFuture.completedFuture(chunkRef);
+  public synchronized CompletableFuture<ReferenceCountedObject<DataStreamReply>> readAsync() {
+    final ReferenceCountedObject<DataStreamReply> reply = replies.poll();
+    if (reply != null) {
+      return CompletableFuture.completedFuture(reply);
     }
     if (readException != null) {
       return JavaUtils.completeExceptionally(readException);
     }
-    final CompletableFuture<ReferenceCountedObject<DataStreamReadChunk>> f = new CompletableFuture<>();
+    final CompletableFuture<ReferenceCountedObject<DataStreamReply>> f = new CompletableFuture<>();
     pendingReads.add(f);
     return f;
   }
@@ -137,40 +134,10 @@ final class DataStreamInputImpl implements DataStreamInput,
     // (1) release all replies
     // (2) set readException to AlreadyClosedException
     // (3) complete all pendingReads, and
-    releaseChunks();
+    releaseReplies();
     if (readException == null) {
       readException = new AlreadyClosedException(clientId + ": stream already closed, request=" + header);
       failPendingReads();
     }
-  }
-
-  private static ReferenceCountedObject<DataStreamReadChunk> buildAndTransferChunk(
-      ReferenceCountedObject<DataStreamReply> reply) {
-    reply.retain();
-    final ReferenceCountedObject<DataStreamReadChunk> chunkRef = buildChunkFromReply(reply);
-    chunkRef.retain();
-    reply.release();
-    return chunkRef;
-  }
-
-  static ReferenceCountedObject<DataStreamReadChunk> buildChunkFromReply(
-      ReferenceCountedObject<DataStreamReply> reply) {
-    DataStreamReadChunk chunk;
-    DataStreamReply replyData = reply.get();
-    if (replyData instanceof DataStreamReplyByteBuf) {
-      chunk = DataStreamReadChunkImpl.of(
-          new ByteBuffer[] {((DataStreamReplyByteBuf) replyData).slice().nioBuffer()});
-    } else if (replyData instanceof DataStreamReplyByteBuffer) {
-      chunk = DataStreamReadChunkImpl.of(
-          new ByteBuffer[] {((DataStreamReplyByteBuffer) replyData).slice()});
-    } else {
-      throw new IllegalArgumentException("Unexpected reply: " + reply);
-    }
-
-    return ReferenceCountedObject.<DataStreamReadChunk>newBuilder()
-        .setValue(chunk)
-        .setRetainMethod(reply::retain)
-        .setReleaseMethod(ignored -> reply.release())
-        .build();
   }
 }

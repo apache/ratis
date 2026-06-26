@@ -44,4 +44,14 @@ public abstract class DataStreamPacketByteBuffer extends DataStreamPacketImpl {
   public ByteBuffer slice() {
     return buffer.slice();
   }
+
+  @Override
+  public ByteBuffer nioBuffer() {
+    return slice();
+  }
+
+  @Override
+  public ByteBuffer[] nioBuffers() {
+    return new ByteBuffer[]{slice()};
+  }
 }
