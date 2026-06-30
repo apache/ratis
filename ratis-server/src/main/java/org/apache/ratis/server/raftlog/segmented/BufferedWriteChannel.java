@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -26,9 +27,9 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -44,8 +45,8 @@ class BufferedWriteChannel implements Closeable {
 
   @SuppressWarnings("java:S2095") // return Closable
   static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer) throws IOException {
-    final RandomAccessFile raf = new RandomAccessFile(file, "rw");
-    final FileChannel fc = raf.getChannel();
+    final FileChannel fc = FileUtils.newFileChannel(file,
+        StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
     final long size = file.length(); // 0L if the file does not exist.
     if (append) {
       fc.position(size);
