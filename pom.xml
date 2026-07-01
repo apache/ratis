@@ -543,6 +543,11 @@
             <compilerArgs>
               <arg>-Xlint:all,-options,-path</arg>
             </compilerArgs>
+            <!-- hopefully can be removed after upgrade to maven-compiler-plugin 4.0 or later,
+                 if empty annotations/ dir is fixed by: https://github.com/apache/maven-compiler-plugin/commit/d958a62 -->
+            <generatedSourcesDirectory>${project.build.directory}/generated-sources</generatedSourcesDirectory>
+            <!-- no annotation processing -->
+            <proc>none</proc>
           </configuration>
         </plugin>
 
