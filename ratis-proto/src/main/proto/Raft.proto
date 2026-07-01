@@ -302,6 +302,7 @@ message ForwardRequestTypeProto {
 message ReadRequestTypeProto {
   bool preferNonLinearizable = 1;
   bool readAfterWriteConsistent = 2;
+  bool dummy = 3;
 }
 
 message StaleReadRequestTypeProto {
