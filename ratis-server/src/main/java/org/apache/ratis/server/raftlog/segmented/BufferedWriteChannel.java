@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -52,17 +53,18 @@ class BufferedWriteChannel implements Closeable {
       Preconditions.assertSame(size, fc.size(), "fc.size");
     } else {
       if (size > 0) {
-        fc.truncate(0);
+        FileUtils.truncateFile(fc, file, 0);
       }
       Preconditions.assertSame(0, fc.size(), "fc.size");
     }
     Preconditions.assertSame(fc.size(), fc.position(), "fc.position");
     final String name = file.getName() + (append? " (append)": "");
     LOG.info("open {} at position {}", name, fc.position());
-    return new BufferedWriteChannel(name, fc, buffer);
+    return new BufferedWriteChannel(name, file, fc, buffer);
   }
 
   private final String name;
+  private final File file;
   private final FileChannel fileChannel;
   private final ByteBuffer writeBuffer;
   private boolean forced = true;
@@ -71,7 +73,12 @@ class BufferedWriteChannel implements Closeable {
 
 
   BufferedWriteChannel(String name, FileChannel fileChannel, ByteBuffer byteBuffer) {
+    this(name, null, fileChannel, byteBuffer);
+  }
+
+  private BufferedWriteChannel(String name, File file, FileChannel fileChannel, ByteBuffer byteBuffer) {
     this.name = name;
+    this.file = file;
     this.fileChannel = fileChannel;
     this.writeBuffer = byteBuffer;
   }
@@ -183,7 +190,12 @@ class BufferedWriteChannel implements Closeable {
 
     try {
       flushFuture.get().join();
-      fileChannel.truncate(fileChannel.position());
+      final long position = fileChannel.position();
+      if (file != null) {
+        FileUtils.truncateFile(fileChannel, file, position);
+      } else {
+        fileChannel.truncate(position);
+      }
     } finally {
       fileChannel.close();
     }

@@ -55,6 +55,18 @@ public interface FileUtils {
   int NUM_ATTEMPTS = 5;
   TimeDuration SLEEP_TIME = TimeDuration.ONE_SECOND;
 
+  static RatisFileDestroyer getFileDestroyer() {
+    return FileDestroyerHolder.get();
+  }
+
+  static RatisFileDestroyer setFileDestroyer(RatisFileDestroyer destroyer) {
+    return FileDestroyerHolder.set(destroyer);
+  }
+
+  static RatisFileDestroyer resetFileDestroyer() {
+    return FileDestroyerHolder.reset();
+  }
+
   static <T> T attempt(CheckedSupplier<T, IOException> op, Supplier<?> name) throws IOException {
     try {
       return JavaUtils.attempt(op, NUM_ATTEMPTS, SLEEP_TIME, name, LOG);
@@ -102,10 +114,16 @@ public interface FileUtils {
     LogUtils.runAndLog(LOG,
         () -> {
           try (FileChannel channel = FileChannel.open(f.toPath(), StandardOpenOption.WRITE)) {
-            channel.truncate(target);
+            getFileDestroyer().truncate(channel, f.toPath(), target);
           }
         },
         () -> "FileChannel.truncate " + f + " length: " + original + " -> " + target);
+  }
+
+  static void truncateFile(FileChannel channel, File f, long target) throws IOException {
+    LogUtils.runAndLog(LOG,
+        () -> getFileDestroyer().truncate(channel, f.toPath(), target),
+        () -> "FileChannel.truncate " + f + " to length " + target);
   }
 
   static InputStream newInputStream(String s, OpenOption... options) throws IOException {
@@ -328,7 +346,7 @@ public interface FileUtils {
    */
   static void delete(Path p) throws IOException {
     LogUtils.runAndLog(LOG,
-        () -> Files.delete(p),
+        () -> getFileDestroyer().delete(p),
         () -> "Files.delete " + p);
   }
 
@@ -338,7 +356,7 @@ public interface FileUtils {
    */
   static void deleteIfExists(Path p) throws IOException {
     LogUtils.runAndLog(LOG,
-        () -> Files.deleteIfExists(p),
+        () -> getFileDestroyer().deleteIfExists(p),
         () -> "Files.deleteIfExists " + p);
   }
 
