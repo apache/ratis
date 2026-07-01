@@ -21,6 +21,7 @@ import org.apache.ratis.client.impl.OrderedAsync;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
@@ -68,6 +69,19 @@ public class ReadStreamManagement {
       this.ctx = ctx;
 
       this.terminalReply = newReadStreamTerminalReply(clientId, streamId, terminalReply);
+    }
+
+    private static DataStreamReplyByteBuffer newReadStreamTerminalReply(
+        ClientId clientId, long streamId, RaftClientReply reply) {
+      return DataStreamReplyByteBuffer.newBuilder()
+          .setClientId(clientId)
+          .setType(Type.STREAM_HEADER)
+          .setStreamId(streamId)
+          .setStreamOffset(0)
+          .setBuffer(toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer())
+          .setSuccess(reply.isSuccess())
+          .setCommitInfos(reply.getCommitInfos())
+          .build();
     }
 
     @Override
@@ -176,27 +190,26 @@ public class ReadStreamManagement {
       return true;
     }
 
-    final CompletableFuture<RaftClientReply> readOnlyCheck;
+    final CompletableFuture<RaftClientReply> readCheck;
     try {
-      readOnlyCheck = server.submitClientRequestAsync(newDummyReadRequest(request));
+      readCheck = server.submitClientRequestAsync(newDummyReadRequest(request));
     } catch (IOException e) {
       replyDataStreamException(server, e, request, requestBuf, ctx);
       return true;
     }
 
-    readOnlyCheck.whenCompleteAsync((reply, exception) -> {
+    readCheck.whenCompleteAsync((readCheckReply, exception) -> {
       if (exception != null) {
         replyDataStreamException(server, exception, request, requestBuf, ctx);
         return;
       }
 
-      final RaftClientReply terminalReply = toReadStreamReply(request, reply);
-      if (!reply.isSuccess()) {
-        ctx.writeAndFlush(newDataStreamReplyByteBuffer(requestBuf, terminalReply));
+      if (!readCheckReply.isSuccess()) {
+        ctx.writeAndFlush(newDataStreamReplyByteBuffer(requestBuf, readCheckReply));
         return;
       }
 
-      final ReadStream stream = new ReadStream(request, requestBuf.getStreamId(), ctx, terminalReply);
+      final ReadStream stream = new ReadStream(request, requestBuf.getStreamId(), ctx, readCheckReply);
       try {
         division.getStateMachine().data().query(request.getMessage(), stream);
       } catch (Throwable t) {
@@ -207,46 +220,12 @@ public class ReadStreamManagement {
   }
 
   private static RaftClientRequest newDummyReadRequest(RaftClientRequest request) {
-    final RaftClientRequest.Builder builder = RaftClientRequest.newBuilder()
-        .setClientId(request.getClientId())
-        .setGroupId(request.getRaftGroupId())
-        .setCallId(request.getCallId())
+    final RaftProtos.ReadRequestTypeProto original = request.getType().getRead();
+    return RaftClientRequest.newBuilder()
+        .set(request)
         .setMessage(OrderedAsync.DUMMY)
-        .setType(request.getType())
-        .setRepliedCallIds(request.getRepliedCallIds())
-        .setSlidingWindowEntry(request.getSlidingWindowEntry())
-        .setRoutingTable(request.getRoutingTable())
-        .setTimeoutMs(request.getTimeoutMs())
-        .setSpanContext(request.getSpanContext());
-    if (request.isToLeader()) {
-      builder.setLeaderId(request.getServerId());
-    } else {
-      builder.setServerId(request.getServerId());
-    }
-    return builder.build();
-  }
-
-  private static RaftClientReply toReadStreamReply(RaftClientRequest request, RaftClientReply reply) {
-    return RaftClientReply.newBuilder()
-        .setRequest(request)
-        .setSuccess(reply.isSuccess())
-        .setException(reply.getException())
-        .setLogIndex(reply.getLogIndex())
-        .setCommitInfos(reply.getCommitInfos())
-        .build();
-  }
-
-  private static DataStreamReplyByteBuffer newReadStreamTerminalReply(
-      ClientId clientId, long streamId, RaftClientReply reply) {
-    return DataStreamReplyByteBuffer.newBuilder()
-        .setClientId(clientId)
-        .setType(Type.STREAM_HEADER)
-        .setStreamId(streamId)
-        .setStreamOffset(0)
-        .setBuffer(toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer())
-        .setSuccess(reply.isSuccess())
-        .setBytesWritten(0)
-        .setCommitInfos(reply.getCommitInfos())
+        .setType(RaftClientRequest.readRequestType(
+            original.getPreferNonLinearizable(), original.getReadAfterWriteConsistent(), true))
         .build();
   }
 

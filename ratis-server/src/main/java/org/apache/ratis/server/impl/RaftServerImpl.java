@@ -168,6 +168,9 @@ class RaftServerImpl implements RaftServer.Division,
   static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
   static final String START_COMPLETE = CLASS_NAME + ".startComplete";
 
+  static final CompletableFuture<RaftClientReply> DUMMY_SUCCESS_REPLY
+      = CompletableFuture.completedFuture(RaftClientReply.newBuilder().setSuccess().build());
+
   class Info implements DivisionInfo {
     @Override
     public RaftPeerRole getCurrentRole() {
@@ -1189,6 +1192,9 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   CompletableFuture<RaftClientReply> queryStateMachine(RaftClientRequest request) {
+    if (request.getType().getRead().getDummy()) {
+      return DUMMY_SUCCESS_REPLY;
+    }
     return processQueryFuture(stateMachine.query(request.getMessage()), request);
   }
 

@@ -46,11 +46,11 @@ public class RaftClientRequest extends RaftClientMessage {
   private static final Type WATCH_DEFAULT = new Type(
       WatchRequestTypeProto.newBuilder().setIndex(0L).setReplication(ReplicationLevel.MAJORITY).build());
 
-  private static final Type READ_AFTER_WRITE_CONSISTENT_DEFAULT
-      = new Type(ReadRequestTypeProto.newBuilder().setReadAfterWriteConsistent(true).build());
-  private static final Type READ_DEFAULT = new Type(ReadRequestTypeProto.getDefaultInstance());
-  private static final Type READ_NONLINEARIZABLE_DEFAULT
-      = new Type(ReadRequestTypeProto.newBuilder().setPreferNonLinearizable(true).build());
+  private static final ReadTypes READ_TYPES = new ReadTypes();
+  private static final Type READ_DEFAULT = readRequestType(false, false, false);
+  private static final Type READ_NONLINEARIZABLE_DEFAULT = readRequestType(true, false, false);
+  private static final Type READ_AFTER_WRITE_CONSISTENT_DEFAULT = readRequestType(false, true, false);
+
   private static final Type STALE_READ_DEFAULT = new Type(StaleReadRequestTypeProto.getDefaultInstance());
 
   private static final Map<ReplicationLevel, Type> WRITE_REQUEST_TYPES;
@@ -71,6 +71,44 @@ public class RaftClientRequest extends RaftClientMessage {
     return WRITE_REQUEST_TYPES.get(replication);
   }
 
+  private static class ReadTypes {
+    private final Type[] array = new Type[8];
+
+    private ReadTypes() {
+      for (int i = 0; i < array.length; i++) {
+        array[i] = new Type(ReadRequestTypeProto.newBuilder()
+            .setPreferNonLinearizable((i & 1) != 0)
+            .setReadAfterWriteConsistent((i & 2) != 0)
+            .setDummy((i & 4) != 0)
+            .build());
+      }
+
+      assertArray();
+    }
+
+    private Type getImpl(boolean nonLinearizable, boolean readAfterWriteConsistent, boolean dummy) {
+      final int i = (nonLinearizable ? 1 : 0)
+          | (readAfterWriteConsistent ? 2 : 0)
+          | (dummy ? 4 : 0);
+      return array[i];
+    }
+
+    Type get(boolean nonLinearizable, boolean readAfterWriteConsistent, boolean dummy) {
+      if (nonLinearizable && readAfterWriteConsistent) {
+        throw new IllegalArgumentException("Cannot be both nonLinearizable and readAfterWriteConsistent");
+      }
+      return getImpl(nonLinearizable, readAfterWriteConsistent, dummy);
+    }
+
+    private void assertArray() {
+      for (final Type type : array) {
+        final ReadRequestTypeProto read = type.getRead();
+        final Type got = getImpl(read.getPreferNonLinearizable(), read.getReadAfterWriteConsistent(), read.getDummy());
+        Preconditions.assertSame(type, got, "type");
+      }
+    }
+  }
+
   public static Type writeRequestType() {
     return writeRequestType(ReplicationLevel.MAJORITY);
   }
@@ -89,6 +127,10 @@ public class RaftClientRequest extends RaftClientMessage {
         .setMessageId(messageId)
         .setEndOfRequest(endOfRequest)
         .build());
+  }
+
+  public static Type readRequestType(boolean nonLinearizable, boolean readAfterWriteConsistent, boolean dummy) {
+    return READ_TYPES.get(nonLinearizable, readAfterWriteConsistent, dummy);
   }
 
   public static Type readAfterWriteConsistentRequestType() {
@@ -310,6 +352,22 @@ public class RaftClientRequest extends RaftClientMessage {
 
     public RaftClientRequest build() {
       return new RaftClientRequest(this);
+    }
+
+    public Builder set(RaftClientRequest request) {
+      this.clientId = request.getClientId();
+      this.serverId = request.getServerId();
+      this.groupId = request.getRaftGroupId();
+      this.callId = request.getCallId();
+      this.toLeader = request.isToLeader();
+      this.repliedCallIds = request.getRepliedCallIds();
+      this.message = request.getMessage();
+      this.type = request.getType();
+      this.slidingWindowEntry = request.getSlidingWindowEntry();
+      this.routingTable = request.getRoutingTable();
+      this.timeoutMs = request.getTimeoutMs();
+      this.spanContext = request.getSpanContext();
+      return this;
     }
 
     public Builder setClientId(ClientId clientId) {
