@@ -18,6 +18,7 @@
 package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.ExamplesProtos.DeleteReplyProto;
@@ -29,6 +30,8 @@ import org.apache.ratis.proto.ExamplesProtos.StreamWriteRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestHeaderProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestProto;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
@@ -39,6 +42,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.ReferenceCountedObject;
 import org.apache.ratis.util.function.CheckedFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +50,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -195,6 +200,49 @@ public class FileStoreClient implements Closeable {
         .build();
     final FileStoreRequestProto request = FileStoreRequestProto.newBuilder().setStream(header).build();
     return client.getDataStreamApi().stream(request.toByteString().asReadOnlyByteBuffer(), routingTable);
+  }
+
+  public DataStreamInput getStreamInput(String path, long offset, long length) {
+    final ReadRequestProto read = ReadRequestProto.newBuilder()
+        .setPath(ProtoUtils.toByteString(path))
+        .setOffset(offset)
+        .setLength(length)
+        .build();
+    return client.getDataStreamApi().streamReadOnly(read.toByteString().asReadOnlyByteBuffer());
+  }
+
+  /**
+   * Read file data using streaming read and write it to the given channel.
+   *
+   * @return total number of bytes read.
+   */
+  public long streamRead(String path, long offset, long length, WritableByteChannel channel)
+      throws IOException {
+    long total = 0;
+    try (DataStreamInput in = getStreamInput(path, offset, length)) {
+      while (true) {
+        final ReferenceCountedObject<DataStreamReply> ref = in.readAsync().join();
+        try {
+          final DataStreamReply reply = ref.get();
+          if (reply.getType() == Type.STREAM_HEADER) {
+            Preconditions.assertTrue(reply.isSuccess(),
+                () -> "Failed to stream read " + path + ", reply=" + reply);
+            return total;
+          } else {
+            Preconditions.assertTrue(reply.isSuccess(),
+                    () -> "Failed to stream read " + path + ", reply=" + reply);
+            Preconditions.assertEquals(Type.STREAM_DATA, reply.getType(),
+                    "reply type for stream read " + path);
+            final ByteBuffer data = FileStoreCommon.getReplyBuffer(reply);
+            while (data.hasRemaining()) {
+              total += channel.write(data);
+            }
+          }
+        } finally {
+          ref.release();
+        }
+      }
+    }
   }
 
   public CompletableFuture<Long> writeAsync(String path, long offset, boolean close, ByteBuffer buffer, boolean sync) {

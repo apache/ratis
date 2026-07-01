@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -88,6 +89,34 @@ abstract class FileInfo {
     }
   }
 
+  void streamRead(CheckedFunction<Path, Path, IOException> resolver, long offset, long length,
+      WritableByteChannel stream) throws IOException {
+    if (offset + length > getWriteSize()) {
+      throw new IOException("Failed to read Wrote: offset (=" + offset
+          + " + length (=" + length + ") > size = " + getWriteSize()
+          + ", path=" + getRelativePath());
+    }
+
+    try (SeekableByteChannel in = Files.newByteChannel(
+        resolver.apply(getRelativePath()), StandardOpenOption.READ)) {
+      in.position(offset);
+      long remaining = length;
+      while (remaining > 0) {
+        final int chunkSize = FileStoreCommon.getChunkSize(remaining);
+        final ByteBuffer buffer = ByteBuffer.allocateDirect(chunkSize);
+        final int n = in.read(buffer);
+        if (n <= 0) {
+          break;
+        }
+        buffer.flip();
+        stream.write(buffer);
+        remaining -= n;
+      }
+    } finally {
+      stream.close();
+    }
+  }
+
   UnderConstruction asUnderConstruction() {
     throw new UnsupportedOperationException(
         "File " + getRelativePath() + " is not under construction.");
@@ -119,6 +148,12 @@ abstract class FileInfo {
       super(f.getRelativePath());
       this.committedSize = f.getCommittedSize();
       this.writeSize = f.getWriteSize();
+    }
+
+    ReadOnly(Path relativePath, long size) {
+      super(relativePath);
+      this.committedSize = size;
+      this.writeSize = size;
     }
 
     @Override
