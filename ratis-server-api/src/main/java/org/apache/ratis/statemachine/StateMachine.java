@@ -226,7 +226,7 @@ public interface StateMachine extends Closeable {
 
     /**
      * Notify the {@link StateMachine} that the server for this division has been shut down.
-     * @Deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean)} instead
+     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean)} instead
      */
     @Deprecated
     default void notifyServerShutdown(RoleInfoProto roleInfo) {
@@ -503,7 +503,7 @@ public interface StateMachine extends Closeable {
   CompletableFuture<Message> query(Message request);
 
   /**
-   * Query the state machine, provided minIndex <= commit index.
+   * Query the state machine, provided minIndex &lt;= commit index.
    * The request must be read-only.
    * Since the commit index of this server may lag behind the Raft service,
    * the returned result may possibly be stale.
@@ -511,7 +511,7 @@ public interface StateMachine extends Closeable {
    * When minIndex > {@link #getLastAppliedTermIndex()},
    * the state machine may choose to either
    * (1) return exceptionally, or
-   * (2) wait until minIndex <= {@link #getLastAppliedTermIndex()} before running the query.
+   * (2) wait until minIndex &lt;= {@link #getLastAppliedTermIndex()} before running the query.
    */
   CompletableFuture<Message> queryStale(Message request, long minIndex);
 

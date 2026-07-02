@@ -29,6 +29,6 @@ public interface DataStreamMap {
   CompletableFuture<DataStream> computeIfAbsent(ClientInvocationId invocationId,
       Function<ClientInvocationId, CompletableFuture<DataStream>> newDataStream);
 
-  /** Similar to {@link java.util.Map#remove(java.lang.Object). */
+  /** Similar to {@link java.util.Map#remove(java.lang.Object)}. */
   CompletableFuture<DataStream> remove(ClientInvocationId invocationId);
 }
