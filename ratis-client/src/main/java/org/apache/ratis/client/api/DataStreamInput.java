@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.client.api;
 
-import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.util.ReferenceCountedObject;
 
@@ -31,8 +30,9 @@ public interface DataStreamInput extends Closeable {
   /**
    * Read the next chunk in the stream asynchronously.
    * The caller owns the returned {@link DataStreamReply} which is a {@link ReferenceCountedObject}.
-   * and a {@link DataStreamPacket}. Access the buffer via {@link DataStreamPacket#nioBuffer()}
-   * or {@link DataStreamPacket#nioBuffers()}.
+   * and a {@link org.apache.ratis.protocol.DataStreamPacket}.
+   * Access the buffer via {@link org.apache.ratis.protocol.DataStreamPacket#nioBuffer()}
+   * or {@link org.apache.ratis.protocol.DataStreamPacket#nioBuffers()}.
    * It must call {@link ReferenceCountedObject#release()} after consuming it.
    *
    * @return a future of the reference-counted reply.
