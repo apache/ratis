@@ -71,7 +71,7 @@ public class RaftClientRequest extends RaftClientMessage {
     return WRITE_REQUEST_TYPES.get(replication);
   }
 
-  private static class ReadTypes {
+  private static final class ReadTypes {
     private final Type[] array = new Type[8];
 
     private ReadTypes() {
