@@ -17,14 +17,11 @@
 # limitations under the License.
 
 
-# Script that assembles all you need to make an RC. Does build of the tar.gzs
-# which it stashes into a dir above $(pwd) named for the script with a
-# timestamp suffix. Deploys builds to maven.
-#
-# To finish, check what was build.  If good copy to people.apache.org and
-# close the maven repos.  Call a vote.
+# Script that assembles artifacts for release candidates.
+# Run without arguments for help.
 #
 # Presumes your settings.xml all set up so can sign artifacts published to mvn, etc.
+
 set -e
 # Set mvn and mvnopts
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
@@ -39,21 +36,6 @@ mvnGet() {
     org.codehaus.mojo:exec-maven-plugin:exec 2>/dev/null
 }
 
-
-# Check project name
-projectname=$(mvnGet project.name)
-projectversion=$(mvnGet project.version)
-if [ "${projectname}" = "Apache Ratis" ]; then
-  echo
-  echo "Prepare release artifacts for $projectname ${projectversion}"
-  echo
-else
-  echo "Unexpected project name \"${projectname}\"."
-  echo
-  echo "Please run this script ($0) under the root directory of Apache Ratis."
-  exit 1;
-fi
-
 if [ ! "$RATISVERSION" ]; then
   echo "Please set the RATISVERSION environment variable (eg. export RATISVERSION=0.3.0)"
   exit 1
@@ -62,6 +44,24 @@ fi
 if [ ! "$RC" ]; then
    echo "Please set the RC number. (eg. export RC=\"-rc2\")"
    exit 1
+fi
+
+if [ ! "$CODESIGNINGKEY" ]; then
+  echo "Please specify your signing key ID in the CODESIGNINGKEY environment variable"
+  exit 1
+fi
+
+# Check project name
+projectname=$(mvnGet project.name)
+if [ "${projectname}" = "Apache Ratis" ]; then
+  echo
+  echo "Prepare release artifacts for $projectname ${RATISVERSION}${RC}"
+  echo
+else
+  echo "Unexpected project name \"${projectname}\"."
+  echo
+  echo "Please run this script ($0) under the root directory of Apache Ratis."
+  exit 1;
 fi
 
 
@@ -81,12 +81,6 @@ if [ ! -d "$SVNDISTDIR" ]; then
 fi
 
 
-if [ ! "$CODESIGNINGKEY" ]; then
-  echo "Please specify your signing key ID in the CODESIGNINGKEY environment variable"
-  exit 1
-fi
-
-
 mvnFun() {
   MAVEN_OPTS="${mvnopts}" ${MVN} -Dmaven.repo.local="${repodir}" "$@"
 }
@@ -96,7 +90,7 @@ mvnFun() {
   git reset --hard
   git clean -fdx
   mvnFun versions:set -DnewVersion="$RATISVERSION" -DprocessAllModules
-  git commit --allow-empty -a -m "Change version for the version $RATISVERSION $RC"
+  git commit -a -m "[RELEASE] Update version to $RATISVERSION" || echo "<version> up to date, nothing to commit"
 
   git config user.signingkey "${CODESIGNINGKEY}"
   git tag -s -m "Release $RATISVERSION $RC" ratis-"${RATISVERSION}${RC}"
@@ -133,9 +127,11 @@ mvnFun() {
   cd "$RCDIR"
   cp "$projectdir/ratis-assembly/target/ratis-assembly-${RATISVERSION}-bin.tar.gz" "apache-ratis-${RATISVERSION}-bin.tar.gz"
   cp "$projectdir/ratis-assembly/target/ratis-assembly-${RATISVERSION}-src.tar.gz" "apache-ratis-${RATISVERSION}-src.tar.gz"
-  for i in *.tar.gz; do gpg  -u "${CODESIGNINGKEY}" --armor --output "${i}.asc" --detach-sig "${i}"; done
-  for i in *.tar.gz; do gpg --print-md SHA512 "${i}" > "${i}.sha512"; done
-  for i in *.tar.gz; do gpg --print-mds "${i}" > "${i}.mds"; done
+  for i in *.tar.gz; do
+    gpg -u "${CODESIGNINGKEY}" --armor --output "${i}.asc" --detach-sig "${i}"
+    gpg --print-md SHA512 "${i}" > "${i}.sha512"
+    gpg --print-mds "${i}" > "${i}.mds"
+  done
   cd "$SVNDISTDIR"
   # skip svn add in CI
   if [[ -z "${CI:-}" ]]; then
@@ -161,18 +157,18 @@ Please choose from available phases (eg. make_rc.sh 1-prepare-src):
 
    1-prepare-src:  This is the first step. It modifies the mvn version, creates the git tag and
                    builds the project to create the source artifacts.
-                   IT INCLUDES A GIT RESET + CLEAN. ALL THE LOCAL CHANGES WILL BE LOST!
+                   IT INCLUDES A GIT RESET + CLEAN. ALL LOCAL CHANGES WILL BE LOST!
 
    2-verify-bin:   The source artifact is copied to the $WORKINGDIR and the binary artifact is created from the source.
                    This is an additional check as the the released source artifact should be enough to build the whole project.
 
    3-publish-mvn:  Performs the final build, and uploads the artifacts to the maven staging repository
 
-   4-assembly:     This step copies all the required artifacts to the svn directory and ($SVNDISTDIR) creates the signatures/checksum files.
+   4-assembly:     This step copies all the required artifacts to the svn directory ($SVNDISTDIR) and creates the signatures/checksum files.
 
    5-publish-git:  Only do it if everything is fine. It pushes the rc tag and release branch to the repository.
 
-   6-publish-svn:  Uploads the artifacts to the apache dev staging area to start the vote.
+   6-publish-svn:  Uploads the artifacts to the apache dev staging area.
 
 The next steps of the release process are not scripted:
 

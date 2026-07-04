@@ -20,6 +20,8 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 
+import java.nio.ByteBuffer;
+
 public interface DataStreamPacket {
   ClientId getClientId();
 
@@ -30,4 +32,12 @@ public interface DataStreamPacket {
   long getStreamOffset();
 
   long getDataLength();
+
+  default ByteBuffer nioBuffer() {
+    throw new UnsupportedOperationException();
+  }
+
+  default ByteBuffer[] nioBuffers() {
+    throw new UnsupportedOperationException();
+  }
 }

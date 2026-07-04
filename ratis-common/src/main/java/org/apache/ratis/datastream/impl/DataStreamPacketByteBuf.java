@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 
+import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -54,6 +55,16 @@ public class DataStreamPacketByteBuf extends DataStreamPacketImpl {
 
   public final ByteBuf slice() {
     return getBuf().slice();
+  }
+
+  @Override
+  public ByteBuffer nioBuffer() {
+    return getBuf().nioBuffer();
+  }
+
+  @Override
+  public ByteBuffer[] nioBuffers() {
+    return getBuf().nioBuffers();
   }
 
   public final void release() {

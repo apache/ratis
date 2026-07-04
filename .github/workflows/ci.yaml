@@ -48,7 +48,7 @@ jobs:
       - build
     strategy:
       matrix:
-        java: [ 8, 11, 17, 21 ]
+        java: [ 8, 17, 21, 25 ]
       fail-fast: false
     uses: ./.github/workflows/check.yaml
     with:
@@ -124,12 +124,12 @@ jobs:
     if: github.event_name != 'pull_request'
     steps:
         - name: Checkout project
-          uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+          uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
           with:
             fetch-depth: 0
             persist-credentials: false
         - name: Cache for maven dependencies
-          uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+          uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
           with:
             path: |
               ~/.m2/repository
@@ -138,7 +138,7 @@ jobs:
             restore-keys: |
               maven-repo-
         - name: Setup java 17
-          uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
+          uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
           with:
             distribution: 'temurin'
             java-version: 17
