@@ -43,6 +43,7 @@ import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.proto.RaftProtos.StartLeaderElectionReplyProto;
 import org.apache.ratis.proto.RaftProtos.StartLeaderElectionRequestProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.protocol.GroupInfoRequest;
@@ -260,6 +261,8 @@ class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService clientExecutor;
   private final ThreadGroup threadGroup;
 
+  private final CompletableFuture<RaftClientReply> dummySuccessReply;
+
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -303,6 +306,13 @@ class RaftServerImpl implements RaftServer.Division,
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
         id + "-client");
     this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
+
+    this.dummySuccessReply = CompletableFuture.completedFuture(RaftClientReply.newBuilder()
+        .setClientId(ClientId.emptyClientId())
+        .setServerId(id)
+        .setGroupId(group.getGroupId())
+        .setSuccess()
+        .build());
   }
 
   private long getCommitIndex(RaftPeerId id) {
@@ -1190,7 +1200,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   CompletableFuture<RaftClientReply> queryStateMachine(RaftClientRequest request) {
     if (request.getType().getRead().getDummy()) {
-      return CompletableFuture.completedFuture(newSuccessReply(request));
+      return dummySuccessReply;
     }
     return processQueryFuture(stateMachine.query(request.getMessage()), request);
   }
