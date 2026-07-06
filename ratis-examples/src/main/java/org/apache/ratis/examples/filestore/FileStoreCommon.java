@@ -17,14 +17,10 @@
  */
 package org.apache.ratis.examples.filestore;
 
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
-import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.*;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
