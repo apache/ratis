@@ -22,9 +22,7 @@ import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.DataStreamObserver;
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
@@ -32,7 +30,6 @@ import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.util.ReferenceCountedObject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -67,20 +64,6 @@ public class TestDataStreamClientImpl {
       final CompletableFuture<DataStreamReply> future = new CompletableFuture<>();
       replyFuture.set(future);
       return future;
-    }
-
-    RaftClientRequest getRequest() {
-      return request.get();
-    }
-
-    void receive(DataStreamReplyByteBuf reply) {
-      final ReferenceCountedObject<DataStreamReply> ref = DataStreamReplyByteBuf.asReferenceCounted(reply);
-      ref.retain();
-      try {
-        replyHandler.get().onNext(ref);
-      } finally {
-        ref.release();
-      }
     }
 
     void complete() {

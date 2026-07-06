@@ -17,9 +17,11 @@
  */
 package org.apache.ratis.netty.server;
 
+import org.apache.ratis.client.impl.OrderedAsync;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
@@ -47,6 +49,7 @@ import java.util.concurrent.ExecutorService;
 
 import static org.apache.ratis.client.impl.ClientProtoUtils.toRaftClientRequest;
 import static org.apache.ratis.client.impl.ClientProtoUtils.toRaftClientReplyProto;
+import static org.apache.ratis.netty.server.DataStreamManagement.newDataStreamReplyByteBuffer;
 import static org.apache.ratis.netty.server.DataStreamManagement.replyDataStreamException;
 
 public class ReadStreamManagement {
@@ -60,23 +63,24 @@ public class ReadStreamManagement {
     private final DataStreamReplyByteBuffer terminalReply;
     private long streamOffset;
 
-    ReadStream(RaftClientRequest request, long streamId, ChannelHandlerContext ctx) {
+    ReadStream(RaftClientRequest request, long streamId, ChannelHandlerContext ctx, RaftClientReply terminalReply) {
       this.clientId = request.getClientId();
       this.streamId = streamId;
       this.ctx = ctx;
 
-      final RaftClientReply reply = RaftClientReply.newBuilder()
-          .setRequest(request)
-          .setSuccess()
-          .build();
-      this.terminalReply = DataStreamReplyByteBuffer.newBuilder()
+      this.terminalReply = newReadStreamTerminalReply(clientId, streamId, terminalReply);
+    }
+
+    private static DataStreamReplyByteBuffer newReadStreamTerminalReply(
+        ClientId clientId, long streamId, RaftClientReply reply) {
+      return DataStreamReplyByteBuffer.newBuilder()
           .setClientId(clientId)
           .setType(Type.STREAM_HEADER)
           .setStreamId(streamId)
           .setStreamOffset(0)
           .setBuffer(toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer())
-          .setSuccess(true)
-          .setBytesWritten(0)
+          .setSuccess(reply.isSuccess())
+          .setCommitInfos(reply.getCommitInfos())
           .build();
     }
 
@@ -186,15 +190,43 @@ public class ReadStreamManagement {
       return true;
     }
 
-    final ReadStream stream = new ReadStream(request, requestBuf.getStreamId(), ctx);
-    requestExecutor.execute(() -> {
+    final CompletableFuture<RaftClientReply> readCheck;
+    try {
+      readCheck = server.submitClientRequestAsync(newDummyReadRequest(request));
+    } catch (IOException e) {
+      replyDataStreamException(server, e, request, requestBuf, ctx);
+      return true;
+    }
+
+    readCheck.whenCompleteAsync((readCheckReply, exception) -> {
+      if (exception != null) {
+        replyDataStreamException(server, exception, request, requestBuf, ctx);
+        return;
+      }
+
+      if (!readCheckReply.isSuccess()) {
+        ctx.writeAndFlush(newDataStreamReplyByteBuffer(requestBuf, readCheckReply));
+        return;
+      }
+
+      final ReadStream stream = new ReadStream(request, requestBuf.getStreamId(), ctx, readCheckReply);
       try {
         division.getStateMachine().data().query(request.getMessage(), stream);
       } catch (Throwable t) {
         LOG.error("{}: Failed read-only data stream query for {}", this, request, t);
       }
-    });
+    }, requestExecutor);
     return true;
+  }
+
+  private static RaftClientRequest newDummyReadRequest(RaftClientRequest request) {
+    final RaftProtos.ReadRequestTypeProto original = request.getType().getRead();
+    return RaftClientRequest.newBuilder()
+        .set(request)
+        .setMessage(OrderedAsync.DUMMY)
+        .setType(RaftClientRequest.readRequestType(
+            original.getPreferNonLinearizable(), original.getReadAfterWriteConsistent(), true))
+        .build();
   }
 
   @Override

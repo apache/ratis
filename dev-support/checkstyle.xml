@@ -60,6 +60,10 @@
     </module>
 
     <module name="SuppressWarningsFilter"/>
+    <module name="SuppressionSingleFilter">
+        <property name="checks" value="FileLength"/>
+        <property name="files" value="[/\\]ratis-server[/\\]src[/\\]main[/\\]java[/\\]org[/\\]apache[/\\]ratis[/\\]server[/\\]impl[/\\]RaftServerImpl\.java"/>
+    </module>
 
     <!-- Checks that a package-info.java file exists for each package.     -->
     <!-- See http://checkstyle.sf.net/config_javadoc.html#JavadocPackage -->

@@ -18,6 +18,7 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,7 +118,7 @@ public final class LogSegmentPath {
 
       LOG.info("Found zero size open segment file " + path);
       try {
-        Files.delete(path);
+        FileUtils.delete(path);
         LOG.info("Deleted zero size open segment file " + path);
       } catch (IOException e) {
         LOG.warn("Failed to delete zero size open segment file " + path + ": " + e);
