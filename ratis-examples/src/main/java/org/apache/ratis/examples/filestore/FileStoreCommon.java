@@ -51,15 +51,6 @@ public interface FileStoreCommon {
     return ProtoUtils.toByteString(p.toString());
   }
 
-  static ByteBuffer getReplyBuffer(DataStreamReply reply) {
-    if (reply instanceof DataStreamReplyByteBuf) {
-      return ((DataStreamReplyByteBuf) reply).slice().nioBuffer();
-    } else if (reply instanceof DataStreamReplyByteBuffer) {
-      return ((DataStreamReplyByteBuffer) reply).slice();
-    }
-    throw new IllegalArgumentException("Unexpected reply: " + reply);
-  }
-
   static <T> CompletableFuture<T> completeExceptionally(
       long index, String message) {
     return completeExceptionally(index, message, null);

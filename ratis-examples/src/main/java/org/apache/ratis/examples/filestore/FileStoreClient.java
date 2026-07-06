@@ -233,7 +233,7 @@ public class FileStoreClient implements Closeable {
                     () -> "Failed to stream read " + path + ", reply=" + reply);
             Preconditions.assertEquals(Type.STREAM_DATA, reply.getType(),
                     "reply type for stream read " + path);
-            final ByteBuffer data = FileStoreCommon.getReplyBuffer(reply);
+            final ByteBuffer data = reply.nioBuffer();
             while (data.hasRemaining()) {
               total += channel.write(data);
             }
