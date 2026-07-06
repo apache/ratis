@@ -19,11 +19,7 @@ package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.util.CollectionUtils;
-import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.LogUtils;
-import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.TaskQueue;
+import org.apache.ratis.util.*;
 import org.apache.ratis.util.function.CheckedFunction;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
@@ -31,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
@@ -97,20 +94,15 @@ abstract class FileInfo {
           + ", path=" + getRelativePath());
     }
 
-    try (SeekableByteChannel in = Files.newByteChannel(
-        resolver.apply(getRelativePath()), StandardOpenOption.READ)) {
-      in.position(offset);
-      long remaining = length;
-      while (remaining > 0) {
-        final int chunkSize = FileStoreCommon.getChunkSize(remaining);
-        final ByteBuffer buffer = ByteBuffer.allocateDirect(chunkSize);
-        final int n = in.read(buffer);
+    try (FileChannel in = FileUtils.newFileChannel(
+            resolver.apply(getRelativePath()), StandardOpenOption.READ)) {
+      long transferred = 0;
+      while (transferred < length) {
+        final long n = in.transferTo(offset + transferred, length - transferred, stream);
         if (n <= 0) {
           break;
         }
-        buffer.flip();
-        stream.write(buffer);
-        remaining -= n;
+        transferred += n;
       }
     } finally {
       stream.close();
