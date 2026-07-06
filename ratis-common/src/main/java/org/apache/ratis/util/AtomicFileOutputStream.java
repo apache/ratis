@@ -109,8 +109,10 @@ public final class AtomicFileOutputStream extends FilterOutputStream {
     } catch (IOException ioe) {
       LOG.warn("Unable to abort file " + tmpFile, ioe);
     } finally {
-      if (!tmpFile.delete()) {
-        LOG.warn("Unable to delete tmp file during abort " + tmpFile);
+      try {
+        FileUtils.deleteIfExists(tmpFile);
+      } catch (IOException ioe) {
+        LOG.warn("Unable to delete tmp file during abort " + tmpFile, ioe);
       }
     }
   }
