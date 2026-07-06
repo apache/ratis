@@ -40,13 +40,13 @@ import java.util.function.UnaryOperator;
  *  |        --------------------------------         |
  *  |       |     ------------------------   |        |
  *  |       |    |                        |  |        |
- *  |       |  PAUSED &lt;---- PAUSING----   |  |        |
+ *  |       |  PAUSED «---- PAUSING----   |  |        |
  *  |       |    |          ^     |    |  |  |        |
  *  |       |    V          |     |    V  V  V        V
- * NEW --&gt; STARTING --&gt; RUNNING --|--&gt; CLOSING --&gt; [CLOSED]
+ * NEW --» STARTING --» RUNNING --|--» CLOSING --» [CLOSED]
  *  ^       |    |          |     |       ^
  *  |       |    |          V     V       |
- *   -------      -------&gt; EXCEPTION -----
+ *   -------      -------» EXCEPTION -----
  * </pre>
  */
 public class LifeCycle {
