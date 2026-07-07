@@ -41,26 +41,63 @@ public abstract class SubCommandBase {
   private String peers;
 
   public static RaftPeer[] parsePeers(String peers) {
-    return Stream.of(peers.split(",")).map(address -> {
-      String[] addressParts = address.split(":");
-      if (addressParts.length < 3) {
-        throw new IllegalArgumentException(
-            "Raft peer " + address + " is not a legitimate format. "
-                + "(format: name:host:port:dataStreamPort:clientPort:adminPort)");
+    return Stream.of(peers.split(",")).map(SubCommandBase::parsePeer).toArray(RaftPeer[]::new);
+  }
+
+  /**
+   * Parse a single peer definition in the format
+   * {@code name:host:port:dataStreamPort:clientPort:adminPort}, where the trailing
+   * ports are optional.  The host may be an IPv6 literal enclosed in brackets,
+   * e.g. {@code n0:[::1]:9000:9001:9002:9003}.
+   */
+  private static RaftPeer parsePeer(String address) {
+    final int idEnd = address.indexOf(':');
+    if (idEnd < 0) {
+      throw illegalFormat(address);
+    }
+    final String id = address.substring(0, idEnd);
+    final String hostAndPorts = address.substring(idEnd + 1);
+
+    // Separate the host from the port list, honoring IPv6 bracketed literals.
+    final String host;
+    final String portList;
+    if (hostAndPorts.startsWith("[")) {
+      final int bracketEnd = hostAndPorts.indexOf("]:");
+      if (bracketEnd < 0) {
+        throw illegalFormat(address);
       }
-      RaftPeer.Builder builder = RaftPeer.newBuilder();
-      builder.setId(addressParts[0]).setAddress(addressParts[1] + ":" + addressParts[2]);
-      if (addressParts.length >= 4) {
-        builder.setDataStreamAddress(addressParts[1] + ":" + addressParts[3]);
-        if (addressParts.length >= 5) {
-          builder.setClientAddress(addressParts[1] + ":" + addressParts[4]);
-          if (addressParts.length >= 6) {
-            builder.setAdminAddress(addressParts[1] + ":" + addressParts[5]);
-          }
-        }
+      host = hostAndPorts.substring(0, bracketEnd + 1); // include the closing ']'
+      portList = hostAndPorts.substring(bracketEnd + 2);
+    } else {
+      final int hostEnd = hostAndPorts.indexOf(':');
+      if (hostEnd < 0) {
+        throw illegalFormat(address);
       }
-      return builder.build();
-    }).toArray(RaftPeer[]::new);
+      host = hostAndPorts.substring(0, hostEnd);
+      portList = hostAndPorts.substring(hostEnd + 1);
+    }
+
+    final String[] ports = portList.split(":");
+    if (ports[0].isEmpty()) {
+      throw illegalFormat(address);
+    }
+    final RaftPeer.Builder builder = RaftPeer.newBuilder();
+    builder.setId(id).setAddress(host + ":" + ports[0]);
+    if (ports.length >= 2) {
+      builder.setDataStreamAddress(host + ":" + ports[1]);
+    }
+    if (ports.length >= 3) {
+      builder.setClientAddress(host + ":" + ports[2]);
+    }
+    if (ports.length >= 4) {
+      builder.setAdminAddress(host + ":" + ports[3]);
+    }
+    return builder.build();
+  }
+
+  private static IllegalArgumentException illegalFormat(String address) {
+    return new IllegalArgumentException("Raft peer " + address + " is not a legitimate format. "
+        + "(format: name:host:port:dataStreamPort:clientPort:adminPort)");
   }
 
   public RaftPeer[] getPeers() {
