@@ -20,7 +20,7 @@ source "${DIR}/../find_maven.sh"
 
 : ${WITH_COVERAGE:="false"}
 
-MAVEN_OPTIONS='-V -B -Dmaven.javadoc.skip=true -DskipTests'
+MAVEN_OPTIONS='-V -B -DskipTests'
 
 if [[ "${WITH_COVERAGE}" != "true" ]]; then
   MAVEN_OPTIONS="${MAVEN_OPTIONS} -Djacoco.skip"

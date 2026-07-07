@@ -134,7 +134,7 @@ interface RaftLogSequentialOps {
   /**
    * The same as append(Arrays.asList(entries)).
    *
-   * @deprecated use {@link #append(List)}
+   * @deprecated use {@link RaftLogSequentialOps#append(List)}
    */
   @Deprecated
   default List<CompletableFuture<Long>> append(LogEntryProto... entries) {
