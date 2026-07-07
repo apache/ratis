@@ -21,9 +21,17 @@ on:
       - 'dependabot/**'
     tags:
       - '**'
+    paths:
+      - '.github/workflows/**'
   pull_request:
+    paths:
+      - '.github/workflows/**'
 
 permissions: { }
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || case(github.repository_owner == 'apache', github.sha, github.ref_name) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.repository_owner != 'apache' }}
 
 jobs:
   zizmor:
@@ -38,3 +46,5 @@ jobs:
 
     - name: Run zizmor
       uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+      with:
+        advanced-security: ${{ github.repository_owner == 'apache' }}
