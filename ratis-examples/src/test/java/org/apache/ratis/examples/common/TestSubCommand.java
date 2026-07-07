@@ -69,4 +69,16 @@ public class TestSubCommand {
     Assertions.assertEquals("[::1]:6000", peers[0].getAddress());
     Assertions.assertEquals("127.0.0.1:6001", peers[1].getAddress());
   }
+
+  @Test
+  public void testParseEmptyEmbeddedPortRejected() {
+    Assertions.assertThrows(IllegalArgumentException.class,
+        () -> SubCommandBase.parsePeers("n0:127.0.0.1:6000::6002"));
+  }
+
+  @Test
+  public void testParseEmptyTrailingPortRejected() {
+    Assertions.assertThrows(IllegalArgumentException.class,
+        () -> SubCommandBase.parsePeers("n0:[::1]:6000:"));
+  }
 }

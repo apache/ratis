@@ -77,9 +77,13 @@ public abstract class SubCommandBase {
       portList = hostAndPorts.substring(hostEnd + 1);
     }
 
-    final String[] ports = portList.split(":");
-    if (ports[0].isEmpty()) {
-      throw illegalFormat(address);
+    // Use -1 limit so trailing/embedded empty segments (e.g. "6000:" or "6000::6002")
+    // are preserved and can be rejected rather than silently building "host:".
+    final String[] ports = portList.split(":", -1);
+    for (String port : ports) {
+      if (port.isEmpty()) {
+        throw illegalFormat(address);
+      }
     }
     final RaftPeer.Builder builder = RaftPeer.newBuilder();
     builder.setId(id).setAddress(host + ":" + ports[0]);

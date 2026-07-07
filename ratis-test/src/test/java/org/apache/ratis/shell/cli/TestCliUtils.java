@@ -55,4 +55,10 @@ public class TestCliUtils {
     Assertions.assertThrows(IllegalArgumentException.class,
         () -> CliUtils.parseInetSocketAddress("127.0.0.1"));
   }
+
+  @Test
+  public void testParseRejectsScheme() {
+    Assertions.assertThrows(IllegalArgumentException.class,
+        () -> CliUtils.parseInetSocketAddress("http://127.0.0.1:6000"));
+  }
 }

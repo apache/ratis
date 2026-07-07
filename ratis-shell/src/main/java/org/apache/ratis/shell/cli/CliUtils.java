@@ -165,6 +165,11 @@ public final class CliUtils {
   /** Parse the given string as a {@link InetSocketAddress}. */
   public static InetSocketAddress parseInetSocketAddress(String address) {
     try {
+      // NetUtils.createSocketAddr also accepts scheme://host:port; the shell only
+      // expects <HOST:PORT>, so reject a scheme to avoid masking invalid input.
+      if (address.contains("://")) {
+        throw new IllegalArgumentException("Unexpected scheme in \"" + address + "\"; expected format <HOST:PORT>.");
+      }
       return NetUtils.createSocketAddr(address);
     } catch (Exception e) {
       throw new IllegalArgumentException("Failed to parse the server address parameter \"" + address + "\".", e);
