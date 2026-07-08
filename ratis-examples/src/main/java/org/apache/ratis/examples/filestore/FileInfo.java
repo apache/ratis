@@ -89,7 +89,7 @@ abstract class FileInfo {
   void streamRead(CheckedFunction<Path, Path, IOException> resolver, long offset, long length,
       WritableByteChannel stream) throws IOException {
     if (offset + length > getWriteSize()) {
-      throw new IOException("Failed to read Wrote: offset (=" + offset
+      throw new IOException("Failed to read: offset (=" + offset
           + " + length (=" + length + ") > size = " + getWriteSize()
           + ", path=" + getRelativePath());
     }
@@ -99,11 +99,10 @@ abstract class FileInfo {
       long transferred = 0;
       while (transferred < length) {
         final long n = in.transferTo(offset + transferred, length - transferred, stream);
-        if (n <= 0) {
-          break;
-        }
+        Preconditions.assertTrue(n >= 0);
         transferred += n;
       }
+      Preconditions.assertSame(length, transferred, "transferred");
     } finally {
       stream.close();
     }
