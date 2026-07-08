@@ -104,6 +104,42 @@ public abstract class FileStoreStreamingBaseTest <CLUSTER extends MiniRaftCluste
     cluster.shutdown();
   }
 
+  @Test
+  public void testFileStoreStreamReadAfterStreamWrite() throws Exception {
+    final CLUSTER cluster = newCluster(NUM_PEERS);
+    cluster.start();
+    RaftTestUtil.waitForLeader(cluster);
+
+    final RaftGroup raftGroup = cluster.getGroup();
+    final Collection<RaftPeer> peers = raftGroup.getPeers();
+    final RaftPeer primary = cluster.getLeader().getPeer();
+
+    final CheckedSupplier<FileStoreClient, IOException> newClient =
+            () -> new FileStoreClient(cluster.getGroup(), getProperties(), primary);
+
+    final RoutingTable routingTable = DataStreamTestUtils.getRoutingTableChainTopology(peers, primary);
+    testSingleFileReadAfterStreamWrite("foo", SizeInBytes.valueOf("2M"), 10_000, newClient, routingTable);
+
+    cluster.shutdown();
+  }
+
+  private static void testSingleFileReadAfterStreamWrite(
+      String path, SizeInBytes fileLength, int bufferSize,
+      CheckedSupplier<FileStoreClient, IOException> newClient, RoutingTable routingTable)
+      throws Exception {
+    LOG.info("testSingleFileAfterStreamWrite with path={}, fileLength={}", path, fileLength);
+    FileStoreWriter.newBuilder()
+        .setFileName(path)
+        .setFileSize(fileLength)
+        .setBufferSize(bufferSize)
+        .setFileStoreClientSupplier(newClient)
+        .build()
+        .streamWrite(routingTable)
+        .streamRead()
+        .delete()
+        .close();
+  }
+
   private void testSingleFile(
       String path, SizeInBytes fileLength, int bufferSize, CheckedSupplier<FileStoreClient, IOException> newClient,
       RoutingTable routingTable)

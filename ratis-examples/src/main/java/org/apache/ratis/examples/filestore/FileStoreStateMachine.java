@@ -43,6 +43,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferExce
 import org.apache.ratis.util.FileUtils;
 
 import java.io.IOException;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -104,6 +105,24 @@ public class FileStoreStateMachine extends BaseStateMachine {
     return (proto.getIsWatch()? files.watch(path)
         : files.read(path, proto.getOffset(), proto.getLength(), true))
         .thenApply(reply -> Message.valueOf(reply.toByteString()));
+  }
+
+  @Override
+  public void query(Message request, WritableByteChannel stream) {
+    try {
+      final ReadRequestProto proto = ReadRequestProto.parseFrom(request.getContent());
+      if (proto.getIsWatch()) {
+        throw new IOException("Watch is not supported for streaming read: " + proto);
+      }
+      files.streamRead(proto.getPath().toStringUtf8(), proto.getOffset(), proto.getLength(), stream);
+    } catch (Exception e) {
+      LOG.error(getId() + ": Failed streaming read for " + request, e);
+      try {
+        stream.close();
+      } catch (IOException ignored) {
+        // ignore
+      }
+    }
   }
 
   @Override

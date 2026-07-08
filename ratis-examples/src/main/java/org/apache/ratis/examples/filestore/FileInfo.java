@@ -19,11 +19,7 @@ package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.util.CollectionUtils;
-import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.LogUtils;
-import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.TaskQueue;
+import org.apache.ratis.util.*;
 import org.apache.ratis.util.function.CheckedFunction;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
@@ -31,7 +27,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -88,6 +86,28 @@ abstract class FileInfo {
     }
   }
 
+  void streamRead(CheckedFunction<Path, Path, IOException> resolver, long offset, long length,
+      WritableByteChannel stream) throws IOException {
+    if (offset + length > getWriteSize()) {
+      throw new IOException("Failed to read: offset (=" + offset
+          + " + length (=" + length + ") > size = " + getWriteSize()
+          + ", path=" + getRelativePath());
+    }
+
+    try (FileChannel in = FileUtils.newFileChannel(
+            resolver.apply(getRelativePath()), StandardOpenOption.READ)) {
+      long transferred = 0;
+      while (transferred < length) {
+        final long n = in.transferTo(offset + transferred, length - transferred, stream);
+        Preconditions.assertTrue(n >= 0);
+        transferred += n;
+      }
+      Preconditions.assertSame(length, transferred, "transferred");
+    } finally {
+      stream.close();
+    }
+  }
+
   UnderConstruction asUnderConstruction() {
     throw new UnsupportedOperationException(
         "File " + getRelativePath() + " is not under construction.");
@@ -119,6 +139,12 @@ abstract class FileInfo {
       super(f.getRelativePath());
       this.committedSize = f.getCommittedSize();
       this.writeSize = f.getWriteSize();
+    }
+
+    ReadOnly(Path relativePath, long size) {
+      super(relativePath);
+      this.committedSize = size;
+      this.writeSize = size;
     }
 
     @Override
