@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.RaftException;
+import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
@@ -164,11 +165,12 @@ public final class CliUtils {
   /** Parse the given string as a {@link InetSocketAddress}. */
   public static InetSocketAddress parseInetSocketAddress(String address) {
     try {
-      final String[] hostPortPair = address.split(":");
-      if (hostPortPair.length < 2) {
-        throw new IllegalArgumentException("Unexpected address format <HOST:PORT>.");
+      // NetUtils.createSocketAddr also accepts scheme://host:port; the shell only
+      // expects <HOST:PORT>, so reject a scheme to avoid masking invalid input.
+      if (address.contains("://")) {
+        throw new IllegalArgumentException("Unexpected scheme in \"" + address + "\"; expected format <HOST:PORT>.");
       }
-      return new InetSocketAddress(hostPortPair[0], Integer.parseInt(hostPortPair[1]));
+      return NetUtils.createSocketAddr(address);
     } catch (Exception e) {
       throw new IllegalArgumentException("Failed to parse the server address parameter \"" + address + "\".", e);
     }

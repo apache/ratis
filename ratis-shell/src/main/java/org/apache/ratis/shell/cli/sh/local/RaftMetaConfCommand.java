@@ -29,6 +29,7 @@ import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.NetUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -91,7 +92,8 @@ public class RaftMetaConfCommand extends AbstractCommand {
       }
       InetSocketAddress inetSocketAddress = CliUtils.parseInetSocketAddress(
           peerIdWithAddressArray[peerIdWithAddressArray.length - 1]);
-      String addressString = inetSocketAddress.getHostString() + ":" + inetSocketAddress.getPort();
+      // Use address2String so that IPv6 literals are surrounded with '[', ']'.
+      String addressString = NetUtils.address2String(inetSocketAddress);
       if (addresses.contains(addressString)) {
         printf("Found duplicated address: %s. Please make sure the address of peer have no duplicated value.",
             addressString);
