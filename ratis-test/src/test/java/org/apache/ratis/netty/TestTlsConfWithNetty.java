@@ -156,6 +156,19 @@ public class TestTlsConfWithNetty {
     runTest(randomPort(), serverTlsConfig, clientTlsConfig);
   }
 
+  /** An unset JSSE provider name resolves to null (no provider override). See RATIS-2598. */
+  @Test
+  public void testNoJsseProviderReturnsNull() {
+    Assertions.assertNull(NettyUtils.getJsseProvider(TlsConf.newBuilder().build()));
+  }
+
+  /** An unknown JSSE provider name must fail fast rather than be silently ignored. */
+  @Test
+  public void testUnknownJsseProviderThrows() {
+    final TlsConf conf = TlsConf.newBuilder().setJsseProviderName("NoSuchJsseProvider").build();
+    Assertions.assertThrows(IllegalArgumentException.class, () -> NettyUtils.getJsseProvider(conf));
+  }
+
   static void runTest(int port, TlsConf serverSslConf, TlsConf clientSslConf) throws Exception {
     final SslContext serverSslContext = serverSslConf == null? null
         : NettyUtils.buildSslContextForServer(serverSslConf);
