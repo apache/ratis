@@ -33,10 +33,10 @@ import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.ApplicationProtocolConfig;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.IdentityCipherSuiteFilter;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -339,7 +339,7 @@ public interface GrpcUtil {
     }
     final List<String> cipherSuites = tlsConf.getCipherSuites();
     if (cipherSuites != null && !cipherSuites.isEmpty()) {
-      b.ciphers(cipherSuites, IdentityCipherSuiteFilter.INSTANCE);
+      b.ciphers(cipherSuites, SupportedCipherSuiteFilter.INSTANCE);
     }
     return b;
   }
