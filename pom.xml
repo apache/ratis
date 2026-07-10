@@ -194,7 +194,7 @@
     <slf4j.version>2.0.18</slf4j.version>
     <junit-bom.version>5.14.4</junit-bom.version>
     <mockito.version>4.11.0</mockito.version>
-    <byte-buddy.version>1.18.10</byte-buddy.version>
+    <byte-buddy.version>1.18.11</byte-buddy.version>
     <jacoco.version>0.8.15</jacoco.version>
     <flaky-test-groups>flaky | org.apache.ratis.test.tag.FlakyTest</flaky-test-groups>
 
