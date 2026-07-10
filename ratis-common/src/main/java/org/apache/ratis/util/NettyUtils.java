@@ -36,6 +36,8 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketCh
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import org.apache.ratis.thirdparty.io.netty.util.concurrent.Future;
 import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
@@ -172,7 +174,7 @@ public interface NettyUtils {
     if (tlsConf.isMutualTls()) {
       setTrustManager(b, tlsConf.getTrustManager());
     }
-    return b;
+    return configureSslContextBuilder(b, tlsConf);
   }
 
   static SslContext buildSslContextForServer(TlsConf tlsConf) {
@@ -184,6 +186,32 @@ public interface NettyUtils {
     setTrustManager(b, tlsConf.getTrustManager());
     if (tlsConf.isMutualTls()) {
       setKeyManager(b, tlsConf.getKeyManager());
+    }
+    return configureSslContextBuilder(b, tlsConf);
+  }
+
+  /**
+   * Apply the {@link SslProvider}, enabled TLS protocols and cipher suites from the given
+   * {@link TlsConf} to the builder, so that the Netty DataStream transport honours the same
+   * configuration instead of falling back on the provider defaults.
+   *
+   * <p>Unlike the gRPC path ({@code GrpcUtil.configureSslContextBuilder}) this uses
+   * {@link SupportedCipherSuiteFilter}, which intersects the requested cipher suites with the
+   * ones actually supported by the negotiated provider/engine, rather than passing them through
+   * verbatim.
+   */
+  static SslContextBuilder configureSslContextBuilder(SslContextBuilder b, TlsConf tlsConf) {
+    final SslProvider sslProvider = tlsConf.getSslProvider();
+    if (sslProvider != null) {
+      b.sslProvider(sslProvider);
+    }
+    final List<String> protocols = tlsConf.getProtocols();
+    if (protocols != null && !protocols.isEmpty()) {
+      b.protocols(protocols.toArray(new String[0]));
+    }
+    final List<String> cipherSuites = tlsConf.getCipherSuites();
+    if (cipherSuites != null && !cipherSuites.isEmpty()) {
+      b.ciphers(cipherSuites, SupportedCipherSuiteFilter.INSTANCE);
     }
     return b;
   }
