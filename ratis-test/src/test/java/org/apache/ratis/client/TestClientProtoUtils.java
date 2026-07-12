@@ -20,10 +20,22 @@ package org.apache.ratis.client;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
+import org.apache.ratis.proto.RaftProtos.LeaderInfoProto;
+import org.apache.ratis.proto.RaftProtos.LogInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.proto.RaftProtos.TermIndexProto;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.SizeInBytes;
@@ -31,8 +43,11 @@ import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 /** Test {@link ClientProtoUtils}. */
@@ -98,5 +113,81 @@ public class TestClientProtoUtils extends BaseTest {
       }
       return out.toByteString();
     }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testGroupInfoReplyProtoRoundTrip(boolean withConf) {
+    final ClientId clientId = ClientId.randomId();
+    final RaftPeerId serverId = RaftPeerId.valueOf("s0");
+    final RaftGroupId groupId = RaftGroupId.randomId();
+    final RaftPeer peer = RaftPeer.newBuilder().setId(serverId).setAddress("127.0.0.1:1234").build();
+    final RaftGroup group = RaftGroup.valueOf(groupId, peer);
+
+    final RaftConfigurationProto conf = withConf ? newRaftConfigurationProto(peer) : null;
+
+    final GroupInfoReply original = new GroupInfoReply(clientId, serverId, groupId, 1L,
+        Collections.singletonList(newCommitInfoProto(peer, 100L)), group, newRoleInfoProto(peer), true,
+        conf, newLogInfoProto());
+
+    final GroupInfoReplyProto proto = ClientProtoUtils.toGroupInfoReplyProto(original);
+    final GroupInfoReply computed = ClientProtoUtils.toGroupInfoReply(proto);
+
+    assertGroupInfoReply(original, computed);
+  }
+
+  private static void assertGroupInfoReply(GroupInfoReply expected, GroupInfoReply actual) {
+    Assertions.assertEquals(expected.getClientId(), actual.getClientId());
+    Assertions.assertEquals(expected.getServerId(), actual.getServerId());
+    Assertions.assertEquals(expected.getRaftGroupId(), actual.getRaftGroupId());
+    Assertions.assertEquals(expected.getCallId(), actual.getCallId());
+    Assertions.assertEquals(expected.getCommitInfos(), actual.getCommitInfos());
+    Assertions.assertEquals(expected.getGroup(), actual.getGroup());
+    Assertions.assertEquals(expected.getRoleInfoProto(), actual.getRoleInfoProto());
+    Assertions.assertEquals(expected.isRaftStorageHealthy(), actual.isRaftStorageHealthy());
+    Assertions.assertEquals(expected.getConf(), actual.getConf());
+    Assertions.assertEquals(expected.getLogInfoProto(), actual.getLogInfoProto());
+  }
+
+  private static RaftConfigurationProto newRaftConfigurationProto(RaftPeer peer) {
+    return RaftConfigurationProto.newBuilder()
+        .addPeers(peer.getRaftPeerProto())
+        .addOldPeers(newRaftPeerProto("s1", "127.0.0.1:1235"))
+        .addListeners(newRaftPeerProto("s2", "127.0.0.1:1236"))
+        .addOldListeners(newRaftPeerProto("s3", "127.0.0.1:1237"))
+        .build();
+  }
+
+  private static RaftPeerProto newRaftPeerProto(String id, String address) {
+    return RaftPeer.newBuilder().setId(id).setAddress(address).build().getRaftPeerProto();
+  }
+
+  private static CommitInfoProto newCommitInfoProto(RaftPeer peer, long commitIndex) {
+    return CommitInfoProto.newBuilder()
+        .setServer(peer.getRaftPeerProto())
+        .setCommitIndex(commitIndex)
+        .build();
+  }
+
+  private static RoleInfoProto newRoleInfoProto(RaftPeer peer) {
+    return RoleInfoProto.newBuilder()
+        .setSelf(peer.getRaftPeerProto())
+        .setRole(RaftPeerRole.LEADER)
+        .setRoleElapsedTimeMs(1000L)
+        .setLeaderInfo(LeaderInfoProto.newBuilder().setTerm(1L).build())
+        .build();
+  }
+
+  private static LogInfoProto newLogInfoProto() {
+    return LogInfoProto.newBuilder()
+        .setLastSnapshot(newTermIndexProto(1L, 10L))
+        .setApplied(newTermIndexProto(1L, 20L))
+        .setCommitted(newTermIndexProto(1L, 30L))
+        .setLastEntry(newTermIndexProto(1L, 40L))
+        .build();
+  }
+
+  private static TermIndexProto newTermIndexProto(long term, long index) {
+    return TermIndexProto.newBuilder().setTerm(term).setIndex(index).build();
   }
 }
