@@ -37,6 +37,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NettyUtils;
 import org.junit.jupiter.api.Assertions;
@@ -47,6 +48,8 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -91,6 +94,79 @@ public class TestTlsConfWithNetty {
     final TlsConf serverTlsConfig = SecurityTestUtils.newServerTlsConfig(true);
     final TlsConf clientTlsConfig = SecurityTestUtils.newClientTlsConfig(true);
     runTest(randomPort(), serverTlsConfig, clientTlsConfig);
+  }
+
+  /** RSA-certificate cipher, broadly supported on the JDK provider for TLSv1.2. */
+  private static final String VALID_CIPHER = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256";
+  private static final String UNSUPPORTED_CIPHER = "TLS_UNSUPPORTED_BOGUS_CIPHER";
+  private static final List<String> TLS_1_2 = Collections.singletonList("TLSv1.2");
+
+  static TlsConf newServerTlsConfig(SslProvider provider, List<String> protocols, List<String> cipherSuites) {
+    return TlsConf.newBuilder()
+        .setName("server")
+        .setPrivateKey(new TlsConf.PrivateKeyConf(SecurityTestUtils.getResource("ssl/server.pem")))
+        .setKeyCertificates(new TlsConf.CertificatesConf(SecurityTestUtils.getResource("ssl/server.crt")))
+        .setSslProvider(provider)
+        .setProtocols(protocols)
+        .setCipherSuites(cipherSuites)
+        .build();
+  }
+
+  static TlsConf newClientTlsConfig(SslProvider provider, List<String> protocols, List<String> cipherSuites) {
+    return TlsConf.newBuilder()
+        .setName("client")
+        .setTrustCertificates(new TlsConf.CertificatesConf(SecurityTestUtils.getResource("ssl/ca.crt")))
+        .setSslProvider(provider)
+        .setProtocols(protocols)
+        .setCipherSuites(cipherSuites)
+        .build();
+  }
+
+  /**
+   * The configured cipher suites must actually be applied to the {@link SslContext}; previously
+   * they were silently dropped on the Netty path. See RATIS-2598.
+   */
+  @Test
+  public void testConfiguredCipherSuitesAreApplied() {
+    final SslContext ctx = NettyUtils.buildSslContextForServer(
+        newServerTlsConfig(SslProvider.JDK, TLS_1_2, Collections.singletonList(VALID_CIPHER)));
+    Assertions.assertEquals(Collections.singletonList(VALID_CIPHER), ctx.cipherSuites());
+  }
+
+  /**
+   * An unsupported cipher suite must be filtered out rather than passed through verbatim; otherwise
+   * building the {@link SslContext} fails and crashes the server. See RATIS-2598.
+   */
+  @Test
+  public void testUnsupportedCipherSuiteIsFilteredOut() {
+    final SslContext ctx = NettyUtils.buildSslContextForServer(
+        newServerTlsConfig(SslProvider.JDK, TLS_1_2, Arrays.asList(UNSUPPORTED_CIPHER, VALID_CIPHER)));
+    Assertions.assertEquals(Collections.singletonList(VALID_CIPHER), ctx.cipherSuites());
+  }
+
+  /**
+   * End-to-end handshake with explicit protocol and cipher configuration, including an unsupported
+   * cipher that must be filtered out without breaking the handshake.
+   */
+  @Test
+  public void testSslWithProtocolAndCipher() throws Exception {
+    final List<String> ciphers = Arrays.asList(UNSUPPORTED_CIPHER, VALID_CIPHER);
+    final TlsConf serverTlsConfig = newServerTlsConfig(SslProvider.JDK, TLS_1_2, ciphers);
+    final TlsConf clientTlsConfig = newClientTlsConfig(SslProvider.JDK, TLS_1_2, ciphers);
+    runTest(randomPort(), serverTlsConfig, clientTlsConfig);
+  }
+
+  /** An unset JSSE provider name resolves to null (no provider override). See RATIS-2598. */
+  @Test
+  public void testNoJsseProviderReturnsNull() {
+    Assertions.assertNull(NettyUtils.getJsseProvider(TlsConf.newBuilder().build()));
+  }
+
+  /** An unknown JSSE provider name must fail fast rather than be silently ignored. */
+  @Test
+  public void testUnknownJsseProviderThrows() {
+    final TlsConf conf = TlsConf.newBuilder().setJsseProviderName("NoSuchJsseProvider").build();
+    Assertions.assertThrows(IllegalArgumentException.class, () -> NettyUtils.getJsseProvider(conf));
   }
 
   static void runTest(int port, TlsConf serverSslConf, TlsConf clientSslConf) throws Exception {

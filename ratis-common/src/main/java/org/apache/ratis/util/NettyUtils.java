@@ -36,6 +36,8 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketCh
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import org.apache.ratis.thirdparty.io.netty.util.concurrent.Future;
 import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
@@ -43,6 +45,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
+import java.security.Provider;
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -172,7 +176,7 @@ public interface NettyUtils {
     if (tlsConf.isMutualTls()) {
       setTrustManager(b, tlsConf.getTrustManager());
     }
-    return b;
+    return configureSslContextBuilder(b, tlsConf);
   }
 
   static SslContext buildSslContextForServer(TlsConf tlsConf) {
@@ -185,7 +189,53 @@ public interface NettyUtils {
     if (tlsConf.isMutualTls()) {
       setKeyManager(b, tlsConf.getKeyManager());
     }
+    return configureSslContextBuilder(b, tlsConf);
+  }
+
+  /**
+   * Apply the {@link SslProvider}, JSSE provider, enabled TLS protocols and cipher suites from the given
+   * {@link TlsConf} to the builder, so that the Netty DataStream transport honours the same
+   * configuration instead of falling back on the provider defaults.
+   *
+   * <p>Unlike the gRPC path ({@code GrpcUtil.configureSslContextBuilder}) this uses
+   * {@link SupportedCipherSuiteFilter}, which intersects the requested cipher suites with the
+   * ones actually supported by the negotiated provider/engine, rather than passing them through
+   * verbatim.
+   */
+  static SslContextBuilder configureSslContextBuilder(SslContextBuilder b, TlsConf tlsConf) {
+    final SslProvider sslProvider = tlsConf.getSslProvider();
+    if (sslProvider != null) {
+      b.sslProvider(sslProvider);
+    }
+    final Provider jsseProvider = getJsseProvider(tlsConf);
+    if (jsseProvider != null) {
+      b.sslProvider(SslProvider.JDK).sslContextProvider(jsseProvider);
+    }
+    final List<String> protocols = tlsConf.getProtocols();
+    if (protocols != null && !protocols.isEmpty()) {
+      b.protocols(protocols);
+    }
+    final List<String> cipherSuites = tlsConf.getCipherSuites();
+    if (cipherSuites != null && !cipherSuites.isEmpty()) {
+      b.ciphers(cipherSuites, SupportedCipherSuiteFilter.INSTANCE);
+    }
     return b;
+  }
+
+  /**
+   * @return the named JSSE {@link Provider} from {@link TlsConf#getJsseProviderName()}, or null when
+   *     unset; throws {@link IllegalArgumentException} when the named provider is not registered.
+   */
+  static Provider getJsseProvider(TlsConf tlsConf) {
+    final String providerName = tlsConf.getJsseProviderName();
+    if (providerName == null || providerName.trim().isEmpty()) {
+      return null;
+    }
+    final Provider namedProvider = Security.getProvider(providerName.trim());
+    if (namedProvider == null) {
+      throw new IllegalArgumentException("JSSE provider not found: " + providerName);
+    }
+    return namedProvider;
   }
 
   static SslContext buildSslContextForClient(TlsConf tlsConf) {
