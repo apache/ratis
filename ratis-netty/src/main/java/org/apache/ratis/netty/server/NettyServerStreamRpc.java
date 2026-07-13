@@ -36,6 +36,7 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.security.TlsConf;
+import org.apache.ratis.server.DataStreamReadResolver;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -165,7 +166,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.metrics = new NettyServerStreamRpcMetrics(this.name);
     this.requests = new DataStreamManagement(server, metrics);
-    this.reads = new ReadStreamManagement(server);
+    this.reads = new ReadStreamManagement(server, DataStreamReadResolver.get(parameters));
 
     final RaftProperties properties = server.getProperties();
 
