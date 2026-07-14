@@ -373,6 +373,7 @@ public interface ClientProtoUtils {
         b.setIsRaftStorageHealthy(reply.isRaftStorageHealthy());
         b.setRole(reply.getRoleInfoProto());
         b.addAllCommitInfos(reply.getCommitInfos());
+        reply.getConf().ifPresent(conf -> b.setConf(conf));
         b.setLogInfo(reply.getLogInfoProto());
       }
     }
