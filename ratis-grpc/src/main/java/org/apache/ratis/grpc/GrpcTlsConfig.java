@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.security.TlsConf;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.CipherSuiteFilter;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 
 import javax.net.ssl.KeyManager;
@@ -214,6 +215,12 @@ public class GrpcTlsConfig extends TlsConf {
     @Override
     public Builder setCipherSuites(List<String> cipherSuites) {
       super.setCipherSuites(cipherSuites);
+      return this;
+    }
+
+    @Override
+    public Builder setCipherSuiteFilter(CipherSuiteFilter cipherSuiteFilter) {
+      super.setCipherSuiteFilter(cipherSuiteFilter);
       return this;
     }
 
