@@ -20,6 +20,7 @@ package org.apache.ratis.server;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.thirdparty.org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.io.IOException;
 
@@ -34,7 +35,7 @@ public interface DataStreamReadResolver {
   }
 
   /** Get the resolver from the given server parameters, if configured. */
-  static DataStreamReadResolver get(Parameters parameters) {
+  static DataStreamReadResolver get(@Nullable Parameters parameters) {
     return parameters != null
         ? parameters.get(PARAMETER_KEY, DataStreamReadResolver.class)
         : null;
