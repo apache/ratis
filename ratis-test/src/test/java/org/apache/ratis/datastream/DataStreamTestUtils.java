@@ -190,26 +190,21 @@ public interface DataStreamTestUtils {
     }
 
     @Override
-    public void query(Message request, WritableByteChannel stream) {
-      CompletableFuture.supplyAsync(() -> {
-        try {
-          streamReadOnlyImpl(request, stream);
-        } catch (IOException e) {
-          throw new CompletionException("Failed to streamReadOnly for " + request, e);
-        }
-        return null;
-      });
+    public long transferTo(Message request, WritableByteChannel stream) throws IOException {
+      return streamReadOnlyImpl(request, stream);
     }
 
-    private void streamReadOnlyImpl(Message request, WritableByteChannel stream) throws IOException {
+    private long streamReadOnlyImpl(Message request, WritableByteChannel stream) throws IOException {
+      long transferred = 0;
       try {
         for (int i = 0; i < READ_ONLY_STREAM_CHUNKS; i++) {
           final ByteString chunk = getReadOnlyStreamChunk(request.getContent(), i);
-          stream.write(chunk.asReadOnlyByteBuffer());
+          transferred += stream.write(chunk.asReadOnlyByteBuffer());
         }
       } finally {
         stream.close();
       }
+      return transferred;
     }
 
     SingleDataStream getSingleDataStream(RaftClientRequest request) {

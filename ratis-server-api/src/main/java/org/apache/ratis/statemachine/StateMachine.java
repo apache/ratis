@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.api.DataStreamApi;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -66,7 +67,7 @@ public interface StateMachine extends Closeable {
    * For data intensive applications, it can be more efficient to implement this API
    * in order to support zero buffer coping and a light-weighted raft log.
    */
-  interface DataApi {
+  interface DataApi extends DataStreamApi {
     /** A noop implementation of {@link DataApi}. */
     DataApi DEFAULT = new DataApi() {};
 
@@ -123,8 +124,11 @@ public interface StateMachine extends Closeable {
      *
      * @param request the client request
      * @param stream the output stream to send the results
+     * @return the number of bytes transferred
      */
-    default void query(Message request, WritableByteChannel stream) {
+    @Override
+    default long transferTo(Message request, WritableByteChannel stream) throws IOException {
+      return 0;
     }
 
     /**
