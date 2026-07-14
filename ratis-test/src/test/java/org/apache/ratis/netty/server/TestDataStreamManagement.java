@@ -88,9 +88,10 @@ class TestDataStreamManagement {
     final AtomicReference<WritableByteChannel> streamRef = new AtomicReference<>();
     final DataApi dataApi = new DataApi() {
       @Override
-      public void query(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableByteChannel stream) {
         messageRef.set(request);
         streamRef.set(stream);
+        return 0;
       }
     };
     final ReadStreamManagement management = newReadStreamManagement(serverId, groupId, dataApi);
@@ -141,9 +142,10 @@ class TestDataStreamManagement {
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public void query(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableByteChannel stream) {
         messageRef.set(request);
         streamRef.set(stream);
+        return 0;
       }
     };
     final RaftServer server = newRaftServer(serverId, new RaftProperties(), null, null, request -> {
@@ -197,8 +199,9 @@ class TestDataStreamManagement {
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public void query(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableByteChannel stream) {
         streamRef.set(stream);
+        return 0;
       }
     };
     final StateMachine stateMachine = new BaseStateMachine() {
@@ -267,7 +270,7 @@ class TestDataStreamManagement {
     final RaftGroupId groupId = RaftGroupId.randomId();
     final DataApi dataApi = new DataApi() {
       @Override
-      public void query(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableByteChannel stream) {
         throw new IllegalStateException("query failed");
       }
     };
@@ -309,9 +312,10 @@ class TestDataStreamManagement {
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public void query(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableByteChannel stream) {
         messageRef.set(request);
         streamRef.set(stream);
+        return 0;
       }
     };
     final ReadStreamManagement management = newReadStreamManagement(serverId, groupId, dataApi, request -> {
@@ -350,8 +354,9 @@ class TestDataStreamManagement {
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public void query(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableByteChannel stream) {
         queryCalled.set(true);
+        return 0;
       }
     };
     final ReadStreamManagement management = newReadStreamManagement(serverId, groupId, dataApi, request ->
@@ -403,9 +408,10 @@ class TestDataStreamManagement {
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public void query(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableByteChannel stream) {
         queryInEventLoop.set(eventLoop.inEventLoop());
         queryDone.countDown();
+        return 0;
       }
     };
     final StateMachine stateMachine = new BaseStateMachine() {

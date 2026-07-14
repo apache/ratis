@@ -40,6 +40,6 @@ public interface DataStreamApi {
   @FunctionalInterface
   interface Resolver {
     /** @return the data API handling this request, or null if the API is not found. */
-    DataStreamApi resolve(RaftClientRequest request);
+    DataStreamApi resolve(RaftClientRequest request) throws IOException;
   }
 }
