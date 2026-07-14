@@ -36,6 +36,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.IdentityCipherSuiteFilter;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 import org.apache.ratis.util.JavaUtils;
@@ -142,6 +143,24 @@ public class TestTlsConfWithNetty {
     final SslContext ctx = NettyUtils.buildSslContextForServer(
         newServerTlsConfig(SslProvider.JDK, TLS_1_2, Arrays.asList(UNSUPPORTED_CIPHER, VALID_CIPHER)));
     Assertions.assertEquals(Collections.singletonList(VALID_CIPHER), ctx.cipherSuites());
+  }
+
+  /** The configured cipher suite filter must be passed to the Netty {@link SslContext}. See RATIS-2602. */
+  @Test
+  public void testIdentityCipherSuiteFilterIsApplied() {
+    final List<String> ciphers = Arrays.asList(UNSUPPORTED_CIPHER, VALID_CIPHER);
+    final TlsConf conf = TlsConf.newBuilder()
+        .setName("server")
+        .setPrivateKey(new TlsConf.PrivateKeyConf(SecurityTestUtils.getResource("ssl/server.pem")))
+        .setKeyCertificates(new TlsConf.CertificatesConf(SecurityTestUtils.getResource("ssl/server.crt")))
+        .setSslProvider(SslProvider.JDK)
+        .setProtocols(TLS_1_2)
+        .setCipherSuites(ciphers)
+        .setCipherSuiteFilter(IdentityCipherSuiteFilter.INSTANCE)
+        .build();
+
+    final SslContext ctx = NettyUtils.buildSslContextForServer(conf);
+    Assertions.assertEquals(ciphers, ctx.cipherSuites());
   }
 
   /**

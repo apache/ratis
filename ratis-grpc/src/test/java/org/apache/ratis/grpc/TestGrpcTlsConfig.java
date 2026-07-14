@@ -17,7 +17,11 @@
  */
 package org.apache.ratis.grpc;
 
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.CipherSuiteFilter;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SupportedCipherSuiteFilter;
+import org.apache.ratis.thirdparty.io.netty.util.ReferenceCountUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -26,6 +30,7 @@ import java.security.Provider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TestGrpcTlsConfig {
   @Test
@@ -46,6 +51,32 @@ public class TestGrpcTlsConfig {
     Assertions.assertThrows(UnsupportedOperationException.class, () -> conf.getProtocols().add("TLSv1.3"));
     Assertions.assertThrows(UnsupportedOperationException.class,
         () -> conf.getCipherSuites().add("TLS_AES_256_GCM_SHA384"));
+  }
+
+  @Test
+  public void testCipherSuiteFilterIsApplied() throws SSLException {
+    Assertions.assertSame(SupportedCipherSuiteFilter.INSTANCE,
+        GrpcTlsConfig.newBuilder().build().getCipherSuiteFilter());
+
+    final AtomicBoolean invoked = new AtomicBoolean();
+    final CipherSuiteFilter filter = (ciphers, defaultCiphers, supportedCiphers) -> {
+      invoked.set(true);
+      return SupportedCipherSuiteFilter.INSTANCE
+          .filterCipherSuites(null, defaultCiphers, supportedCiphers);
+    };
+    final GrpcTlsConfig conf = GrpcTlsConfig.newBuilder()
+        .setCipherSuites("TLS_TEST_CIPHER")
+        .setCipherSuiteFilter(filter)
+        .build();
+
+    final SslContext context = GrpcUtil.configureSslContextBuilder(
+        SslContextBuilder.forClient(), conf, null).build();
+    try {
+      Assertions.assertTrue(invoked.get());
+      Assertions.assertSame(filter, conf.getCipherSuiteFilter());
+    } finally {
+      ReferenceCountUtil.release(context);
+    }
   }
 
   @Test

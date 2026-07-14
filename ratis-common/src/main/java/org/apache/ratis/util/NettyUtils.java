@@ -37,7 +37,6 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import org.apache.ratis.thirdparty.io.netty.util.concurrent.Future;
 import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
@@ -197,10 +196,7 @@ public interface NettyUtils {
    * {@link TlsConf} to the builder, so that the Netty DataStream transport honours the same
    * configuration instead of falling back on the provider defaults.
    *
-   * <p>Unlike the gRPC path ({@code GrpcUtil.configureSslContextBuilder}) this uses
-   * {@link SupportedCipherSuiteFilter}, which intersects the requested cipher suites with the
-   * ones actually supported by the negotiated provider/engine, rather than passing them through
-   * verbatim.
+   * <p>The cipher suite filter is supplied by {@link TlsConf#getCipherSuiteFilter()}.
    */
   static SslContextBuilder configureSslContextBuilder(SslContextBuilder b, TlsConf tlsConf) {
     final SslProvider sslProvider = tlsConf.getSslProvider();
@@ -217,7 +213,7 @@ public interface NettyUtils {
     }
     final List<String> cipherSuites = tlsConf.getCipherSuites();
     if (cipherSuites != null && !cipherSuites.isEmpty()) {
-      b.ciphers(cipherSuites, SupportedCipherSuiteFilter.INSTANCE);
+      b.ciphers(cipherSuites, tlsConf.getCipherSuiteFilter());
     }
     return b;
   }
