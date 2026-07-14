@@ -165,7 +165,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
     this.metrics = new NettyServerStreamRpcMetrics(this.name);
     this.requests = new DataStreamManagement(server, metrics);
-    this.reads = new ReadStreamManagement(server);
+    this.reads = new ReadStreamManagement(server, RaftServerConfigKeys.DataStream.serverApiResolver(parameters));
 
     final RaftProperties properties = server.getProperties();
 

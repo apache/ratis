@@ -18,6 +18,7 @@
 package org.apache.ratis.server.api;
 
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientRequest;
 
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
@@ -34,4 +35,11 @@ public interface DataStreamApi {
    * @return the number of bytes transferred
    */
   long transferTo(Message request, WritableByteChannel stream) throws IOException;
+
+  /** For resolving {@link DataStreamApi}. */
+  @FunctionalInterface
+  interface Resolver {
+    /** @return the data API handling this request, or null if the API is not found. */
+    DataStreamApi resolve(RaftClientRequest request) throws IOException;
+  }
 }

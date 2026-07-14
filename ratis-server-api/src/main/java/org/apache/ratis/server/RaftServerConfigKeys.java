@@ -17,7 +17,9 @@
  */
 package org.apache.ratis.server;
 
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.api.DataStreamApi;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
@@ -846,6 +848,17 @@ public interface RaftServerConfigKeys {
 
     static void setClientPoolSize(RaftProperties properties, int num) {
       setInt(properties::setInt, CLIENT_POOL_SIZE_KEY, num);
+    }
+
+    String SERVER_API_RESOLVER_PARAMETER = PREFIX + ".server.api.resolver";
+    Class<DataStreamApi.Resolver> SERVER_API_RESOLVER_CLASS = DataStreamApi.Resolver.class;
+    static DataStreamApi.Resolver serverApiResolver(Parameters parameters) {
+      return parameters != null
+          ? parameters.get(SERVER_API_RESOLVER_PARAMETER, SERVER_API_RESOLVER_CLASS)
+          : null;
+    }
+    static void setServerApiResolver(Parameters parameters, DataStreamApi.Resolver resolver) {
+      parameters.put(SERVER_API_RESOLVER_PARAMETER, resolver, SERVER_API_RESOLVER_CLASS);
     }
   }
 
