@@ -850,10 +850,12 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, CLIENT_POOL_SIZE_KEY, num);
     }
 
-    String SERVER_API_RESOLVER_PARAMETER = PREFIX + "-server-datastream-api-resolver";
+    String SERVER_API_RESOLVER_PARAMETER = PREFIX + ".server.api.resolver";
     Class<DataStreamApi.Resolver> SERVER_API_RESOLVER_CLASS = DataStreamApi.Resolver.class;
     static DataStreamApi.Resolver serverApiResolver(Parameters parameters) {
-      return parameters != null ? parameters.get(SERVER_API_RESOLVER_PARAMETER, SERVER_API_RESOLVER_CLASS): null;
+      return parameters != null
+          ? parameters.get(SERVER_API_RESOLVER_PARAMETER, SERVER_API_RESOLVER_CLASS)
+          : null;
     }
     static void setServerApiResolver(Parameters parameters, DataStreamApi.Resolver resolver) {
       parameters.put(SERVER_API_RESOLVER_PARAMETER, resolver, SERVER_API_RESOLVER_CLASS);

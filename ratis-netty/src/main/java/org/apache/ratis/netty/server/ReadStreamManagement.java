@@ -33,7 +33,6 @@ import org.apache.ratis.protocol.exceptions.DataStreamException;
 import org.apache.ratis.server.api.DataStreamApi;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
