@@ -30,7 +30,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.DataStreamException;
-import org.apache.ratis.server.DataStreamReadResolver;
+import org.apache.ratis.server.api.DataStreamApi;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
@@ -148,7 +148,7 @@ public class ReadStreamManagement {
   }
 
   private final RaftServer server;
-  private final DataStreamReadResolver readResolver;
+  private final DataStreamApi.Resolver readResolver;
   private final String name;
   private final ExecutorService requestExecutor;
 
@@ -156,7 +156,7 @@ public class ReadStreamManagement {
     this(server, null);
   }
 
-  ReadStreamManagement(RaftServer server, DataStreamReadResolver readResolver) {
+  ReadStreamManagement(RaftServer server, DataStreamApi.Resolver readResolver) {
     this.server = server;
     this.readResolver = readResolver;
     this.name = server.getId() + "-" + JavaUtils.getClassSimpleName(getClass());
@@ -200,7 +200,7 @@ public class ReadStreamManagement {
     }
 
     if (readResolver != null) {
-      final StateMachine.DataApi dataApi;
+      final DataStreamApi dataApi;
       try {
         dataApi = readResolver.resolve(request);
       } catch (Throwable t) {
@@ -210,7 +210,7 @@ public class ReadStreamManagement {
       if (dataApi != null) {
         final RaftClientReply reply = RaftClientReply.newBuilder().setRequest(request).setSuccess().build();
         final long streamId = requestBuf.getStreamId();
-        requestExecutor.execute(() -> query(dataApi, request, streamId, ctx, reply));
+        requestExecutor.execute(() -> transfer(dataApi, request, streamId, ctx, reply));
         return true;
       }
     }
@@ -242,18 +242,18 @@ public class ReadStreamManagement {
         return;
       }
 
-      query(division.getStateMachine().data(), request, requestBuf.getStreamId(), ctx, readCheckReply);
+      transfer(division.getStateMachine().data(), request, requestBuf.getStreamId(), ctx, readCheckReply);
     }, requestExecutor);
     return true;
   }
 
-  private void query(StateMachine.DataApi dataApi, RaftClientRequest request, long streamId,
+  private void transfer(DataStreamApi dataApi, RaftClientRequest request, long streamId,
       ChannelHandlerContext ctx, RaftClientReply terminalReply) {
     final ReadStream stream = new ReadStream(request, streamId, ctx, terminalReply);
     try {
-      dataApi.query(request.getMessage(), stream);
+      dataApi.transferTo(request.getMessage(), stream);
     } catch (Throwable t) {
-      LOG.error("{}: Failed read-only data stream query for {}", this, request, t);
+      LOG.error("{}: Failed resolved read-only data stream transferTo for {}", this, request, t);
       if (stream.isOpen()) {
         final RaftClientReply failure = RaftClientReply.newBuilder()
             .setRequest(request)

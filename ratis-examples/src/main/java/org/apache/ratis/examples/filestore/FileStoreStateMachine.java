@@ -108,20 +108,23 @@ public class FileStoreStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public void query(Message request, WritableByteChannel stream) {
+  public long transferTo(Message request, WritableByteChannel stream) throws IOException {
     try {
       final ReadRequestProto proto = ReadRequestProto.parseFrom(request.getContent());
       if (proto.getIsWatch()) {
         throw new IOException("Watch is not supported for streaming read: " + proto);
       }
-      files.streamRead(proto.getPath().toStringUtf8(), proto.getOffset(), proto.getLength(), stream);
-    } catch (Exception e) {
+      final long length = proto.getLength();
+      files.streamRead(proto.getPath().toStringUtf8(), proto.getOffset(), length, stream);
+      return length;
+    } catch (IOException e) {
       LOG.error(getId() + ": Failed streaming read for " + request, e);
       try {
         stream.close();
       } catch (IOException ignored) {
         // ignore
       }
+      throw e;
     }
   }
 
