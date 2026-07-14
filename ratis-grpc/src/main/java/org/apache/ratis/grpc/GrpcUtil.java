@@ -36,7 +36,6 @@ import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
-import org.apache.ratis.thirdparty.io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -50,7 +49,6 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.security.Provider;
-import java.security.Security;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -58,6 +56,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
+import static org.apache.ratis.util.NettyUtils.getJsseProvider;
 
 public interface GrpcUtil {
   Logger LOG = LoggerFactory.getLogger(GrpcUtil.class);
@@ -339,7 +338,7 @@ public interface GrpcUtil {
     }
     final List<String> cipherSuites = tlsConf.getCipherSuites();
     if (cipherSuites != null && !cipherSuites.isEmpty()) {
-      b.ciphers(cipherSuites, SupportedCipherSuiteFilter.INSTANCE);
+      b.ciphers(cipherSuites, tlsConf.getCipherSuiteFilter());
     }
     return b;
   }
@@ -355,18 +354,6 @@ public interface GrpcUtil {
           .applicationProtocolConfig(ALPN)
           .sslContextProvider(provider);
     }
-  }
-
-  static Provider getJsseProvider(TlsConf tlsConf) {
-    final String providerName = tlsConf.getJsseProviderName();
-    if (providerName == null || providerName.trim().isEmpty()) {
-      return null;
-    }
-    final Provider namedProvider = Security.getProvider(providerName.trim());
-    if (namedProvider == null) {
-      throw new IllegalArgumentException("JSSE provider not found: " + providerName);
-    }
-    return namedProvider;
   }
 
   static SslContext buildSslContextForServer(GrpcTlsConfig tlsConf) {

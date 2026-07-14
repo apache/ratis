@@ -17,7 +17,9 @@
  */
 package org.apache.ratis.security;
 
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.CipherSuiteFilter;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
@@ -178,6 +180,7 @@ public class TlsConf {
   private final String jsseProviderName;
   private final List<String> protocols;
   private final List<String> cipherSuites;
+  private final CipherSuiteFilter cipherSuiteFilter;
 
   protected TlsConf(Builder b) {
     final String buildName = b.buildName();
@@ -190,6 +193,7 @@ public class TlsConf {
     this.jsseProviderName = b.jsseProviderName;
     this.protocols = copy(b.protocols);
     this.cipherSuites = copy(b.cipherSuites);
+    this.cipherSuiteFilter = b.cipherSuiteFilter;
   }
 
   /** @return the key manager configuration. */
@@ -223,6 +227,14 @@ public class TlsConf {
     return copy(cipherSuites);
   }
 
+  /**
+   * @return the filter applied to configured cipher suites. The default is
+   *     {@link SupportedCipherSuiteFilter#INSTANCE}.
+   */
+  public CipherSuiteFilter getCipherSuiteFilter() {
+    return cipherSuiteFilter;
+  }
+
   @Override
   public String toString() {
     return name;
@@ -253,6 +265,7 @@ public class TlsConf {
     private String jsseProviderName;
     private List<String> protocols;
     private List<String> cipherSuites;
+    private CipherSuiteFilter cipherSuiteFilter = SupportedCipherSuiteFilter.INSTANCE;
 
     public Builder setName(String name) {
       this.name = name;
@@ -316,6 +329,18 @@ public class TlsConf {
 
     public Builder setCipherSuites(List<String> cipherSuites) {
       this.cipherSuites = copy(cipherSuites);
+      return this;
+    }
+
+    /**
+     * Set the filter applied to configured cipher suites.
+     *
+     * <p>A pass-through filter such as {@code IdentityCipherSuiteFilter} preserves provider-specific
+     * suites that may be absent from Netty's supported set. It does not make an unsupported suite
+     * valid; validation may instead fail when the TLS engine is initialized or during the handshake.
+     */
+    public Builder setCipherSuiteFilter(CipherSuiteFilter cipherSuiteFilter) {
+      this.cipherSuiteFilter = Objects.requireNonNull(cipherSuiteFilter, "cipherSuiteFilter == null");
       return this;
     }
 
