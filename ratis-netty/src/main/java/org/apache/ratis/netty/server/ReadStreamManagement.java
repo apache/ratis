@@ -210,7 +210,7 @@ public class ReadStreamManagement {
       if (dataApi != null) {
         final RaftClientReply reply = RaftClientReply.newBuilder().setRequest(request).setSuccess().build();
         final long streamId = requestBuf.getStreamId();
-        requestExecutor.execute(() -> queryResolved(dataApi, request, streamId, ctx, reply));
+        requestExecutor.execute(() -> query(dataApi, request, streamId, ctx, reply));
         return true;
       }
     }
@@ -247,13 +247,13 @@ public class ReadStreamManagement {
     return true;
   }
 
-  private void queryResolved(StateMachine.DataApi dataApi, RaftClientRequest request, long streamId,
+  private void query(StateMachine.DataApi dataApi, RaftClientRequest request, long streamId,
       ChannelHandlerContext ctx, RaftClientReply terminalReply) {
     final ReadStream stream = new ReadStream(request, streamId, ctx, terminalReply);
     try {
       dataApi.query(request.getMessage(), stream);
     } catch (Throwable t) {
-      LOG.error("{}: Failed resolved read-only data stream query for {}", this, request, t);
+      LOG.error("{}: Failed read-only data stream query for {}", this, request, t);
       if (stream.isOpen()) {
         final RaftClientReply failure = RaftClientReply.newBuilder()
             .setRequest(request)
@@ -262,19 +262,9 @@ public class ReadStreamManagement {
         try {
           stream.fail(failure);
         } catch (IOException e) {
-          LOG.warn("{}: Failed to send resolved read-only data stream error for {}", this, request, e);
+          LOG.warn("{}: Failed to send read-only data stream error for {}", this, request, e);
         }
       }
-    }
-  }
-
-  private void query(StateMachine.DataApi dataApi, RaftClientRequest request, long streamId,
-      ChannelHandlerContext ctx, RaftClientReply terminalReply) {
-    final ReadStream stream = new ReadStream(request, streamId, ctx, terminalReply);
-    try {
-      dataApi.query(request.getMessage(), stream);
-    } catch (Throwable t) {
-      LOG.error("{}: Failed read-only data stream query for {}", this, request, t);
     }
   }
 
