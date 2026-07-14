@@ -211,7 +211,7 @@ public class ReadStreamManagement {
 
       final ReadStream stream = new ReadStream(request, requestBuf.getStreamId(), ctx, readCheckReply);
       try {
-        division.getStateMachine().data().query(request.getMessage(), stream);
+        division.getStateMachine().data().transferTo(request.getMessage(), stream);
       } catch (Throwable t) {
         LOG.error("{}: Failed read-only data stream query for {}", this, request, t);
       }
