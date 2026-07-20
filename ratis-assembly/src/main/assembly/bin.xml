@@ -33,6 +33,12 @@
       </includes>
       <outputDirectory>examples/lib</outputDirectory>
     </dependencySet>
+    <dependencySet>
+      <outputDirectory>lib/trace</outputDirectory>
+      <includes>
+        <include>io.opentelemetry.javaagent:*</include>
+      </includes>
+    </dependencySet>
   </dependencySets>
   <moduleSets>
     <moduleSet>

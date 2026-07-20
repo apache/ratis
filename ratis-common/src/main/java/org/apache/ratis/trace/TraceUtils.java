@@ -18,6 +18,7 @@
 package org.apache.ratis.trace;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.util.ServiceUtils;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,6 +54,10 @@ public final class TraceUtils {
 
   public static boolean isEnabled() {
     return !(getProvider() instanceof NoOpTraceProvider);
+  }
+
+  public static SpanContextProto injectContextToProto() {
+    return getProvider().injectContextToProto();
   }
 
   static TraceProvider getProvider() {

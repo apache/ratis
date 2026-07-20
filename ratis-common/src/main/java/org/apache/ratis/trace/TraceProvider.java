@@ -18,6 +18,7 @@
 package org.apache.ratis.trace;
 
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.function.CheckedSupplier;
@@ -26,6 +27,7 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 public interface TraceProvider {
+
   <T, THROWABLE extends Throwable> CompletableFuture<T> traceClientSend(
       CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
       RaftClientRequest.Type type, RaftPeerId server) throws THROWABLE;
@@ -37,4 +39,6 @@ public interface TraceProvider {
   <T> CompletableFuture<T> traceAppendEntries(
       CheckedSupplier<CompletableFuture<T>, IOException> action,
       AppendEntriesRequestProto request, String memberId) throws IOException;
+
+  SpanContextProto injectContextToProto();
 }
