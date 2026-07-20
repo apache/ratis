@@ -18,8 +18,12 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.LogAppenderTests;
+import org.apache.ratis.grpc.server.GrpcLogAppender;
 import org.apache.ratis.grpc.server.GrpcServicesImpl;
 import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.MiniRaftCluster;
@@ -32,7 +36,9 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppender;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.CodeInjectionForTesting;
@@ -41,10 +47,13 @@ import org.apache.ratis.util.Slf4jUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -52,6 +61,11 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -209,6 +223,114 @@ public class TestLogAppenderWithGrpc
         Assertions.assertTrue(
                 client.io().send(new RaftTestUtil.SimpleMessage("after-restart-" + i)).isSuccess());
       }
+    }
+  }
+
+  @Test
+  public void testInstallSnapshotSnapshotExpiredReplyDrainsPendingQueue() throws Exception {
+    final FollowerInfo follower = mockInstallSnapshotFollower();
+    final InstallSnapshotHandlerContext ctx = new InstallSnapshotHandlerContext(
+        newGrpcLogAppenderForInstallSnapshot(mock(LeaderState.class), follower));
+
+    ctx.addChunk(0);
+    ctx.addChunk(1);
+    ctx.addChunk(2);
+    ctx.reply(chunkReply(InstallSnapshotResult.IN_PROGRESS, 0));
+    ctx.reply(chunkReply(InstallSnapshotResult.SNAPSHOT_EXPIRED, 1));
+    ctx.reply(chunkReply(InstallSnapshotResult.IN_PROGRESS, 2));
+
+    Assertions.assertTrue(ctx.hasAllResponses());
+    verify(follower).setAttemptedToInstallSnapshot();
+  }
+
+  @ParameterizedTest
+  @EnumSource(value = InstallSnapshotResult.class,
+      names = {"NOT_LEADER", "CONF_MISMATCH", "UNRECOGNIZED"})
+  public void testInstallSnapshotTerminalReplyClearsPendingQueue(InstallSnapshotResult result)
+      throws Exception {
+    final LeaderState leaderState = mock(LeaderState.class);
+    final FollowerInfo follower = mockInstallSnapshotFollower();
+    final InstallSnapshotHandlerContext ctx = new InstallSnapshotHandlerContext(
+        newGrpcLogAppenderForInstallSnapshot(leaderState, follower));
+
+    ctx.addChunk(0);
+    ctx.addChunk(1);
+    ctx.reply(InstallSnapshotReplyProto.newBuilder()
+        .setResult(result)
+        .setTerm(5)
+        .setSnapshotIndex(0)
+        .build());
+
+    Assertions.assertTrue(ctx.hasAllResponses());
+    if (result == InstallSnapshotResult.NOT_LEADER) {
+      verify(leaderState).onFollowerTerm(follower, 5);
+    }
+  }
+
+  private static FollowerInfo mockInstallSnapshotFollower() {
+    final FollowerInfo follower = mock(FollowerInfo.class);
+    final FollowerInfo.ErrorState errorState = mock(FollowerInfo.ErrorState.class);
+    when(follower.getName()).thenReturn("follower");
+    when(follower.getErrorState()).thenReturn(errorState);
+    when(errorState.updateErrorCount(anyBoolean())).thenReturn(0);
+    return follower;
+  }
+
+  private static InstallSnapshotReplyProto chunkReply(InstallSnapshotResult result, int requestIndex) {
+    return InstallSnapshotReplyProto.newBuilder()
+        .setResult(result)
+        .setRequestIndex(requestIndex)
+        .setTerm(1)
+        .build();
+  }
+
+  private static GrpcLogAppender newGrpcLogAppenderForInstallSnapshot(
+      LeaderState leaderState, FollowerInfo follower) {
+    final RaftServer.Division division = mock(RaftServer.Division.class);
+    final RaftServer raftServer = mock(RaftServer.class);
+    when(division.getRaftServer()).thenReturn(raftServer);
+    when(division.getThreadGroup()).thenReturn(Thread.currentThread().getThreadGroup());
+    when(raftServer.getServerRpc()).thenReturn(mock(GrpcServicesImpl.class));
+    when(raftServer.getProperties()).thenReturn(new RaftProperties());
+    return new GrpcLogAppender(division, leaderState, follower);
+  }
+
+  private static final class InstallSnapshotHandlerContext {
+    private final Object handler;
+    private final Method addPending;
+    private final Method onNext;
+    private final Method hasAllResponse;
+
+    private InstallSnapshotHandlerContext(GrpcLogAppender appender) throws Exception {
+      final Class<?> handlerClass = Class.forName(
+          "org.apache.ratis.grpc.server.GrpcLogAppender$InstallSnapshotResponseHandler");
+      final Constructor<?> constructor = handlerClass.getDeclaredConstructor(
+          GrpcLogAppender.class, boolean.class);
+      constructor.setAccessible(true);
+      handler = constructor.newInstance(appender, false);
+      addPending = handlerClass.getDeclaredMethod("addPending", InstallSnapshotRequestProto.class);
+      addPending.setAccessible(true);
+      onNext = handlerClass.getMethod("onNext", InstallSnapshotReplyProto.class);
+      hasAllResponse = handlerClass.getDeclaredMethod("hasAllResponse");
+      hasAllResponse.setAccessible(true);
+    }
+
+    void addChunk(int requestIndex) throws Exception {
+      addPending.invoke(handler, InstallSnapshotRequestProto.newBuilder()
+          .setSnapshotChunk(InstallSnapshotRequestProto.SnapshotChunkProto.newBuilder()
+              .setRequestId("request-1")
+              .setRequestIndex(requestIndex)
+              .setTermIndex(TermIndex.valueOf(1, 10).toProto())
+              .build())
+          .build());
+    }
+
+    void reply(InstallSnapshotReplyProto reply) throws Exception {
+      onNext.invoke(handler, reply);
+    }
+
+    boolean hasAllResponses() throws Exception {
+      return (boolean) hasAllResponse.invoke(handler);
     }
   }
 }

@@ -695,11 +695,13 @@ public class GrpcLogAppender extends LogAppenderBase {
           break;
         case NOT_LEADER:
           onFollowerTerm(reply.getTerm());
+          pending.clear();
           break;
         case CONF_MISMATCH:
           LOG.error("{}: CONF_MISMATCH ({}): Leader {} has it set to {} but follower {} has it set to {}",
               this, RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
               getServer().getId(), installSnapshotEnabled, getFollowerId(), !installSnapshotEnabled);
+          pending.clear();
           break;
         case SNAPSHOT_INSTALLED:
           followerSnapshotIndex = reply.getSnapshotIndex();
@@ -721,10 +723,14 @@ public class GrpcLogAppender extends LogAppenderBase {
         case UNRECOGNIZED:
           LOG.error("{}: Reply result {}, {}",
               name, reply.getResult(), ServerStringUtils.toInstallSnapshotReplyString(reply));
+          pending.clear();
           break;
         case SNAPSHOT_EXPIRED:
+          getFollower().setAttemptedToInstallSnapshot();
+          removePending(reply);
           LOG.warn("{}: Follower failed since the request expired, {}",
               name, ServerStringUtils.toInstallSnapshotReplyString(reply));
+          break;
         default:
           break;
       }
