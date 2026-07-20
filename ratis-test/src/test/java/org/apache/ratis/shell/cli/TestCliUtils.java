@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.shell.cli;
 
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.UUID;
 
 public class TestCliUtils {
 
@@ -60,5 +62,28 @@ public class TestCliUtils {
   public void testParseRejectsScheme() {
     Assertions.assertThrows(IllegalArgumentException.class,
         () -> CliUtils.parseInetSocketAddress("http://127.0.0.1:6000"));
+  }
+
+  @Test
+  public void testParseRaftGroupIdNull() {
+    Assertions.assertNull(CliUtils.parseRaftGroupId(null));
+  }
+
+  @Test
+  public void testParseRaftGroupIdEmpty() {
+    Assertions.assertNull(CliUtils.parseRaftGroupId(""));
+  }
+
+  @Test
+  public void testParseRaftGroupIdValid() {
+    final UUID uuid = UUID.randomUUID();
+    final RaftGroupId groupId = CliUtils.parseRaftGroupId(uuid.toString());
+    Assertions.assertEquals(RaftGroupId.valueOf(uuid), groupId);
+  }
+
+  @Test
+  public void testParseRaftGroupIdInvalid() {
+    Assertions.assertThrows(IllegalArgumentException.class,
+        () -> CliUtils.parseRaftGroupId("not-a-uuid"));
   }
 }
