@@ -48,7 +48,7 @@
     <distMgmtStagingName>${distMgmtReleasesName}</distMgmtStagingName>
     <distMgmtStagingUrl>${distMgmtReleasesUrl}</distMgmtStagingUrl>
     <!-- Contains all shaded thirdparty dependencies; make sure to also update in pom.xml -->
-    <ratis.thirdparty.version>1.0.11</ratis.thirdparty.version>
+    <ratis.thirdparty.version>1.1.0</ratis.thirdparty.version>
     <!-- no testable code in this module -->
     <skipTests>true</skipTests>
   </properties>
