@@ -79,8 +79,8 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
   /**
    * Send a control command asynchronously.
    * Control commands are ordered with data writes but do not advance the stream byte offset.
-   * The server invokes {@link org.apache.ratis.statemachine.StateMachine.DataStream#onControl}
-   * instead of writing bytes to the {@link org.apache.ratis.statemachine.StateMachine.DataChannel}.
+   * The server state machine may handle the command via its data-stream control hook
+   * instead of writing bytes to the data channel.
    *
    * @param command the control command payload
    * @return a future of the reply
