@@ -343,6 +343,7 @@ message DataStreamPacketHeaderProto {
   enum Type {
     STREAM_HEADER = 0;
     STREAM_DATA = 1;
+    STREAM_CONTROL = 2;
   }
 
   enum Option {

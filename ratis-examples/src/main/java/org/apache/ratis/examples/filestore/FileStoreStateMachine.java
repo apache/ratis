@@ -24,6 +24,7 @@ import org.apache.ratis.proto.ExamplesProtos.DeleteRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.FileStoreRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.ReadRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.StreamWriteRequestProto;
+import org.apache.ratis.proto.ExamplesProtos.StreamControlCommandProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestHeaderProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestProto;
 import org.apache.ratis.proto.RaftProtos;
@@ -43,9 +44,11 @@ import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferExce
 import org.apache.ratis.util.FileUtils;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class FileStoreStateMachine extends BaseStateMachine {
@@ -240,6 +243,25 @@ public class FileStoreStateMachine extends BaseStateMachine {
           return true;
         } catch (IOException e) {
           return FileStoreCommon.completeExceptionally("Failed to close data channel", e);
+        }
+      });
+    }
+
+    @Override
+    public CompletableFuture<?> onControl(ByteBuffer command, long streamOffset) {
+      return CompletableFuture.runAsync(() -> {
+        try {
+          final StreamControlCommandProto proto = FileStoreClient.parseControlCommand(command);
+          switch (proto.getType()) {
+          case SYNC:
+            dataChannel.force(proto.getMetadata());
+            LOG.info("stream SYNC at offset {}", streamOffset);
+            break;
+          default:
+            throw new IllegalArgumentException("Unexpected stream control type " + proto.getType());
+          }
+        } catch (IOException e) {
+          throw new CompletionException("Failed to handle stream control at offset " + streamOffset, e);
         }
       });
     }

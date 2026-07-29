@@ -24,6 +24,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuf;
 import org.apache.ratis.io.StandardWriteOption;
+import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
@@ -36,7 +37,12 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.DataStreamMap;
+import org.apache.ratis.server.RaftConfiguration;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.StateMachine.DataChannel;
+import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.StateMachine.DataApi;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -59,6 +65,7 @@ import java.lang.reflect.Proxy;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -66,6 +73,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -455,6 +463,88 @@ class TestDataStreamManagement {
   }
 
   @Test
+  void writeControlInvokesOnControl() throws Exception {
+    final RaftPeerId serverId = RaftPeerId.valueOf("s1");
+    final ClientId clientId = ClientId.randomId();
+    final RaftGroupId groupId = RaftGroupId.randomId();
+    final long callId = 1L;
+    final AtomicReference<CountingDataChannel> channelRef = new AtomicReference<>();
+    final List<ControlRecord> controls = Collections.synchronizedList(new ArrayList<>());
+
+    final StateMachine stateMachine = newWriteStateMachine(channelRef, controls);
+    final DataStreamMap streamMap = RaftServerTestUtil.newDataStreamMap(serverId);
+    final RaftServer.Division division = newWriteDivision(serverId, groupId, stateMachine, streamMap);
+    final RaftServer server = newRaftServer(serverId, new RaftProperties(), groupId, division);
+
+    final NettyServerStreamRpcMetrics metrics = new NettyServerStreamRpcMetrics("s1");
+    final DataStreamManagement management = new DataStreamManagement(server, metrics);
+    final EmbeddedChannel embeddedChannel = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
+    final ChannelHandlerContext ctx = embeddedChannel.pipeline().firstContext();
+    final CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams =
+        (r, p) -> Collections.emptySet();
+
+    final RaftClientRequest raftClientRequest = RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(serverId)
+        .setGroupId(groupId)
+        .setCallId(callId)
+        .setType(RaftClientRequest.dataStreamRequestType())
+        .build();
+    final ByteBuffer headerPayload = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(raftClientRequest);
+
+    try {
+      management.read(newWriteRequest(clientId, Type.STREAM_HEADER, callId, 0,
+          Unpooled.wrappedBuffer(headerPayload), StandardWriteOption.FLUSH), ctx, getStreams);
+      management.read(newWriteRequest(clientId, Type.STREAM_DATA, callId, 0,
+          Unpooled.wrappedBuffer(new byte[10]), StandardWriteOption.FLUSH), ctx, getStreams);
+      management.read(newWriteRequest(clientId, Type.STREAM_CONTROL, callId, 10,
+          Unpooled.wrappedBuffer(new byte[] {'c', 't', 'r', 'l'}), StandardWriteOption.FLUSH), ctx, getStreams);
+      management.read(newWriteRequest(clientId, Type.STREAM_DATA, callId, 10,
+          Unpooled.wrappedBuffer(new byte[4]), StandardWriteOption.CLOSE), ctx, getStreams);
+
+      final List<DataStreamReply> replies = drainWriteReplies(embeddedChannel, 4);
+      assertSuccessReply(Type.STREAM_HEADER, 0, replies.get(0));
+      assertSuccessReply(Type.STREAM_DATA, 10, replies.get(1));
+      assertSuccessReply(Type.STREAM_CONTROL, 0, replies.get(2));
+      assertSuccessReply(Type.STREAM_DATA, 4, replies.get(3));
+
+      assertEquals(14, channelRef.get().bytesWritten.get());
+      assertEquals(1, controls.size());
+      assertEquals(10, controls.get(0).streamOffset);
+      assertEquals(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l'}), controls.get(0).command);
+    } finally {
+      embeddedChannel.finishAndReleaseAll();
+      management.shutdown();
+    }
+  }
+
+  @Test
+  void writeControlWithoutHeaderFails() throws Exception {
+    final RaftPeerId serverId = RaftPeerId.valueOf("s1");
+    final RaftServer server = newRaftServer(serverId, new RaftProperties());
+    final NettyServerStreamRpcMetrics metrics = new NettyServerStreamRpcMetrics("s1");
+    final DataStreamManagement management = new DataStreamManagement(server, metrics);
+    final EmbeddedChannel embeddedChannel = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
+    final ChannelHandlerContext ctx = embeddedChannel.pipeline().firstContext();
+    final CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams =
+        (r, p) -> Collections.emptySet();
+
+    final DataStreamRequestByteBuf request = newWriteRequest(ClientId.randomId(), Type.STREAM_CONTROL, 1L, 0,
+        Unpooled.wrappedBuffer(new byte[] {'c'}), StandardWriteOption.FLUSH);
+
+    try {
+      management.read(request, ctx, getStreams);
+      final DataStreamReply reply = embeddedChannel.readOutbound();
+      assertNotNull(reply);
+      assertEquals(Type.STREAM_CONTROL, reply.getType());
+      assertFalse(reply.isSuccess());
+    } finally {
+      embeddedChannel.finishAndReleaseAll();
+      management.shutdown();
+    }
+  }
+
+  @Test
   void readCleansChannelMapOnEarlyException() throws Exception {
     // Scenario: STREAM_DATA arrives without prior STREAM_HEADER, so readImpl fails early.
     // Expectation: read(...) catch path must still remove channelId->invocationId mapping
@@ -492,6 +582,127 @@ class TestDataStreamManagement {
       embeddedChannel.finishAndReleaseAll();
       management.shutdown();
     }
+  }
+
+  private static class ControlRecord {
+    private final ByteBuffer command;
+    private final long streamOffset;
+
+    ControlRecord(ByteBuffer command, long streamOffset) {
+      this.command = command;
+      this.streamOffset = streamOffset;
+    }
+  }
+
+  private static class CountingDataChannel implements DataChannel {
+    private final AtomicLong bytesWritten = new AtomicLong();
+    private volatile boolean open = true;
+
+    @Override
+    public int write(ByteBuffer src) {
+      bytesWritten.addAndGet(src.remaining());
+      return src.remaining();
+    }
+
+    @Override
+    public boolean isOpen() {
+      return open;
+    }
+
+    @Override
+    public void close() {
+      open = false;
+    }
+
+    @Override
+    public void force(boolean metadata) {
+    }
+  }
+
+  private static StateMachine newWriteStateMachine(AtomicReference<CountingDataChannel> channelRef,
+      List<ControlRecord> controls) {
+    return new BaseStateMachine() {
+      @Override
+      public DataApi data() {
+        return new DataApi() {
+          @Override
+          public CompletableFuture<DataStream> stream(RaftClientRequest request) {
+            final CountingDataChannel channel = new CountingDataChannel();
+            channelRef.set(channel);
+            final DataStream stream = new DataStream() {
+              @Override
+              public DataChannel getDataChannel() {
+                return channel;
+              }
+
+              @Override
+              public CompletableFuture<?> onControl(ByteBuffer command, long streamOffset) {
+                final ByteBuffer copy = ByteBuffer.allocate(command.remaining());
+                copy.put(command);
+                copy.flip();
+                controls.add(new ControlRecord(copy, streamOffset));
+                return CompletableFuture.completedFuture(null);
+              }
+
+              @Override
+              public CompletableFuture<?> cleanUp() {
+                return CompletableFuture.completedFuture(null);
+              }
+            };
+            return CompletableFuture.completedFuture(stream);
+          }
+        };
+      }
+    };
+  }
+
+  private static RaftServer.Division newWriteDivision(RaftPeerId serverId, RaftGroupId groupId,
+      StateMachine stateMachine, DataStreamMap streamMap) {
+    final RaftConfiguration conf = RaftServerTestUtil.newRaftConfiguration(
+        Collections.singleton(RaftPeer.newBuilder().setId(serverId).build()));
+    return (RaftServer.Division) Proxy.newProxyInstance(RaftServer.Division.class.getClassLoader(),
+        new Class<?>[]{RaftServer.Division.class},
+        (proxy, method, args) -> {
+          switch (method.getName()) {
+          case "getStateMachine":
+            return stateMachine;
+          case "getDataStreamMap":
+            return streamMap;
+          case "getCommitInfos":
+            return Collections.emptyList();
+          case "getId":
+            return serverId;
+          case "getRaftConf":
+            return conf;
+          case "close":
+            return null;
+          case "toString":
+            return serverId.toString();
+          case "hashCode":
+            return System.identityHashCode(proxy);
+          case "equals":
+            return proxy == args[0];
+          default:
+            throw new UnsupportedOperationException(method.toString());
+          }
+        });
+  }
+
+  private static DataStreamRequestByteBuf newWriteRequest(ClientId clientId, Type type, long streamId,
+      long streamOffset, ByteBuf payload, WriteOption... options) {
+    return new DataStreamRequestByteBuf(clientId, type, streamId, streamOffset, Arrays.asList(options), payload);
+  }
+
+  private static List<DataStreamReply> drainWriteReplies(EmbeddedChannel channel, int expectedCount)
+      throws Exception {
+    final List<DataStreamReply> replies = new ArrayList<>();
+    JavaUtils.attempt(() -> {
+      for (Object outbound; (outbound = channel.readOutbound()) != null;) {
+        replies.add((DataStreamReply) outbound);
+      }
+      assertEquals(expectedCount, replies.size());
+    }, 50, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "write replies", null);
+    return replies;
   }
 
   private static class ReadOnlyRequest {

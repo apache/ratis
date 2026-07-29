@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Timeout;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -52,6 +53,35 @@ import java.util.concurrent.TimeUnit;
 public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluster>
     extends DataStreamClusterTests<CLUSTER> {
   final Executor executor = Executors.newFixedThreadPool(16);
+
+  @Test
+  public void testStreamControl() throws Exception {
+    runWithNewCluster(3, cluster -> {
+      RaftTestUtil.waitForLeader(cluster);
+      final Iterable<RaftServer> servers = CollectionUtils.as(cluster.getServers(), s -> s);
+      final RaftPeerId leader = cluster.getLeader().getId();
+      final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
+      final List<ByteBuffer> controlCommands = new ArrayList<>();
+      controlCommands.add(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l', '1'}));
+      controlCommands.add(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l', '2'}));
+
+      try (RaftClient client = cluster.createClient(primaryServer)) {
+        final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
+            .stream(null, getRoutingTable(cluster.getGroup().getPeers(), primaryServer));
+        final List<Long> controlOffsets = new ArrayList<>();
+        DataStreamTestUtils.writeAndCloseAndAssertReplies(
+            servers, leader, out, 1_000, 3, client.getId(), false, controlCommands, controlOffsets).join();
+
+        for (RaftServer proxy : cluster.getServers()) {
+          final RaftServer.Division impl = proxy.getDivision(cluster.getGroupId());
+          final MultiDataStreamStateMachine stateMachine =
+              (MultiDataStreamStateMachine) impl.getStateMachine();
+          final SingleDataStream stream = stateMachine.getSingleDataStream(out.getHeader());
+          DataStreamTestUtils.assertControlCommands(stream, controlCommands, controlOffsets);
+        }
+      }
+    });
+  }
 
   @Test
   public void testSingleStreamsMultipleServers() throws Exception {

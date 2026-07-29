@@ -39,7 +39,8 @@ public class NettyServerStreamRpcMetrics extends RatisMetrics {
   private static final String METRICS_NUM_REQUESTS = "num_requests_%s";
 
   public enum RequestType {
-    CHANNEL_READ, HEADER, LOCAL_WRITE, REMOTE_WRITE, STATE_MACHINE_STREAM, START_TRANSACTION;
+    CHANNEL_READ, HEADER, LOCAL_WRITE, LOCAL_CONTROL, REMOTE_WRITE, REMOTE_CONTROL, STATE_MACHINE_STREAM,
+    START_TRANSACTION;
 
     private final String numRequestsString;
     private final String successCountString;

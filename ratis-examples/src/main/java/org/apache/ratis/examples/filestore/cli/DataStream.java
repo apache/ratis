@@ -21,7 +21,6 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.examples.filestore.FileStoreClient;
-import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
@@ -243,6 +242,7 @@ public class DataStream extends Client {
       try (FileChannel in = FileUtils.newFileChannel(file, StandardOpenOption.READ)) {
         for (long offset = 0L; offset < fileSize; ) {
           offset += write(in, out, offset, futures);
+          addSyncControl(client, out, offset, futures);
         }
       } catch (Throwable e) {
         throw new IOException("Failed to transfer " + path);
@@ -250,6 +250,13 @@ public class DataStream extends Client {
         futures.add(out.closeAsync());
       }
       return futures;
+    }
+
+    void addSyncControl(FileStoreClient client, DataStreamOutput out, long position,
+        List<CompletableFuture<DataStreamReply>> futures) {
+      if (isSync(position)) {
+        futures.add(client.streamSyncAsync(out, false));
+      }
     }
 
     abstract long write(FileChannel in, DataStreamOutput out, long offset,
@@ -276,8 +283,7 @@ public class DataStream extends Client {
         throw new IllegalStateException("Failed to read " + bufferSize + " byte(s) from " + this
             + ". The channel has reached end-of-stream at " + offset);
       } else if (bytesRead > 0) {
-        final CompletableFuture<DataStreamReply> f = isSync(offset + bytesRead) ?
-            out.writeAsync(buf.nioBuffer(), StandardWriteOption.SYNC) : out.writeAsync(buf.nioBuffer());
+        final CompletableFuture<DataStreamReply> f = out.writeAsync(buf.nioBuffer());
         f.thenRun(buf::release);
         futures.add(f);
       }
@@ -296,8 +302,7 @@ public class DataStream extends Client {
       final long packetSize = getPacketSize(offset);
       final MappedByteBuffer mappedByteBuffer = in.map(FileChannel.MapMode.READ_ONLY, offset, packetSize);
       final int remaining = mappedByteBuffer.remaining();
-      futures.add(isSync(offset + remaining) ?
-          out.writeAsync(mappedByteBuffer, StandardWriteOption.SYNC) : out.writeAsync(mappedByteBuffer));
+      futures.add(out.writeAsync(mappedByteBuffer));
       return remaining;
     }
   }
@@ -310,9 +315,7 @@ public class DataStream extends Client {
     @Override
     long write(FileChannel in, DataStreamOutput out, long offset, List<CompletableFuture<DataStreamReply>> futures) {
       final long packetSize = getPacketSize(offset);
-      futures.add(isSync(offset + packetSize) ?
-          out.writeAsync(getFile(), offset, packetSize, StandardWriteOption.SYNC) :
-          out.writeAsync(getFile(), offset, packetSize));
+      futures.add(out.writeAsync(getFile(), offset, packetSize));
       return packetSize;
     }
   }

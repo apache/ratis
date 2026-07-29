@@ -173,6 +173,18 @@ public class DataStreamClientImpl implements DataStreamClient {
       return f;
     }
 
+    private CompletableFuture<DataStreamReply> controlAsyncImpl(Object data, long length,
+        Iterable<WriteOption> options) {
+      if (isClosed()) {
+        if (data instanceof ByteBuf) {
+          ((ByteBuf) data).release();
+        }
+        return JavaUtils.completeExceptionally(new AlreadyClosedException(
+            clientId + ": stream already closed, request=" + header));
+      }
+      return combineHeader(send(Type.STREAM_CONTROL, data, length, options));
+    }
+
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuf src, Iterable<WriteOption> options) {
       return writeAsyncImpl(src, src.readableBytes(), options);
     }
@@ -185,6 +197,15 @@ public class DataStreamClientImpl implements DataStreamClient {
     @Override
     public CompletableFuture<DataStreamReply> writeAsync(FilePositionCount src, WriteOption... options) {
       return writeAsyncImpl(src, src.getCount(), Arrays.asList(options));
+    }
+
+    @Override
+    public CompletableFuture<DataStreamReply> controlAsync(ByteBuffer src, Iterable<WriteOption> options) {
+      return controlAsyncImpl(src, src.remaining(), options);
+    }
+
+    public CompletableFuture<DataStreamReply> controlAsync(ByteBuf src, Iterable<WriteOption> options) {
+      return controlAsyncImpl(src, src.readableBytes(), options);
     }
 
     boolean isClosed() {

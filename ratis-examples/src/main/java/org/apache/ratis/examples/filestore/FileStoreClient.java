@@ -27,6 +27,7 @@ import org.apache.ratis.proto.ExamplesProtos.FileStoreRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.ReadReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.ReadRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.StreamWriteRequestProto;
+import org.apache.ratis.proto.ExamplesProtos.StreamControlCommandProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestHeaderProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestProto;
@@ -39,6 +40,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -200,6 +202,29 @@ public class FileStoreClient implements Closeable {
         .build();
     final FileStoreRequestProto request = FileStoreRequestProto.newBuilder().setStream(header).build();
     return client.getDataStreamApi().stream(request.toByteString().asReadOnlyByteBuffer(), routingTable);
+  }
+
+  /** Build a mid-stream SYNC control command. */
+  public static StreamControlCommandProto syncControlCommand(boolean metadata) {
+    return StreamControlCommandProto.newBuilder()
+        .setType(StreamControlCommandProto.Type.SYNC)
+        .setMetadata(metadata)
+        .build();
+  }
+
+  public static ByteBuffer toControlBuffer(StreamControlCommandProto command) {
+    return command.toByteString().asReadOnlyByteBuffer();
+  }
+
+  public static StreamControlCommandProto parseControlCommand(ByteBuffer command)
+      throws InvalidProtocolBufferException {
+    return StreamControlCommandProto.parseFrom(
+        ByteString.copyFrom(command.slice()));
+  }
+
+  /** Force stream data to storage at the current byte offset without writing bytes. */
+  public CompletableFuture<DataStreamReply> streamSyncAsync(DataStreamOutput out, boolean metadata) {
+    return out.controlAsync(toControlBuffer(syncControlCommand(metadata)));
   }
 
   public DataStreamInput getStreamInput(String path, long offset, long length) {

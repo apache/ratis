@@ -20,7 +20,7 @@ package org.apache.ratis.examples.filestore;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.datastream.DataStreamTestUtils;
 import org.apache.ratis.io.StandardWriteOption;
-import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -138,7 +138,9 @@ final class FileStoreWriter implements Closeable {
     final int size = fileSize.getSizeInt();
     final DataStreamOutput dataStreamOutput = client.getStreamOutput(fileName, size, routingTable);
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
+    final List<Type> expectedTypes = new ArrayList<>();
     final List<Integer> sizes = new ArrayList<>();
+    final int syncInterval = Math.max(bufferSize * 4, 1);
 
     for(int offset = 0; offset < size; ) {
       final int remaining = size - offset;
@@ -150,8 +152,15 @@ final class FileStoreWriter implements Closeable {
       final ByteBuffer bf = DataStreamTestUtils.initBuffer(0, length);
       futures.add(close ?
           dataStreamOutput.writeAsync(bf, StandardWriteOption.CLOSE) : dataStreamOutput.writeAsync(bf));
+      expectedTypes.add(Type.STREAM_DATA);
       sizes.add(length);
       offset += length;
+
+      if (!close && offset % syncInterval == 0) {
+        futures.add(client.streamSyncAsync(dataStreamOutput, false));
+        expectedTypes.add(Type.STREAM_CONTROL);
+        sizes.add(0);
+      }
     }
 
     DataStreamReply reply = dataStreamOutput.closeAsync().join();
@@ -160,8 +169,8 @@ final class FileStoreWriter implements Closeable {
     for (int i = 0; i < futures.size(); i++) {
       reply = futures.get(i).join();
       Assertions.assertTrue(reply.isSuccess());
+      Assertions.assertEquals(expectedTypes.get(i), reply.getType());
       Assertions.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
-      Assertions.assertEquals(reply.getType(), RaftProtos.DataStreamPacketHeaderProto.Type.STREAM_DATA);
     }
 
     return this;
