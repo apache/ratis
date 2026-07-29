@@ -24,7 +24,6 @@ import org.apache.ratis.proto.ExamplesProtos.DeleteRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.FileStoreRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.ReadRequestProto;
 import org.apache.ratis.proto.ExamplesProtos.StreamWriteRequestProto;
-import org.apache.ratis.proto.ExamplesProtos.StreamControlCommandProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestHeaderProto;
 import org.apache.ratis.proto.ExamplesProtos.WriteRequestProto;
 import org.apache.ratis.proto.RaftProtos;
@@ -251,15 +250,12 @@ public class FileStoreStateMachine extends BaseStateMachine {
     public CompletableFuture<?> onControl(ByteBuffer command, long streamOffset) {
       return CompletableFuture.runAsync(() -> {
         try {
-          final StreamControlCommandProto proto = FileStoreClient.parseControlCommand(command);
-          switch (proto.getType()) {
-          case SYNC:
-            dataChannel.force(proto.getMetadata());
-            LOG.info("stream SYNC at offset {}", streamOffset);
-            break;
-          default:
-            throw new IllegalArgumentException("Unexpected stream control type " + proto.getType());
+          if (!FileStoreCommon.isStreamSyncCommand(command)) {
+            throw new IllegalArgumentException("Unexpected stream control command at offset "
+                + streamOffset + ": " + command.remaining() + " byte(s)");
           }
+          dataChannel.force(FileStoreCommon.readStreamSyncMetadata(command));
+          LOG.info("stream SYNC at offset {}", streamOffset);
         } catch (IOException e) {
           throw new CompletionException("Failed to handle stream control at offset " + streamOffset, e);
         }

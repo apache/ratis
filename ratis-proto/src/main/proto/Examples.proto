@@ -79,12 +79,3 @@ message StreamWriteReplyProto {
   bool isSuccess = 1;
   uint64 byteWritten = 2;
 }
-
-// Control command sent mid-stream via DataStreamOutput.controlAsync().
-message StreamControlCommandProto {
-  enum Type {
-    SYNC = 0;
-  }
-  Type type = 1;
-  bool metadata = 2;
-}
