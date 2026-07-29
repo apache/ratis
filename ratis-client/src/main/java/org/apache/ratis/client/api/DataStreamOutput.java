@@ -27,7 +27,6 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
 /** An asynchronous output stream supporting zero buffer copying. */
@@ -85,18 +84,7 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
    * @param command the control command payload
    * @return a future of the reply
    */
-  default CompletableFuture<DataStreamReply> controlAsync(ByteBuffer command) {
-    return controlAsync(command, Collections.emptyList());
-  }
-
-  /**
-   * Send a control command asynchronously.
-   *
-   * @param command the control command payload
-   * @param options options specifying how the command was sent
-   * @return a future of the reply
-   */
-  CompletableFuture<DataStreamReply> controlAsync(ByteBuffer command, Iterable<WriteOption> options);
+  CompletableFuture<DataStreamReply> controlAsync(ByteBuffer command);
 
   /**
    * Return the future of the {@link RaftClientReply}

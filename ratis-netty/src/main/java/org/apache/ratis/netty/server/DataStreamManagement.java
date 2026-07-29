@@ -151,7 +151,7 @@ public class DataStreamManagement {
     CompletableFuture<DataStreamReply> control(DataStreamRequestByteBuf request, Executor executor) {
       final Timekeeper.Context context = controlMetrics.start();
       return composeAsync(sendFuture, executor,
-          n -> out.controlAsync(request.slice().retain(), addFlush(request.getWriteOptionList()))
+          n -> out.controlAsync(request.slice().retain())
               .whenComplete((l, e) -> controlMetrics.stop(context, e == null)));
     }
   }
