@@ -181,7 +181,8 @@ public class DataStreamClientImpl implements DataStreamClient {
         return JavaUtils.completeExceptionally(new AlreadyClosedException(
             clientId + ": stream already closed, request=" + header));
       }
-      return combineHeader(send(Type.STREAM_CONTROL, data, length, Collections.emptyList()));
+      return combineHeader(send(Type.STREAM_CONTROL, data, length,
+          Collections.singleton(StandardWriteOption.FLUSH)));
     }
 
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuf src, Iterable<WriteOption> options) {
