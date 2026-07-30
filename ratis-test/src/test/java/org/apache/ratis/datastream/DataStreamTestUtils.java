@@ -81,6 +81,18 @@ public interface DataStreamTestUtils {
   ByteString MOCK = ByteString.copyFromUtf8("mock");
   int MODULUS = 23;
 
+  static ByteBuffer recordCommand(int... payload) {
+    final byte[] bytes = new byte[payload.length];
+    for (int i = 0; i < payload.length; i++) {
+      bytes[i] = (byte) payload[i];
+    }
+    return ByteBuffer.wrap(bytes);
+  }
+
+  static ByteBuffer forceCommand() {
+    return ByteBuffer.wrap(new byte[] {(byte) 'F'});
+  }
+
   static byte pos2byte(int pos) {
     return (byte) ('A' + pos % MODULUS);
   }
@@ -258,10 +270,14 @@ public interface DataStreamTestUtils {
 
     @Override
     public CompletableFuture<?> onCommand(ByteBuffer command, long streamOffset) {
+      final boolean force = command.remaining() >= 1 && command.get(command.position()) == (byte) 'F';
       final ByteBuffer copy = ByteBuffer.allocate(command.remaining());
       copy.put(command);
       copy.flip();
       commands.add(new CommandRecord(copy, streamOffset));
+      if (force) {
+        channel.force(false);
+      }
       return CompletableFuture.completedFuture(null);
     }
 
@@ -302,6 +318,7 @@ public interface DataStreamTestUtils {
     private volatile boolean open = true;
     private int bytesWritten = 0;
     private int forcedPosition = 0;
+    private int forceCount = 0;
 
     int getBytesWritten() {
       return bytesWritten;
@@ -311,8 +328,13 @@ public interface DataStreamTestUtils {
       return forcedPosition;
     }
 
+    int getForceCount() {
+      return forceCount;
+    }
+
     @Override
     public void force(boolean metadata) {
+      forceCount++;
       forcedPosition = bytesWritten;
     }
 
@@ -424,10 +446,29 @@ public interface DataStreamTestUtils {
     }
   }
 
+  static void assertCommandsOnAllServers(Iterable<RaftServer> servers, RaftClientRequest header,
+      List<ByteBuffer> commands, List<Long> expectedOffsets) throws Exception {
+    for (RaftServer server : servers) {
+      final MultiDataStreamStateMachine stateMachine = (MultiDataStreamStateMachine)
+          server.getDivision(header.getRaftGroupId()).getStateMachine();
+      assertCommands(stateMachine.getSingleDataStream(header), commands, expectedOffsets);
+    }
+  }
+
   static void assertSuccessReply(Type expectedType, long expectedBytesWritten, DataStreamReply reply) {
     Assertions.assertTrue(reply.isSuccess());
     Assertions.assertEquals(expectedBytesWritten, reply.getBytesWritten());
     Assertions.assertEquals(expectedType, reply.getType());
+  }
+
+  static CompletableFuture<RaftClientReply> closeStreamAndAssertReplies(DataStreamOutputImpl out,
+      Iterable<RaftServer> servers, RaftPeerId leader, ClientId clientId, int bytesWritten,
+      boolean stepDownLeader) throws Exception {
+    for (RaftServer server : servers) {
+      assertHeader(server, out.getHeader(), bytesWritten, stepDownLeader);
+    }
+    return out.closeAsync().thenCompose(
+        reply -> assertCloseReply(out, reply, bytesWritten, leader, clientId, stepDownLeader));
   }
 
   static CompletableFuture<RaftClientReply> writeAndCloseAndAssertReplies(

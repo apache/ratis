@@ -19,6 +19,7 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.netty.client.NettyClientStreamRpc;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -40,8 +41,8 @@ import org.junit.jupiter.api.Timeout;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -51,36 +52,17 @@ import java.util.concurrent.TimeUnit;
 
 @Timeout(value = 300)
 public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluster>
-    extends DataStreamClusterTests<CLUSTER> {
+    extends DataStreamClusterTests<CLUSTER> implements DataStreamCommandE2ETestCases {
   final Executor executor = Executors.newFixedThreadPool(16);
 
-  @Test
-  public void testStreamCommand() throws Exception {
-    runWithNewCluster(3, cluster -> {
-      RaftTestUtil.waitForLeader(cluster);
-      final Iterable<RaftServer> servers = CollectionUtils.as(cluster.getServers(), s -> s);
-      final RaftPeerId leader = cluster.getLeader().getId();
-      final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
-      final List<ByteBuffer> streamCommands = new ArrayList<>();
-      streamCommands.add(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l', '1'}));
-      streamCommands.add(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l', '2'}));
+  @Override
+  public MiniRaftCluster.Factory.Get<CLUSTER> getClusterFactory() {
+    return this;
+  }
 
-      try (RaftClient client = cluster.createClient(primaryServer)) {
-        final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
-            .stream(null, getRoutingTable(cluster.getGroup().getPeers(), primaryServer));
-        final List<Long> commandOffsets = new ArrayList<>();
-        DataStreamTestUtils.writeAndCloseAndAssertReplies(
-            servers, leader, out, 1_000, 3, client.getId(), false, streamCommands, commandOffsets).join();
-
-        for (RaftServer proxy : cluster.getServers()) {
-          final RaftServer.Division impl = proxy.getDivision(cluster.getGroupId());
-          final MultiDataStreamStateMachine stateMachine =
-              (MultiDataStreamStateMachine) impl.getStateMachine();
-          final SingleDataStream stream = stateMachine.getSingleDataStream(out.getHeader());
-          DataStreamTestUtils.assertCommands(stream, streamCommands, commandOffsets);
-        }
-      }
-    });
+  @Override
+  public RoutingTable routingTable(Collection<RaftPeer> peers, RaftPeer primary) {
+    return getRoutingTable(peers, primary);
   }
 
   @Test
