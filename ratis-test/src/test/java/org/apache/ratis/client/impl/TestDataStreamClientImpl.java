@@ -130,32 +130,32 @@ public class TestDataStreamClientImpl {
   }
 
   @Test
-  public void testControlAsyncSendsStreamControlWithCurrentOffset() {
+  public void testCommandAsyncSendsStreamCommandWithCurrentOffset() {
     final AllRequestRecordingRpc rpc = new AllRequestRecordingRpc();
     final DataStreamOutputImpl out = newDataStreamOutput(rpc);
 
     out.getHeaderFuture().join();
     out.writeAsync(ByteBuffer.allocate(5)).join();
-    out.controlAsync(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l'})).join();
+    out.commandAsync(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l'})).join();
 
     final List<DataStreamRequest> requests = rpc.getRequests();
     Assertions.assertEquals(3, requests.size());
     Assertions.assertEquals(Type.STREAM_HEADER, requests.get(0).getType());
     Assertions.assertEquals(Type.STREAM_DATA, requests.get(1).getType());
     Assertions.assertEquals(0, requests.get(1).getStreamOffset());
-    Assertions.assertEquals(Type.STREAM_CONTROL, requests.get(2).getType());
+    Assertions.assertEquals(Type.STREAM_COMMAND, requests.get(2).getType());
     Assertions.assertEquals(5, requests.get(2).getStreamOffset());
     Assertions.assertEquals(4, requests.get(2).getDataLength());
   }
 
   @Test
-  public void testControlAsyncDoesNotAdvanceStreamOffset() {
+  public void testCommandAsyncDoesNotAdvanceStreamOffset() {
     final AllRequestRecordingRpc rpc = new AllRequestRecordingRpc();
     final DataStreamOutputImpl out = newDataStreamOutput(rpc);
 
     out.getHeaderFuture().join();
     out.writeAsync(ByteBuffer.allocate(5)).join();
-    out.controlAsync(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l'})).join();
+    out.commandAsync(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l'})).join();
     out.writeAsync(ByteBuffer.allocate(3)).join();
 
     final List<DataStreamRequest> requests = rpc.getRequests();
@@ -165,7 +165,7 @@ public class TestDataStreamClientImpl {
   }
 
   @Test
-  public void testControlAsyncAfterCloseFails() {
+  public void testCommandAsyncAfterCloseFails() {
     final AllRequestRecordingRpc rpc = new AllRequestRecordingRpc();
     final DataStreamOutputImpl out = newDataStreamOutput(rpc);
 
@@ -173,7 +173,7 @@ public class TestDataStreamClientImpl {
     out.writeAsync(DataStreamPacketByteBuffer.EMPTY_BYTE_BUFFER, StandardWriteOption.CLOSE).join();
 
     final ExecutionException exception = Assertions.assertThrows(ExecutionException.class,
-        () -> out.controlAsync(ByteBuffer.wrap(new byte[] {'c'})).get());
+        () -> out.commandAsync(ByteBuffer.wrap(new byte[] {'c'})).get());
     Assertions.assertInstanceOf(AlreadyClosedException.class, exception.getCause());
   }
 

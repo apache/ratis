@@ -242,7 +242,7 @@ public class DataStream extends Client {
       try (FileChannel in = FileUtils.newFileChannel(file, StandardOpenOption.READ)) {
         for (long offset = 0L; offset < fileSize; ) {
           offset += write(in, out, offset, futures);
-          addSyncControl(client, out, offset, futures);
+          addSyncCommand(client, out, offset, futures);
         }
       } catch (Throwable e) {
         throw new IOException("Failed to transfer " + path);
@@ -252,7 +252,7 @@ public class DataStream extends Client {
       return futures;
     }
 
-    void addSyncControl(FileStoreClient client, DataStreamOutput out, long position,
+    void addSyncCommand(FileStoreClient client, DataStreamOutput out, long position,
         List<CompletableFuture<DataStreamReply>> futures) {
       if (isSync(position)) {
         futures.add(client.streamSyncAsync(out, false));

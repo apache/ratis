@@ -90,14 +90,14 @@ public class DataStreamManagement {
     private final CompletableFuture<DataStream> streamFuture;
     private final AtomicReference<CompletableFuture<Long>> writeFuture;
     private final RequestMetrics writeMetrics;
-    private final RequestMetrics controlMetrics;
+    private final RequestMetrics commandMetrics;
 
     LocalStream(CompletableFuture<DataStream> streamFuture, RequestMetrics writeMetrics,
-        RequestMetrics controlMetrics) {
+        RequestMetrics commandMetrics) {
       this.streamFuture = streamFuture;
       this.writeFuture = new AtomicReference<>(streamFuture.thenApply(s -> 0L));
       this.writeMetrics = writeMetrics;
-      this.controlMetrics = controlMetrics;
+      this.commandMetrics = commandMetrics;
     }
 
     CompletableFuture<Long> write(ByteBuf buf, Iterable<WriteOption> options,
@@ -108,11 +108,11 @@ public class DataStreamManagement {
               .whenComplete((l, e) -> writeMetrics.stop(context, e == null))));
     }
 
-    CompletableFuture<Long> control(ByteBuf buf, long streamOffset, Executor executor) {
-      final Timekeeper.Context context = controlMetrics.start();
+    CompletableFuture<Long> command(ByteBuf buf, long streamOffset, Executor executor) {
+      final Timekeeper.Context context = commandMetrics.start();
       return composeAsync(writeFuture, executor,
-          n -> streamFuture.thenCompose(stream -> controlToAsync(buf, streamOffset, stream, executor)
-              .whenComplete((l, e) -> controlMetrics.stop(context, e == null))));
+          n -> streamFuture.thenCompose(stream -> commandToAsync(buf, streamOffset, stream, executor)
+              .whenComplete((l, e) -> commandMetrics.stop(context, e == null))));
     }
 
     void cleanUp() {
@@ -125,11 +125,11 @@ public class DataStreamManagement {
     private final AtomicReference<CompletableFuture<DataStreamReply>> sendFuture
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
     private final RequestMetrics writeMetrics;
-    private final RequestMetrics controlMetrics;
+    private final RequestMetrics commandMetrics;
 
-    RemoteStream(DataStreamOutputImpl out, RequestMetrics writeMetrics, RequestMetrics controlMetrics) {
+    RemoteStream(DataStreamOutputImpl out, RequestMetrics writeMetrics, RequestMetrics commandMetrics) {
       this.writeMetrics = writeMetrics;
-      this.controlMetrics = controlMetrics;
+      this.commandMetrics = commandMetrics;
       this.out = out;
     }
 
@@ -148,11 +148,11 @@ public class DataStreamManagement {
               .whenComplete((l, e) -> writeMetrics.stop(context, e == null)));
     }
 
-    CompletableFuture<DataStreamReply> control(DataStreamRequestByteBuf request, Executor executor) {
-      final Timekeeper.Context context = controlMetrics.start();
+    CompletableFuture<DataStreamReply> command(DataStreamRequestByteBuf request, Executor executor) {
+      final Timekeeper.Context context = commandMetrics.start();
       return composeAsync(sendFuture, executor,
-          n -> out.controlAsync(request.slice().retain())
-              .whenComplete((l, e) -> controlMetrics.stop(context, e == null)));
+          n -> out.commandAsync(request.slice().retain())
+              .whenComplete((l, e) -> commandMetrics.stop(context, e == null)));
     }
   }
 
@@ -173,14 +173,14 @@ public class DataStreamManagement {
       this.primary = primary;
       this.local = new LocalStream(stream,
           metricsConstructor.apply(RequestType.LOCAL_WRITE),
-          metricsConstructor.apply(RequestType.LOCAL_CONTROL));
+          metricsConstructor.apply(RequestType.LOCAL_COMMAND));
       this.division = division;
       final Set<RaftPeer> successors = getSuccessors(division.getId());
       final Set<DataStreamOutputImpl> outs = getStreams.apply(request, successors);
       this.remotes = outs.stream()
           .map(o -> new RemoteStream(o,
               metricsConstructor.apply(RequestType.REMOTE_WRITE),
-              metricsConstructor.apply(RequestType.REMOTE_CONTROL)))
+              metricsConstructor.apply(RequestType.REMOTE_COMMAND)))
           .collect(Collectors.toSet());
     }
 
@@ -326,12 +326,12 @@ public class DataStreamManagement {
     return CompletableFuture.supplyAsync(() -> writeTo(buf, options, stream), e);
   }
 
-  static CompletableFuture<Long> controlToAsync(ByteBuf buf, long streamOffset, DataStream stream,
+  static CompletableFuture<Long> commandToAsync(ByteBuf buf, long streamOffset, DataStream stream,
       Executor defaultExecutor) {
     final Executor e = Optional.ofNullable(stream.getExecutor()).orElse(defaultExecutor);
     final ByteBuffer command = copyBuffer(buf);
     return CompletableFuture.runAsync(() -> {}, e)
-        .thenCompose(v -> stream.onControl(command, streamOffset))
+        .thenCompose(v -> stream.onCommand(command, streamOffset))
         .thenApply(v -> 0L);
   }
 
@@ -518,9 +518,9 @@ public class DataStreamManagement {
     } else if (request.getType() == Type.STREAM_DATA) {
       localWrite = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
-    } else if (request.getType() == Type.STREAM_CONTROL) {
-      localWrite = info.getLocal().control(request.slice(), request.getStreamOffset(), writeExecutor);
-      remoteWrites = info.applyToRemotes(out -> out.control(request, requestExecutor));
+    } else if (request.getType() == Type.STREAM_COMMAND) {
+      localWrite = info.getLocal().command(request.slice(), request.getStreamOffset(), writeExecutor);
+      remoteWrites = info.applyToRemotes(out -> out.command(request, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
     }
@@ -529,7 +529,7 @@ public class DataStreamManagement {
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           if (request.getType() == Type.STREAM_HEADER
               || request.getType() == Type.STREAM_DATA
-              || request.getType() == Type.STREAM_CONTROL
+              || request.getType() == Type.STREAM_COMMAND
               || close) {
             sendReply(remoteWrites, request, bytesWritten, info.getCommitInfos(), ctx);
           } else {

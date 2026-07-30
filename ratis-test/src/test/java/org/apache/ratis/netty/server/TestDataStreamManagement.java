@@ -463,15 +463,15 @@ class TestDataStreamManagement {
   }
 
   @Test
-  void writeControlInvokesOnControl() throws Exception {
+  void writeCommandInvokesOnCommand() throws Exception {
     final RaftPeerId serverId = RaftPeerId.valueOf("s1");
     final ClientId clientId = ClientId.randomId();
     final RaftGroupId groupId = RaftGroupId.randomId();
     final long callId = 1L;
     final AtomicReference<CountingDataChannel> channelRef = new AtomicReference<>();
-    final List<ControlRecord> controls = Collections.synchronizedList(new ArrayList<>());
+    final List<CommandRecord> commands = Collections.synchronizedList(new ArrayList<>());
 
-    final StateMachine stateMachine = newWriteStateMachine(channelRef, controls);
+    final StateMachine stateMachine = newWriteStateMachine(channelRef, commands);
     final DataStreamMap streamMap = RaftServerTestUtil.newDataStreamMap(serverId);
     final RaftServer.Division division = newWriteDivision(serverId, groupId, stateMachine, streamMap);
     final RaftServer server = newRaftServer(serverId, new RaftProperties(), groupId, division);
@@ -497,7 +497,7 @@ class TestDataStreamManagement {
           Unpooled.wrappedBuffer(headerPayload), StandardWriteOption.FLUSH), ctx, getStreams);
       management.read(newWriteRequest(clientId, Type.STREAM_DATA, callId, 0,
           Unpooled.wrappedBuffer(new byte[10]), StandardWriteOption.FLUSH), ctx, getStreams);
-      management.read(newWriteRequest(clientId, Type.STREAM_CONTROL, callId, 10,
+      management.read(newWriteRequest(clientId, Type.STREAM_COMMAND, callId, 10,
           Unpooled.wrappedBuffer(new byte[] {'c', 't', 'r', 'l'}), StandardWriteOption.FLUSH), ctx, getStreams);
       management.read(newWriteRequest(clientId, Type.STREAM_DATA, callId, 10,
           Unpooled.wrappedBuffer(new byte[4]), StandardWriteOption.CLOSE), ctx, getStreams);
@@ -505,13 +505,13 @@ class TestDataStreamManagement {
       final List<DataStreamReply> replies = drainWriteReplies(embeddedChannel, 4);
       assertSuccessReply(Type.STREAM_HEADER, 0, replies.get(0));
       assertSuccessReply(Type.STREAM_DATA, 10, replies.get(1));
-      assertSuccessReply(Type.STREAM_CONTROL, 0, replies.get(2));
+      assertSuccessReply(Type.STREAM_COMMAND, 0, replies.get(2));
       assertSuccessReply(Type.STREAM_DATA, 4, replies.get(3));
 
       assertEquals(14, channelRef.get().bytesWritten.get());
-      assertEquals(1, controls.size());
-      assertEquals(10, controls.get(0).streamOffset);
-      assertEquals(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l'}), controls.get(0).command);
+      assertEquals(1, commands.size());
+      assertEquals(10, commands.get(0).streamOffset);
+      assertEquals(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l'}), commands.get(0).command);
     } finally {
       embeddedChannel.finishAndReleaseAll();
       management.shutdown();
@@ -519,7 +519,7 @@ class TestDataStreamManagement {
   }
 
   @Test
-  void writeControlWithoutHeaderFails() throws Exception {
+  void writeCommandWithoutHeaderFails() throws Exception {
     final RaftPeerId serverId = RaftPeerId.valueOf("s1");
     final RaftServer server = newRaftServer(serverId, new RaftProperties());
     final NettyServerStreamRpcMetrics metrics = new NettyServerStreamRpcMetrics("s1");
@@ -529,14 +529,14 @@ class TestDataStreamManagement {
     final CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams =
         (r, p) -> Collections.emptySet();
 
-    final DataStreamRequestByteBuf request = newWriteRequest(ClientId.randomId(), Type.STREAM_CONTROL, 1L, 0,
+    final DataStreamRequestByteBuf request = newWriteRequest(ClientId.randomId(), Type.STREAM_COMMAND, 1L, 0,
         Unpooled.wrappedBuffer(new byte[] {'c'}), StandardWriteOption.FLUSH);
 
     try {
       management.read(request, ctx, getStreams);
       final DataStreamReply reply = embeddedChannel.readOutbound();
       assertNotNull(reply);
-      assertEquals(Type.STREAM_CONTROL, reply.getType());
+      assertEquals(Type.STREAM_COMMAND, reply.getType());
       assertFalse(reply.isSuccess());
     } finally {
       embeddedChannel.finishAndReleaseAll();
@@ -584,11 +584,11 @@ class TestDataStreamManagement {
     }
   }
 
-  private static class ControlRecord {
+  private static class CommandRecord {
     private final ByteBuffer command;
     private final long streamOffset;
 
-    ControlRecord(ByteBuffer command, long streamOffset) {
+    CommandRecord(ByteBuffer command, long streamOffset) {
       this.command = command;
       this.streamOffset = streamOffset;
     }
@@ -620,7 +620,7 @@ class TestDataStreamManagement {
   }
 
   private static StateMachine newWriteStateMachine(AtomicReference<CountingDataChannel> channelRef,
-      List<ControlRecord> controls) {
+      List<CommandRecord> commands) {
     return new BaseStateMachine() {
       @Override
       public DataApi data() {
@@ -636,11 +636,11 @@ class TestDataStreamManagement {
               }
 
               @Override
-              public CompletableFuture<?> onControl(ByteBuffer command, long streamOffset) {
+              public CompletableFuture<?> onCommand(ByteBuffer command, long streamOffset) {
                 final ByteBuffer copy = ByteBuffer.allocate(command.remaining());
                 copy.put(command);
                 copy.flip();
-                controls.add(new ControlRecord(copy, streamOffset));
+                commands.add(new CommandRecord(copy, streamOffset));
                 return CompletableFuture.completedFuture(null);
               }
 

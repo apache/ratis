@@ -387,15 +387,15 @@ public interface StateMachine extends Closeable {
     }
 
     /**
-     * Handle a control command received in the middle of a data stream.
+     * Handle a command received in the middle of a data stream.
      * The {@code streamOffset} indicates the current byte offset in the stream
      * (i.e. the total number of data bytes received so far).
      *
-     * @param command the control command payload
+     * @param command the command payload
      * @param streamOffset the current stream byte offset
-     * @return a future for the control task
+     * @return a future for the command task
      */
-    default CompletableFuture<?> onControl(ByteBuffer command, long streamOffset) {
+    default CompletableFuture<?> onCommand(ByteBuffer command, long streamOffset) {
       return CompletableFuture.completedFuture(null);
     }
   }

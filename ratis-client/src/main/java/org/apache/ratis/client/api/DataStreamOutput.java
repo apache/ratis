@@ -76,15 +76,15 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
   CompletableFuture<DataStreamReply> writeAsync(FilePositionCount src, WriteOption... options);
 
   /**
-   * Send a control command asynchronously.
-   * Control commands are ordered with data writes but do not advance the stream byte offset.
-   * The server state machine may handle the command via its data-stream control hook
+   * Send a command asynchronously.
+   * Commands are ordered with data writes but do not advance the stream byte offset.
+   * The server state machine may handle the command via its data-stream command hook
    * instead of writing bytes to the data channel.
    *
-   * @param command the control command payload
+   * @param command the command payload
    * @return a future of the reply
    */
-  CompletableFuture<DataStreamReply> controlAsync(ByteBuffer command);
+  CompletableFuture<DataStreamReply> commandAsync(ByteBuffer command);
 
   /**
    * Return the future of the {@link RaftClientReply}

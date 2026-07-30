@@ -158,7 +158,7 @@ final class FileStoreWriter implements Closeable {
 
       if (!close && offset % syncInterval == 0) {
         futures.add(client.streamSyncAsync(dataStreamOutput, false));
-        expectedTypes.add(Type.STREAM_CONTROL);
+        expectedTypes.add(Type.STREAM_COMMAND);
         sizes.add(0);
       }
     }

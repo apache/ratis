@@ -40,16 +40,16 @@ public interface FileStoreCommon {
 
   SizeInBytes MAX_CHUNK_SIZE = SizeInBytes.valueOf(64, TraditionalBinaryPrefix.MEGA);
 
-  /** Application-defined stream control command: force data to storage. */
-  byte STREAM_CONTROL_SYNC = 1;
+  /** Application-defined stream command: force data to storage. */
+  byte STREAM_COMMAND_SYNC = 1;
 
   static ByteBuffer streamSyncCommand(boolean metadata) {
-    return ByteBuffer.wrap(new byte[] {STREAM_CONTROL_SYNC, (byte) (metadata ? 1 : 0)});
+    return ByteBuffer.wrap(new byte[] {STREAM_COMMAND_SYNC, (byte) (metadata ? 1 : 0)});
   }
 
   static boolean isStreamSyncCommand(ByteBuffer command) {
     return command.remaining() >= 2
-        && command.get(command.position()) == STREAM_CONTROL_SYNC;
+        && command.get(command.position()) == STREAM_COMMAND_SYNC;
   }
 
   static boolean readStreamSyncMetadata(ByteBuffer command) {

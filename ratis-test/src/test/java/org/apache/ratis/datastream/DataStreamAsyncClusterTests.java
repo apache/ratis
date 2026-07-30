@@ -55,29 +55,29 @@ public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluste
   final Executor executor = Executors.newFixedThreadPool(16);
 
   @Test
-  public void testStreamControl() throws Exception {
+  public void testStreamCommand() throws Exception {
     runWithNewCluster(3, cluster -> {
       RaftTestUtil.waitForLeader(cluster);
       final Iterable<RaftServer> servers = CollectionUtils.as(cluster.getServers(), s -> s);
       final RaftPeerId leader = cluster.getLeader().getId();
       final RaftPeer primaryServer = CollectionUtils.random(cluster.getGroup().getPeers());
-      final List<ByteBuffer> controlCommands = new ArrayList<>();
-      controlCommands.add(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l', '1'}));
-      controlCommands.add(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l', '2'}));
+      final List<ByteBuffer> streamCommands = new ArrayList<>();
+      streamCommands.add(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l', '1'}));
+      streamCommands.add(ByteBuffer.wrap(new byte[] {'c', 't', 'r', 'l', '2'}));
 
       try (RaftClient client = cluster.createClient(primaryServer)) {
         final DataStreamOutputImpl out = (DataStreamOutputImpl) client.getDataStreamApi()
             .stream(null, getRoutingTable(cluster.getGroup().getPeers(), primaryServer));
-        final List<Long> controlOffsets = new ArrayList<>();
+        final List<Long> commandOffsets = new ArrayList<>();
         DataStreamTestUtils.writeAndCloseAndAssertReplies(
-            servers, leader, out, 1_000, 3, client.getId(), false, controlCommands, controlOffsets).join();
+            servers, leader, out, 1_000, 3, client.getId(), false, streamCommands, commandOffsets).join();
 
         for (RaftServer proxy : cluster.getServers()) {
           final RaftServer.Division impl = proxy.getDivision(cluster.getGroupId());
           final MultiDataStreamStateMachine stateMachine =
               (MultiDataStreamStateMachine) impl.getStateMachine();
           final SingleDataStream stream = stateMachine.getSingleDataStream(out.getHeader());
-          DataStreamTestUtils.assertControlCommands(stream, controlCommands, controlOffsets);
+          DataStreamTestUtils.assertCommands(stream, streamCommands, commandOffsets);
         }
       }
     });

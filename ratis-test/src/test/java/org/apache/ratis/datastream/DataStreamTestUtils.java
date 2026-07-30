@@ -227,13 +227,13 @@ public interface DataStreamTestUtils {
     private final RaftClientRequest writeRequest;
     private final MyDataChannel channel = new MyDataChannel();
     private volatile LogEntryProto logEntry;
-    private final List<ControlCommand> controlCommands = new ArrayList<>();
+    private final List<CommandRecord> commands = new ArrayList<>();
 
-    static final class ControlCommand {
+    static final class CommandRecord {
       private final ByteBuffer command;
       private final long streamOffset;
 
-      ControlCommand(ByteBuffer command, long streamOffset) {
+      CommandRecord(ByteBuffer command, long streamOffset) {
         this.command = command;
         this.streamOffset = streamOffset;
       }
@@ -257,16 +257,16 @@ public interface DataStreamTestUtils {
     }
 
     @Override
-    public CompletableFuture<?> onControl(ByteBuffer command, long streamOffset) {
+    public CompletableFuture<?> onCommand(ByteBuffer command, long streamOffset) {
       final ByteBuffer copy = ByteBuffer.allocate(command.remaining());
       copy.put(command);
       copy.flip();
-      controlCommands.add(new ControlCommand(copy, streamOffset));
+      commands.add(new CommandRecord(copy, streamOffset));
       return CompletableFuture.completedFuture(null);
     }
 
-    List<ControlCommand> getControlCommands() {
-      return controlCommands;
+    List<CommandRecord> getCommands() {
+      return commands;
     }
 
     @Override
@@ -344,12 +344,12 @@ public interface DataStreamTestUtils {
     return writeAndAssertReplies(out, bufferSize, bufferNum, Collections.emptyList()).bytesWritten;
   }
 
-  static WriteWithControlResult writeAndAssertReplies(DataStreamOutputImpl out, int bufferSize, int bufferNum,
-      List<ByteBuffer> controlCommands) {
+  static WriteWithCommandResult writeAndAssertReplies(DataStreamOutputImpl out, int bufferSize, int bufferNum,
+      List<ByteBuffer> streamCommands) {
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
     final List<Type> expectedTypes = new ArrayList<>();
     final List<Long> expectedBytesWritten = new ArrayList<>();
-    final List<Long> controlOffsets = new ArrayList<>();
+    final List<Long> commandOffsets = new ArrayList<>();
 
     //send data
     final int halfBufferSize = bufferSize / 2;
@@ -358,16 +358,16 @@ public interface DataStreamTestUtils {
       final int size = halfBufferSize + ThreadLocalRandom.current().nextInt(halfBufferSize);
 
       final ByteBuffer bf = initBuffer(dataSize, size);
-      if (i < controlCommands.size()) {
+      if (i < streamCommands.size()) {
         futures.add(out.writeAsync(bf));
         expectedTypes.add(Type.STREAM_DATA);
         expectedBytesWritten.add((long) size);
         dataSize += size;
 
-        controlOffsets.add((long) dataSize);
-        final ByteBuffer control = controlCommands.get(i);
-        futures.add(out.controlAsync(control));
-        expectedTypes.add(Type.STREAM_CONTROL);
+        commandOffsets.add((long) dataSize);
+        final ByteBuffer command = streamCommands.get(i);
+        futures.add(out.commandAsync(command));
+        expectedTypes.add(Type.STREAM_COMMAND);
         expectedBytesWritten.add(0L);
       } else if (i == bufferNum - 1) {
         futures.add(out.writeAsync(bf, StandardWriteOption.FLUSH, StandardWriteOption.SYNC));
@@ -392,35 +392,35 @@ public interface DataStreamTestUtils {
       final DataStreamReply reply = futures.get(i).join();
       assertSuccessReply(expectedTypes.get(i), expectedBytesWritten.get(i), reply);
     }
-    return new WriteWithControlResult(dataSize, controlOffsets);
+    return new WriteWithCommandResult(dataSize, commandOffsets);
   }
 
-  static final class WriteWithControlResult {
+  static final class WriteWithCommandResult {
     private final int bytesWritten;
-    private final List<Long> controlOffsets;
+    private final List<Long> commandOffsets;
 
-    WriteWithControlResult(int bytesWritten, List<Long> controlOffsets) {
+    WriteWithCommandResult(int bytesWritten, List<Long> commandOffsets) {
       this.bytesWritten = bytesWritten;
-      this.controlOffsets = controlOffsets;
+      this.commandOffsets = commandOffsets;
     }
 
     int getBytesWritten() {
       return bytesWritten;
     }
 
-    List<Long> getControlOffsets() {
-      return controlOffsets;
+    List<Long> getCommandOffsets() {
+      return commandOffsets;
     }
   }
 
-  static void assertControlCommands(SingleDataStream stream, List<ByteBuffer> commands,
+  static void assertCommands(SingleDataStream stream, List<ByteBuffer> commands,
       List<Long> expectedOffsets) {
-    Assertions.assertEquals(commands.size(), stream.getControlCommands().size());
-    Assertions.assertEquals(expectedOffsets.size(), stream.getControlCommands().size());
+    Assertions.assertEquals(commands.size(), stream.getCommands().size());
+    Assertions.assertEquals(expectedOffsets.size(), stream.getCommands().size());
     for (int i = 0; i < commands.size(); i++) {
-      Assertions.assertEquals(commands.get(i), stream.getControlCommands().get(i).getCommand());
+      Assertions.assertEquals(commands.get(i), stream.getCommands().get(i).getCommand());
       Assertions.assertEquals(expectedOffsets.get(i).longValue(),
-          stream.getControlCommands().get(i).getStreamOffset());
+          stream.getCommands().get(i).getStreamOffset());
     }
   }
 
@@ -439,19 +439,19 @@ public interface DataStreamTestUtils {
 
   static CompletableFuture<RaftClientReply> writeAndCloseAndAssertReplies(
       Iterable<RaftServer> servers, RaftPeerId leader, DataStreamOutputImpl out, int bufferSize, int bufferNum,
-      ClientId clientId, boolean stepDownLeader, List<ByteBuffer> controlCommands) {
+      ClientId clientId, boolean stepDownLeader, List<ByteBuffer> streamCommands) {
     return writeAndCloseAndAssertReplies(servers, leader, out, bufferSize, bufferNum, clientId, stepDownLeader,
-        controlCommands, null);
+        streamCommands, null);
   }
 
   static CompletableFuture<RaftClientReply> writeAndCloseAndAssertReplies(
       Iterable<RaftServer> servers, RaftPeerId leader, DataStreamOutputImpl out, int bufferSize, int bufferNum,
-      ClientId clientId, boolean stepDownLeader, List<ByteBuffer> controlCommands, List<Long> controlOffsetsOut) {
+      ClientId clientId, boolean stepDownLeader, List<ByteBuffer> streamCommands, List<Long> commandOffsetsOut) {
     LOG.info("start Stream{}", out.getHeader().getCallId());
-    final WriteWithControlResult result = writeAndAssertReplies(out, bufferSize, bufferNum, controlCommands);
-    if (controlOffsetsOut != null) {
-      controlOffsetsOut.clear();
-      controlOffsetsOut.addAll(result.getControlOffsets());
+    final WriteWithCommandResult result = writeAndAssertReplies(out, bufferSize, bufferNum, streamCommands);
+    if (commandOffsetsOut != null) {
+      commandOffsetsOut.clear();
+      commandOffsetsOut.addAll(result.getCommandOffsets());
     }
     final int bytesWritten = result.getBytesWritten();
     try {

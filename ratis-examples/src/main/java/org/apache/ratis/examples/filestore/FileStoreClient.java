@@ -204,7 +204,7 @@ public class FileStoreClient implements Closeable {
 
   /** Force stream data to storage at the current byte offset without writing bytes. */
   public CompletableFuture<DataStreamReply> streamSyncAsync(DataStreamOutput out, boolean metadata) {
-    return out.controlAsync(FileStoreCommon.streamSyncCommand(metadata));
+    return out.commandAsync(FileStoreCommon.streamSyncCommand(metadata));
   }
 
   public DataStreamInput getStreamInput(String path, long offset, long length) {

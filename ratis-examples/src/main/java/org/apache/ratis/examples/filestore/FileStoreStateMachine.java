@@ -247,17 +247,17 @@ public class FileStoreStateMachine extends BaseStateMachine {
     }
 
     @Override
-    public CompletableFuture<?> onControl(ByteBuffer command, long streamOffset) {
+    public CompletableFuture<?> onCommand(ByteBuffer command, long streamOffset) {
       return CompletableFuture.runAsync(() -> {
         try {
           if (!FileStoreCommon.isStreamSyncCommand(command)) {
-            throw new IllegalArgumentException("Unexpected stream control command at offset "
+            throw new IllegalArgumentException("Unexpected stream command at offset "
                 + streamOffset + ": " + command.remaining() + " byte(s)");
           }
           dataChannel.force(FileStoreCommon.readStreamSyncMetadata(command));
           LOG.info("stream SYNC at offset {}", streamOffset);
         } catch (IOException e) {
-          throw new CompletionException("Failed to handle stream control at offset " + streamOffset, e);
+          throw new CompletionException("Failed to handle stream command at offset " + streamOffset, e);
         }
       });
     }

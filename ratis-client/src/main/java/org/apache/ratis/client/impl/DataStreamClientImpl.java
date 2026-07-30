@@ -173,7 +173,7 @@ public class DataStreamClientImpl implements DataStreamClient {
       return f;
     }
 
-    private CompletableFuture<DataStreamReply> controlAsyncImpl(Object data, long length) {
+    private CompletableFuture<DataStreamReply> commandAsyncImpl(Object data, long length) {
       if (isClosed()) {
         if (data instanceof ByteBuf) {
           ((ByteBuf) data).release();
@@ -181,7 +181,7 @@ public class DataStreamClientImpl implements DataStreamClient {
         return JavaUtils.completeExceptionally(new AlreadyClosedException(
             clientId + ": stream already closed, request=" + header));
       }
-      return combineHeader(send(Type.STREAM_CONTROL, data, length,
+      return combineHeader(send(Type.STREAM_COMMAND, data, length,
           Collections.singleton(StandardWriteOption.FLUSH)));
     }
 
@@ -200,12 +200,12 @@ public class DataStreamClientImpl implements DataStreamClient {
     }
 
     @Override
-    public CompletableFuture<DataStreamReply> controlAsync(ByteBuffer src) {
-      return controlAsyncImpl(src, src.remaining());
+    public CompletableFuture<DataStreamReply> commandAsync(ByteBuffer src) {
+      return commandAsyncImpl(src, src.remaining());
     }
 
-    public CompletableFuture<DataStreamReply> controlAsync(ByteBuf src) {
-      return controlAsyncImpl(src, src.readableBytes());
+    public CompletableFuture<DataStreamReply> commandAsync(ByteBuf src) {
+      return commandAsyncImpl(src, src.readableBytes());
     }
 
     boolean isClosed() {
