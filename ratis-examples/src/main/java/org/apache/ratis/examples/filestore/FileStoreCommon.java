@@ -21,7 +21,6 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.*;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
@@ -39,22 +38,6 @@ public interface FileStoreCommon {
   String STATEMACHINE_DELETE_THREAD_NUM = STATEMACHINE_PREFIX + ".delete.thread.num";
 
   SizeInBytes MAX_CHUNK_SIZE = SizeInBytes.valueOf(64, TraditionalBinaryPrefix.MEGA);
-
-  /** Application-defined stream command: force data to storage. */
-  byte STREAM_COMMAND_SYNC = 1;
-
-  static ByteBuffer streamSyncCommand(boolean metadata) {
-    return ByteBuffer.wrap(new byte[] {STREAM_COMMAND_SYNC, (byte) (metadata ? 1 : 0)});
-  }
-
-  static boolean isStreamSyncCommand(ByteBuffer command) {
-    return command.remaining() >= 2
-        && command.get(command.position()) == STREAM_COMMAND_SYNC;
-  }
-
-  static boolean readStreamSyncMetadata(ByteBuffer command) {
-    return command.get(command.position() + 1) != 0;
-  }
 
   static int getChunkSize(long suggestedSize) {
     return Math.toIntExact(Math.min(suggestedSize, MAX_CHUNK_SIZE.getSize()));

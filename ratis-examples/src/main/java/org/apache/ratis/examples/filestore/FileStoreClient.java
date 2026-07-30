@@ -202,11 +202,6 @@ public class FileStoreClient implements Closeable {
     return client.getDataStreamApi().stream(request.toByteString().asReadOnlyByteBuffer(), routingTable);
   }
 
-  /** Force stream data to storage at the current byte offset without writing bytes. */
-  public CompletableFuture<DataStreamReply> streamSyncAsync(DataStreamOutput out, boolean metadata) {
-    return out.commandAsync(FileStoreCommon.streamSyncCommand(metadata));
-  }
-
   public DataStreamInput getStreamInput(String path, long offset, long length) {
     final ReadRequestProto read = ReadRequestProto.newBuilder()
         .setPath(ProtoUtils.toByteString(path))
