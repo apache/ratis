@@ -269,7 +269,7 @@ public interface DataStreamTestUtils {
     }
 
     @Override
-    public CompletableFuture<?> onCommand(ByteBuffer command, long streamOffset) {
+    public CompletableFuture<ByteBuffer> onCommand(ByteBuffer command, long streamOffset) {
       final boolean force = command.remaining() >= 1 && command.get(command.position()) == (byte) 'F';
       final ByteBuffer copy = ByteBuffer.allocate(command.remaining());
       copy.put(command);

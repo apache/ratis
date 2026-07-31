@@ -395,7 +395,7 @@ public interface StateMachine extends Closeable {
      * @param streamOffset the current stream byte offset
      * @return a future for the command task
      */
-    default CompletableFuture<?> onCommand(ByteBuffer command, long streamOffset) {
+    default CompletableFuture<ByteBuffer> onCommand(ByteBuffer command, long streamOffset) {
       return CompletableFuture.completedFuture(null);
     }
   }

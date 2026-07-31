@@ -204,10 +204,6 @@ public class DataStreamClientImpl implements DataStreamClient {
       return commandAsyncImpl(src, src.remaining());
     }
 
-    public CompletableFuture<DataStreamReply> commandAsync(ByteBuf src) {
-      return commandAsyncImpl(src, src.readableBytes());
-    }
-
     boolean isClosed() {
       return closeFuture != null;
     }

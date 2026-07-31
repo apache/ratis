@@ -636,7 +636,7 @@ class TestDataStreamManagement {
               }
 
               @Override
-              public CompletableFuture<?> onCommand(ByteBuffer command, long streamOffset) {
+              public CompletableFuture<ByteBuffer> onCommand(ByteBuffer command, long streamOffset) {
                 final ByteBuffer copy = ByteBuffer.allocate(command.remaining());
                 copy.put(command);
                 copy.flip();
