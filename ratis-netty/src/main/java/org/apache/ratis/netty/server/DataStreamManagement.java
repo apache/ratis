@@ -87,7 +87,7 @@ import java.util.stream.Stream;
 public class DataStreamManagement {
   public static final Logger LOG = LoggerFactory.getLogger(DataStreamManagement.class);
 
-  static class LocalResult {
+  static final class LocalResult {
     static final LocalResult ZERO = of(0);
 
     static LocalResult of(long byteWritten) {
