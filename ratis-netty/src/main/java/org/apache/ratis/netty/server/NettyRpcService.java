@@ -42,6 +42,7 @@ import org.apache.ratis.proto.netty.NettyProtos.RaftNettyExceptionReplyProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.ProtoUtils;
@@ -50,8 +51,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.Objects;
 
 /**
  * A netty server endpoint that acts as the communication layer.
@@ -87,12 +88,31 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
   private final MemoizedSupplier<ChannelFuture> channel;
   private final InetSocketAddress socketAddress;
 
+  private final ExecutorService requestExecutor;
+
   @ChannelHandler.Sharable
   class InboundHandler extends SimpleChannelInboundHandler<RaftNettyServerRequestProto> {
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, RaftNettyServerRequestProto proto) {
-      final RaftNettyServerReplyProto reply = handle(proto);
-      ctx.writeAndFlush(reply);
+      requestExecutor.execute(() -> {
+        final RaftNettyServerReplyProto reply;
+        try {
+          // handle() already builds an error reply whenever it has a request context
+          reply = handle(proto);
+        } catch (Exception e) {
+          // Close the channel so the client fails fast instead of blocking until timeout.
+          LOG.warn("{}: Failed to handle request; closing the channel.", getId(), e);
+          ctx.close();
+          return;
+        }
+        ctx.writeAndFlush(reply);
+      });
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+      LOG.warn("{}: exceptionCaught on channel {}; closing it.", getId(), ctx.channel(), cause);
+      ctx.close();
     }
   }
 
@@ -115,6 +135,11 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
         p.addLast(new InboundHandler());
       }
     };
+
+    this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(
+        NettyConfigKeys.Server.asyncRequestThreadPoolCached(server.getProperties()),
+        NettyConfigKeys.Server.asyncRequestThreadPoolSize(server.getProperties()),
+        server.getId() + "-request-");
 
     final boolean useEpoll = NettyConfigKeys.Server.useEpoll(server.getProperties());
     this.bossGroup = NettyUtils.newEventLoopGroup(CLASS_NAME + "-bossGroup", 0, useEpoll);
@@ -155,6 +180,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
 
   @Override
   public void closeImpl() throws IOException {
+    ConcurrentUtils.shutdownAndWait(requestExecutor);
     final ChannelFuture f = getChannel().close();
     f.syncUninterruptibly();
     bossGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
@@ -296,9 +322,15 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
           throw new UnsupportedOperationException("Request case not supported: "
               + proto.getRaftNettyServerRequestCase());
       }
-    } catch (IOException ioe) {
-      return toRaftNettyServerReplyProto(
-          Objects.requireNonNull(rpcRequest, "rpcRequest = null"), ioe);
+    } catch (Exception e) {
+      if (rpcRequest == null) {
+        // let InboundHandler close the channel so the client fails fast.
+        throw new IllegalStateException(getId() + ": Failed to handle request " + proto, e);
+      }
+      // The client deserializes the reply and casts it to IOException, so always send an
+      // IOException regardless of the actual failure type.
+      final IOException ioe = e instanceof IOException ? (IOException) e : new IOException(e);
+      return toRaftNettyServerReplyProto(rpcRequest, ioe);
     }
   }
 
