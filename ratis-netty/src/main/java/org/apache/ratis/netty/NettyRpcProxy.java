@@ -18,11 +18,13 @@
 package org.apache.ratis.netty;
 
 import org.apache.ratis.client.RaftClientConfigKeys;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
@@ -45,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -60,14 +63,19 @@ public class NettyRpcProxy implements Closeable {
     private final EventLoopGroup group;
 
     public PeerMap(String name, RaftProperties properties) {
-      this(name, properties, NettyUtils.newEventLoopGroup(name, 0,
-          NettyConfigKeys.Client.useEpoll(properties)));
+      this(name, properties, (Parameters) null);
     }
 
-    private PeerMap(String name, RaftProperties properties, EventLoopGroup group) {
+    public PeerMap(String name, RaftProperties properties, Parameters parameters) {
+      this(name, properties,
+          NettyUtils.buildSslContextForClient(NettyConfigKeys.Client.tlsConf(parameters)),
+          NettyUtils.newEventLoopGroup(name, 0, NettyConfigKeys.Client.useEpoll(properties)));
+    }
+
+    private PeerMap(String name, RaftProperties properties, SslContext sslContext, EventLoopGroup group) {
       super(name, peer -> {
         try {
-          return new NettyRpcProxy(peer, properties, group);
+          return new NettyRpcProxy(peer, properties, group, sslContext);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           throw IOUtils.toInterruptedIOException("Failed connecting to " + peer, e);
@@ -150,7 +158,7 @@ public class NettyRpcProxy implements Closeable {
     private final NettyClient client = new NettyClient(peer.getAddress());
     private final Map<Long, CompletableFuture<RaftNettyServerReplyProto>> replies = new ConcurrentHashMap<>();
 
-    Connection(EventLoopGroup group) throws InterruptedException {
+    Connection(EventLoopGroup group, SslContext sslContext) throws InterruptedException {
       final ChannelInboundHandler inboundHandler
           = new SimpleChannelInboundHandler<RaftNettyServerReplyProto>() {
         @Override
@@ -191,6 +199,10 @@ public class NettyRpcProxy implements Closeable {
         protected void initChannel(SocketChannel ch) {
           final ChannelPipeline p = ch.pipeline();
 
+          if (sslContext != null) {
+            final InetSocketAddress address = peer.getAddress();
+            p.addLast("ssl", sslContext.newHandler(ch.alloc(), address.getHostName(), address.getPort()));
+          }
           // LoggingHandler emits all events at the chosen level; use DEBUG to reduce noise by default.
           p.addLast(new LoggingHandler(LogLevel.DEBUG));
           p.addLast(new ProtobufVarint32FrameDecoder());
@@ -273,8 +285,13 @@ public class NettyRpcProxy implements Closeable {
   private final TimeDuration requestTimeoutDuration;
 
   public NettyRpcProxy(RaftPeer peer, RaftProperties properties, EventLoopGroup group) throws InterruptedException {
+    this(peer, properties, group, null);
+  }
+
+  public NettyRpcProxy(RaftPeer peer, RaftProperties properties, EventLoopGroup group, SslContext sslContext)
+      throws InterruptedException {
     this.peer = peer;
-    this.connection = new Connection(group);
+    this.connection = new Connection(group, sslContext);
     this.requestTimeoutDuration = RaftClientConfigKeys.Rpc.requestTimeout(properties);
   }
 
