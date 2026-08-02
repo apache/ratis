@@ -224,103 +224,107 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
     try {
       final CompletableFuture<RaftNettyServerReplyProto> replyFuture;
       switch (proto.getRaftNettyServerRequestCase()) {
-        case REQUESTVOTEREQUEST: {
+        case REQUESTVOTEREQUEST:
           // requestVote has no async variant; it is fast and does not block on commit.
-          final RequestVoteRequestProto request = proto.getRequestVoteRequest();
-          rpcRequest = request.getServerRequest();
+          final RequestVoteRequestProto requestVoteRequest = proto.getRequestVoteRequest();
+          rpcRequest = requestVoteRequest.getServerRequest();
           replyFuture = CompletableFuture.completedFuture(RaftNettyServerReplyProto.newBuilder()
-              .setRequestVoteReply(server.requestVote(request))
+              .setRequestVoteReply(server.requestVote(requestVoteRequest))
               .build());
           break;
-        }
-        case TRANSFERLEADERSHIPREQUEST: {
-          final TransferLeadershipRequestProto request = proto.getTransferLeadershipRequest();
-          rpcRequest = request.getRpcRequest();
-          replyFuture = server.transferLeadershipAsync(ClientProtoUtils.toTransferLeadershipRequest(request))
+
+        case TRANSFERLEADERSHIPREQUEST:
+          final TransferLeadershipRequestProto transferLeadershipRequest = proto.getTransferLeadershipRequest();
+          rpcRequest = transferLeadershipRequest.getRpcRequest();
+          replyFuture = server.transferLeadershipAsync(
+                  ClientProtoUtils.toTransferLeadershipRequest(transferLeadershipRequest))
               .thenApply(NettyRpcService::toRaftClientReply);
           break;
-        }
-        case STARTLEADERELECTIONREQUEST: {
+
+        case STARTLEADERELECTIONREQUEST:
           // startLeaderElection has no async variant; it is fast and does not block on commit.
-          final StartLeaderElectionRequestProto request = proto.getStartLeaderElectionRequest();
-          rpcRequest = request.getServerRequest();
+          final StartLeaderElectionRequestProto startLeaderElectionRequest = proto.getStartLeaderElectionRequest();
+          rpcRequest = startLeaderElectionRequest.getServerRequest();
           replyFuture = CompletableFuture.completedFuture(RaftNettyServerReplyProto.newBuilder()
-              .setStartLeaderElectionReply(server.startLeaderElection(request))
+              .setStartLeaderElectionReply(server.startLeaderElection(startLeaderElectionRequest))
               .build());
           break;
-        }
-        case SNAPSHOTMANAGEMENTREQUEST: {
-          final SnapshotManagementRequestProto request = proto.getSnapshotManagementRequest();
-          rpcRequest = request.getRpcRequest();
-          replyFuture = server.snapshotManagementAsync(ClientProtoUtils.toSnapshotManagementRequest(request))
+
+        case SNAPSHOTMANAGEMENTREQUEST:
+          final SnapshotManagementRequestProto snapshotManagementRequest = proto.getSnapshotManagementRequest();
+          rpcRequest = snapshotManagementRequest.getRpcRequest();
+          replyFuture = server.snapshotManagementAsync(
+                  ClientProtoUtils.toSnapshotManagementRequest(snapshotManagementRequest))
               .thenApply(NettyRpcService::toRaftClientReply);
           break;
-        }
-        case LEADERELECTIONMANAGEMENTREQUEST: {
-          final LeaderElectionManagementRequestProto request = proto.getLeaderElectionManagementRequest();
-          rpcRequest = request.getRpcRequest();
+
+        case LEADERELECTIONMANAGEMENTREQUEST:
+          final LeaderElectionManagementRequestProto leaderElectionManagementRequest =
+              proto.getLeaderElectionManagementRequest();
+          rpcRequest = leaderElectionManagementRequest.getRpcRequest();
           replyFuture = server.leaderElectionManagementAsync(
-                  ClientProtoUtils.toLeaderElectionManagementRequest(request))
+                  ClientProtoUtils.toLeaderElectionManagementRequest(leaderElectionManagementRequest))
               .thenApply(NettyRpcService::toRaftClientReply);
           break;
-        }
-        case APPENDENTRIESREQUEST: {
-          final AppendEntriesRequestProto request = proto.getAppendEntriesRequest();
-          rpcRequest = request.getServerRequest();
-          replyFuture = server.appendEntriesAsync(request)
+
+        case APPENDENTRIESREQUEST:
+          final AppendEntriesRequestProto appendEntriesRequest = proto.getAppendEntriesRequest();
+          rpcRequest = appendEntriesRequest.getServerRequest();
+          replyFuture = server.appendEntriesAsync(appendEntriesRequest)
               .thenApply(reply -> RaftNettyServerReplyProto.newBuilder()
                   .setAppendEntriesReply(reply)
                   .build());
           break;
-        }
-        case INSTALLSNAPSHOTREQUEST: {
+
+        case INSTALLSNAPSHOTREQUEST:
           // installSnapshot has no async variant; it runs on this per-channel serialized path.
-          final InstallSnapshotRequestProto request = proto.getInstallSnapshotRequest();
-          rpcRequest = request.getServerRequest();
+          final InstallSnapshotRequestProto installSnapshotRequest = proto.getInstallSnapshotRequest();
+          rpcRequest = installSnapshotRequest.getServerRequest();
           replyFuture = CompletableFuture.completedFuture(RaftNettyServerReplyProto.newBuilder()
-              .setInstallSnapshotReply(server.installSnapshot(request))
+              .setInstallSnapshotReply(server.installSnapshot(installSnapshotRequest))
               .build());
           break;
-        }
-        case RAFTCLIENTREQUEST: {
-          final RaftClientRequestProto request = proto.getRaftClientRequest();
-          rpcRequest = request.getRpcRequest();
-          replyFuture = server.submitClientRequestAsync(ClientProtoUtils.toRaftClientRequest(request))
+
+        case RAFTCLIENTREQUEST:
+          final RaftClientRequestProto raftClientRequest = proto.getRaftClientRequest();
+          rpcRequest = raftClientRequest.getRpcRequest();
+          replyFuture = server.submitClientRequestAsync(ClientProtoUtils.toRaftClientRequest(raftClientRequest))
               .thenApply(NettyRpcService::toRaftClientReply);
           break;
-        }
-        case SETCONFIGURATIONREQUEST: {
-          final SetConfigurationRequestProto request = proto.getSetConfigurationRequest();
-          rpcRequest = request.getRpcRequest();
-          replyFuture = server.setConfigurationAsync(ClientProtoUtils.toSetConfigurationRequest(request))
+
+        case SETCONFIGURATIONREQUEST:
+          final SetConfigurationRequestProto setConfigurationRequest = proto.getSetConfigurationRequest();
+          rpcRequest = setConfigurationRequest.getRpcRequest();
+          replyFuture = server.setConfigurationAsync(
+                  ClientProtoUtils.toSetConfigurationRequest(setConfigurationRequest))
               .thenApply(NettyRpcService::toRaftClientReply);
           break;
-        }
-        case GROUPMANAGEMENTREQUEST: {
-          final GroupManagementRequestProto request = proto.getGroupManagementRequest();
-          rpcRequest = request.getRpcRequest();
-          replyFuture = server.groupManagementAsync(ClientProtoUtils.toGroupManagementRequest(request))
+
+        case GROUPMANAGEMENTREQUEST:
+          final GroupManagementRequestProto groupManagementRequest = proto.getGroupManagementRequest();
+          rpcRequest = groupManagementRequest.getRpcRequest();
+          replyFuture = server.groupManagementAsync(ClientProtoUtils.toGroupManagementRequest(groupManagementRequest))
               .thenApply(NettyRpcService::toRaftClientReply);
           break;
-        }
-        case GROUPLISTREQUEST: {
-          final GroupListRequestProto request = proto.getGroupListRequest();
-          rpcRequest = request.getRpcRequest();
-          replyFuture = server.getGroupListAsync(ClientProtoUtils.toGroupListRequest(request))
+
+        case GROUPLISTREQUEST:
+          final GroupListRequestProto groupListRequest = proto.getGroupListRequest();
+          rpcRequest = groupListRequest.getRpcRequest();
+          replyFuture = server.getGroupListAsync(ClientProtoUtils.toGroupListRequest(groupListRequest))
               .thenApply(reply -> RaftNettyServerReplyProto.newBuilder()
                   .setGroupListReply(ClientProtoUtils.toGroupListReplyProto(reply))
                   .build());
           break;
-        }
-        case GROUPINFOREQUEST: {
-          final GroupInfoRequestProto request = proto.getGroupInfoRequest();
-          rpcRequest = request.getRpcRequest();
-          replyFuture = server.getGroupInfoAsync(ClientProtoUtils.toGroupInfoRequest(request))
+
+        case GROUPINFOREQUEST:
+          final GroupInfoRequestProto groupInfoRequest = proto.getGroupInfoRequest();
+          rpcRequest = groupInfoRequest.getRpcRequest();
+          replyFuture = server.getGroupInfoAsync(ClientProtoUtils.toGroupInfoRequest(groupInfoRequest))
               .thenApply(reply -> RaftNettyServerReplyProto.newBuilder()
                   .setGroupInfoReply(ClientProtoUtils.toGroupInfoReplyProto(reply))
                   .build());
           break;
-        }
+
         case RAFTNETTYSERVERREQUEST_NOT_SET:
           throw new IllegalArgumentException("Request case not set in proto: "
               + proto.getRaftNettyServerRequestCase());
@@ -332,7 +336,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
       final RaftRpcRequestProto request = rpcRequest;
       // Convert an asynchronous failure into an error reply (the client casts it to IOException).
       return replyFuture.exceptionally(e -> toRaftNettyServerReplyProto(request, toIOException(e)));
-    } catch (Exception e) {
+    } catch (IOException | RuntimeException e) {
       // A synchronous failure before the reply future was created.
       if (rpcRequest == null) {
         // No request context to build a targeted reply; let InboundHandler close the channel.
