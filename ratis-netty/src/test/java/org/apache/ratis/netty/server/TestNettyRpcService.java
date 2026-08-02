@@ -70,7 +70,7 @@ public class TestNettyRpcService {
     final NettyRpcService service = NettyRpcService.newBuilder().setServer(server).build();
     service.start();
     try {
-      final RaftNettyServerReplyProto reply = service.handle(newRequestVoteProto());
+      final RaftNettyServerReplyProto reply = service.handleAsync(newRequestVoteProto()).join();
       Assertions.assertEquals(RaftNettyServerReplyCase.EXCEPTIONREPLY, reply.getRaftNettyServerReplyCase());
     } finally {
       service.close();
