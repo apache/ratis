@@ -27,6 +27,7 @@ import org.apache.ratis.io.StandardWriteOption;
 import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -35,9 +36,12 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
+import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataApi;
+import org.apache.ratis.statemachine.StateMachine.DataChannel;
+import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
@@ -63,6 +67,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -492,6 +498,128 @@ class TestDataStreamManagement {
       embeddedChannel.finishAndReleaseAll();
       management.shutdown();
     }
+  }
+
+  @Test
+  void shutdownReleasesInFlightStreams() throws Exception {
+    final RaftPeerId serverId = RaftPeerId.valueOf("s1");
+    final RaftGroupId groupId = RaftGroupId.randomId();
+    final ClientId clientId = ClientId.randomId();
+
+    final AtomicBoolean cleanedUp = new AtomicBoolean();
+    final DataChannel dataChannel = new DataChannel() {
+      private volatile boolean open = true;
+      @Override public void force(boolean metadata) { }
+      @Override public int write(ByteBuffer src) {
+        final int remaining = src.remaining();
+        src.position(src.limit());
+        return remaining;
+      }
+      @Override public boolean isOpen() { return open; }
+      @Override public void close() { open = false; }
+    };
+    final DataStream dataStream = new DataStream() {
+      @Override public DataChannel getDataChannel() { return dataChannel; }
+      @Override public CompletableFuture<?> cleanUp() {
+        cleanedUp.set(true);
+        return CompletableFuture.completedFuture(null);
+      }
+    };
+    final DataApi dataApi = new DataApi() {
+      @Override public CompletableFuture<DataStream> stream(RaftClientRequest request) {
+        return CompletableFuture.completedFuture(dataStream);
+      }
+    };
+    final StateMachine stateMachine = new BaseStateMachine() {
+      @Override public DataApi data() { return dataApi; }
+    };
+
+    // A real DataStreamMap so we can observe the stream being registered and later released.
+    final ConcurrentMap<ClientInvocationId, CompletableFuture<DataStream>> entries = new ConcurrentHashMap<>();
+    final DataStreamMap dataStreamMap = new DataStreamMap() {
+      @Override public CompletableFuture<DataStream> computeIfAbsent(ClientInvocationId id,
+          Function<ClientInvocationId, CompletableFuture<DataStream>> f) {
+        return entries.computeIfAbsent(id, f);
+      }
+      @Override public CompletableFuture<DataStream> remove(ClientInvocationId id) {
+        return entries.remove(id);
+      }
+    };
+
+    final RaftServer.Division division = newStreamingDivision(serverId, stateMachine, dataStreamMap);
+    final RaftServer server = newRaftServer(serverId, new RaftProperties(), groupId, division);
+    final NettyServerStreamRpcMetrics metrics = new NettyServerStreamRpcMetrics("s1");
+    final DataStreamManagement management = new DataStreamManagement(server, metrics);
+
+    final EmbeddedChannel embeddedChannel = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
+    final ChannelHandlerContext ctx = embeddedChannel.pipeline().firstContext();
+    assertNotNull(ctx, "ChannelHandlerContext should be initialized");
+
+    // Non-primary header (server id != request server id) so there are no remote successors.
+    final RaftClientRequest raftClientRequest = RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(RaftPeerId.valueOf("s2"))
+        .setGroupId(groupId)
+        .setCallId(1L)
+        .setMessage(Message.valueOf(ByteString.copyFromUtf8("header")))
+        .setType(RaftClientRequest.writeRequestType())
+        .build();
+    final ByteBuffer header = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(raftClientRequest);
+    final DataStreamRequestByteBuf request = new DataStreamRequestByteBuf(
+        clientId,
+        Type.STREAM_HEADER,
+        raftClientRequest.getCallId(),
+        0L,
+        Collections.singletonList(StandardWriteOption.FLUSH),
+        Unpooled.wrappedBuffer(header));
+
+    final CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams =
+        (r, p) -> Collections.emptySet();
+
+    try {
+      management.read(request, ctx, getStreams);
+      // The header registers an in-flight stream that is NOT removed (no CLOSE was sent).
+      JavaUtils.attempt(() -> assertEquals(1, entries.size()), 10,
+          TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "stream registered", null);
+
+      management.shutdown();
+
+      assertTrue(entries.isEmpty(), "in-flight stream should be unregistered on shutdown");
+      assertTrue(cleanedUp.get(), "DataStream.cleanUp should be invoked on shutdown");
+    } finally {
+      embeddedChannel.finishAndReleaseAll();
+    }
+  }
+
+  private static RaftServer.Division newStreamingDivision(
+      RaftPeerId serverId, StateMachine stateMachine, DataStreamMap dataStreamMap) {
+    return (RaftServer.Division) Proxy.newProxyInstance(RaftServer.Division.class.getClassLoader(),
+        new Class<?>[]{RaftServer.Division.class},
+        (proxy, method, args) -> {
+          switch (method.getName()) {
+          case "getStateMachine":
+            return stateMachine;
+          case "getDataStreamMap":
+            return dataStreamMap;
+          case "getId":
+            return serverId;
+          case "getCommitInfos":
+            return Collections.emptyList();
+          case "getRaftConf":
+            // Not dereferenced for a non-primary request without a routing table.
+            return null;
+          case "close":
+            return null;
+          case "toString":
+            return stateMachine.toString();
+          case "hashCode":
+            return System.identityHashCode(proxy);
+          case "equals":
+            return proxy == args[0];
+          default:
+            throw new UnsupportedOperationException(method.toString());
+          }
+        });
   }
 
   private static class ReadOnlyRequest {
