@@ -21,6 +21,8 @@ import org.apache.ratis.protocol.ClientInvocationId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
@@ -51,5 +53,10 @@ class StreamMap<STREAM> {
     final STREAM info = map.remove(key);
     LOG.debug("remove({}) returns {}", key, info);
     return info;
+  }
+
+  /** @return a snapshot of the keys currently in this map. */
+  Set<ClientInvocationId> keySet() {
+    return new HashSet<>(map.keySet());
   }
 }

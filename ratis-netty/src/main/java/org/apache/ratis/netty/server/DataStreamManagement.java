@@ -254,6 +254,8 @@ public class DataStreamManagement {
         timeout -> LOG.warn("{}: requestExecutor shutdown timeout in {}", this, timeout));
     ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, writeExecutor,
         timeout -> LOG.warn("{}: writeExecutor shutdown timeout in {}", this, timeout));
+    // The executors are stopped, so no more reads will add to the stream map.
+    cleanUp(streams.keySet());
   }
 
   private CompletableFuture<DataStream> stream(RaftClientRequest request, StateMachine stateMachine) {
