@@ -44,6 +44,7 @@ import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -148,11 +149,6 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
       }
     };
 
-    this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(
-        NettyConfigKeys.Server.asyncRequestThreadPoolCached(server.getProperties()),
-        NettyConfigKeys.Server.asyncRequestThreadPoolSize(server.getProperties()),
-        server.getId() + "-request-");
-
     final boolean useEpoll = NettyConfigKeys.Server.useEpoll(server.getProperties());
     this.bossGroup = NettyUtils.newEventLoopGroup(CLASS_NAME + "-bossGroup", 0, useEpoll);
     this.workerGroup = NettyUtils.newEventLoopGroup(CLASS_NAME + "-workerGroup",0, useEpoll);
@@ -167,6 +163,11 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(initializer)
         .bind(socketAddress));
+
+    this.requestExecutor = ConcurrentUtils.newThreadPoolWithMax(
+        NettyConfigKeys.Server.asyncRequestThreadPoolCached(server.getProperties()),
+        NettyConfigKeys.Server.asyncRequestThreadPoolSize(server.getProperties()),
+        server.getId() + "-request-");
   }
 
   @Override
@@ -192,7 +193,8 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
 
   @Override
   public void closeImpl() throws IOException {
-    ConcurrentUtils.shutdownAndWait(requestExecutor);
+    ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND, requestExecutor,
+        timeout -> LOG.warn("{}: requestExecutor shutdown timeout in {}", this, timeout));
     final ChannelFuture f = getChannel().close();
     f.syncUninterruptibly();
     bossGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
