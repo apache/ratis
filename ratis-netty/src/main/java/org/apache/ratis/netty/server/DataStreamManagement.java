@@ -115,26 +115,31 @@ public class DataStreamManagement {
     ByteBuffer getCommandReply() {
       return commandReply;
     }
+
+    @Override
+    public String toString() {
+      return commandReply != null ? "commandReply:" + StringUtils.bytes2HexString(commandReply)
+          : "byteWritten:" + byteWritten;
+    }
   }
 
   static class LocalStream {
     private final CompletableFuture<DataStream> streamFuture;
-    private final AtomicReference<CompletableFuture<LocalResult>> writeFuture;
+    private final AtomicReference<CompletableFuture<LocalResult>> resultFuture;
     private final RequestMetrics writeMetrics;
     private final RequestMetrics commandMetrics;
 
     LocalStream(CompletableFuture<DataStream> streamFuture, RequestMetrics writeMetrics,
         RequestMetrics commandMetrics) {
       this.streamFuture = streamFuture;
-      this.writeFuture = new AtomicReference<>(streamFuture.thenApply(s -> LocalResult.ZERO));
+      this.resultFuture = new AtomicReference<>(streamFuture.thenApply(s -> LocalResult.ZERO));
       this.writeMetrics = writeMetrics;
       this.commandMetrics = commandMetrics;
     }
 
-    CompletableFuture<LocalResult> write(ByteBuf buf, Iterable<WriteOption> options,
-                                  Executor executor) {
+    CompletableFuture<LocalResult> write(ByteBuf buf, Iterable<WriteOption> options, Executor executor) {
       final Timekeeper.Context context = writeMetrics.start();
-      return composeAsync(writeFuture, executor,
+      return composeAsync(resultFuture, executor,
           n -> streamFuture.thenCompose(stream -> writeToAsync(buf, options, stream, executor)
               .whenComplete((l, e) -> writeMetrics.stop(context, e == null)))
               .thenApply(LocalResult::of));
@@ -142,7 +147,7 @@ public class DataStreamManagement {
 
     CompletableFuture<LocalResult> command(ByteBuffer command, long streamOffset, Executor executor) {
       final Timekeeper.Context context = commandMetrics.start();
-      return composeAsync(writeFuture, executor,
+      return composeAsync(resultFuture, executor,
           n -> streamFuture.thenCompose(stream -> commandToAsync(command, streamOffset, stream, executor)
               .whenComplete((l, e) -> commandMetrics.stop(context, e == null)))
               .thenApply(LocalResult::of));
@@ -359,20 +364,20 @@ public class DataStreamManagement {
     return CompletableFuture.supplyAsync(() -> writeTo(buf, options, stream), e);
   }
 
-  static CompletableFuture<ByteBuffer> commandToAsync(ByteBuffer command, long streamOffset,
-      DataStream stream, Executor defaultExecutor) {
-    final Executor e = Optional.ofNullable(stream.getExecutor()).orElse(defaultExecutor);
-    return CompletableFuture.runAsync(() -> {}, e)
-        .thenCompose(ignored -> stream.onCommand(command, streamOffset));
-  }
-
   static ByteBuffer copyBuffer(ByteBuf buf) {
     final ByteBuffer copy = ByteBuffer.allocate(buf.readableBytes());
     for (ByteBuffer buffer : buf.nioBuffers()) {
       copy.put(buffer);
     }
     copy.flip();
-    return copy;
+    return copy.asReadOnlyBuffer();
+  }
+
+  static CompletableFuture<ByteBuffer> commandToAsync(ByteBuffer command, long streamOffset,
+      DataStream stream, Executor defaultExecutor) {
+    final Executor e = Optional.ofNullable(stream.getExecutor()).orElse(defaultExecutor);
+    return CompletableFuture.completedFuture(null)
+        .thenCompose(ignored -> stream.onCommand(command, streamOffset));
   }
 
   static long writeTo(ByteBuf buf, Iterable<WriteOption> options,
@@ -555,9 +560,8 @@ public class DataStreamManagement {
     } else if (request.getType() == Type.STREAM_COMMAND) {
       // command is supposed to have small data size, just copy it
       final ByteBuffer command = copyBuffer(request.slice());
-      localResult = info.getLocal().command(command, request.getStreamOffset(), writeExecutor);
-      remoteWrites = info.applyToRemotes(out -> out.command(
-          copyBuffer(request.slice()), requestExecutor));
+      localResult = info.getLocal().command(command.duplicate(), request.getStreamOffset(), writeExecutor);
+      remoteWrites = info.applyToRemotes(out -> out.command(command, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
     }
