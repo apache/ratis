@@ -60,7 +60,7 @@ public interface AdminApi {
       throws IOException {
     return setConfiguration(SetConfigurationRequest.Arguments
         .newBuilder()
-        .setListenersInNewConf(serversInNewConf)
+        .setServersInNewConf(serversInNewConf)
         .setListenersInNewConf(listenersInNewConf)
         .build());
   }
