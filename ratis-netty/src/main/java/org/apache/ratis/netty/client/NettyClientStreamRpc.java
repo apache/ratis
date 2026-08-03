@@ -510,6 +510,9 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
         return f;
       }
       replyEntry = replyMap.submitRequest(requestEntry, isClose, f);
+      if (replyEntry == null) {
+        return f;
+      }
       final Function<DataStreamRequest, ChannelFuture> writeMethod = outstandingRequests.shouldFlush(
           flushRequestCountMin, flushRequestBytesMin, request)? channel::writeAndFlush: channel::write;
       channelFuture = writeMethod.apply(request);
