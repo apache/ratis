@@ -375,7 +375,6 @@ public class DataStreamManagement {
 
   static CompletableFuture<ByteBuffer> commandToAsync(ByteBuffer command, long streamOffset,
       DataStream stream, Executor defaultExecutor) {
-    final Executor e = Optional.ofNullable(stream.getExecutor()).orElse(defaultExecutor);
     return CompletableFuture.completedFuture(null)
         .thenCompose(ignored -> stream.onCommand(command, streamOffset));
   }
