@@ -60,6 +60,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ReferenceCountedObject;
+import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutExecutor;
 import org.apache.ratis.util.UncheckedAutoCloseable;
@@ -86,23 +87,70 @@ import java.util.stream.Stream;
 public class DataStreamManagement {
   public static final Logger LOG = LoggerFactory.getLogger(DataStreamManagement.class);
 
-  static class LocalStream {
-    private final CompletableFuture<DataStream> streamFuture;
-    private final AtomicReference<CompletableFuture<Long>> writeFuture;
-    private final RequestMetrics metrics;
+  static final class LocalResult {
+    static final LocalResult ZERO = of(0);
 
-    LocalStream(CompletableFuture<DataStream> streamFuture, RequestMetrics metrics) {
-      this.streamFuture = streamFuture;
-      this.writeFuture = new AtomicReference<>(streamFuture.thenApply(s -> 0L));
-      this.metrics = metrics;
+    static LocalResult of(long byteWritten) {
+      return new LocalResult(byteWritten, null);
     }
 
-    CompletableFuture<Long> write(ByteBuf buf, Iterable<WriteOption> options,
-                                  Executor executor) {
-      final Timekeeper.Context context = metrics.start();
-      return composeAsync(writeFuture, executor,
+    static LocalResult of(ByteBuffer reply) {
+      return new LocalResult(0, reply);
+    }
+
+    /** For {@link Type#STREAM_DATA}. */
+    private final long byteWritten;
+    /** For {@link Type#STREAM_COMMAND}. */
+    private final ByteBuffer commandReply;
+
+    private LocalResult(long byteWritten, ByteBuffer commandReply) {
+      this.byteWritten = byteWritten;
+      this.commandReply = commandReply;
+    }
+
+    long getByteWritten() {
+      return byteWritten;
+    }
+
+    ByteBuffer getCommandReply() {
+      return commandReply;
+    }
+
+    @Override
+    public String toString() {
+      return commandReply != null ? "commandReply:" + StringUtils.bytes2HexString(commandReply)
+          : "byteWritten:" + byteWritten;
+    }
+  }
+
+  static class LocalStream {
+    private final CompletableFuture<DataStream> streamFuture;
+    private final AtomicReference<CompletableFuture<LocalResult>> resultFuture;
+    private final RequestMetrics writeMetrics;
+    private final RequestMetrics commandMetrics;
+
+    LocalStream(CompletableFuture<DataStream> streamFuture, RequestMetrics writeMetrics,
+        RequestMetrics commandMetrics) {
+      this.streamFuture = streamFuture;
+      this.resultFuture = new AtomicReference<>(streamFuture.thenApply(s -> LocalResult.ZERO));
+      this.writeMetrics = writeMetrics;
+      this.commandMetrics = commandMetrics;
+    }
+
+    CompletableFuture<LocalResult> write(ByteBuf buf, Iterable<WriteOption> options, Executor executor) {
+      final Timekeeper.Context context = writeMetrics.start();
+      return composeAsync(resultFuture, executor,
           n -> streamFuture.thenCompose(stream -> writeToAsync(buf, options, stream, executor)
-              .whenComplete((l, e) -> metrics.stop(context, e == null))));
+              .whenComplete((l, e) -> writeMetrics.stop(context, e == null)))
+              .thenApply(LocalResult::of));
+    }
+
+    CompletableFuture<LocalResult> command(ByteBuffer command, long streamOffset, Executor executor) {
+      final Timekeeper.Context context = commandMetrics.start();
+      return composeAsync(resultFuture, executor,
+          n -> streamFuture.thenCompose(stream -> commandToAsync(command, streamOffset, stream, executor)
+              .whenComplete((l, e) -> commandMetrics.stop(context, e == null)))
+              .thenApply(LocalResult::of));
     }
 
     void cleanUp() {
@@ -114,10 +162,12 @@ public class DataStreamManagement {
     private final DataStreamOutputImpl out;
     private final AtomicReference<CompletableFuture<DataStreamReply>> sendFuture
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
-    private final RequestMetrics metrics;
+    private final RequestMetrics writeMetrics;
+    private final RequestMetrics commandMetrics;
 
-    RemoteStream(DataStreamOutputImpl out, RequestMetrics metrics) {
-      this.metrics = metrics;
+    RemoteStream(DataStreamOutputImpl out, RequestMetrics writeMetrics, RequestMetrics commandMetrics) {
+      this.writeMetrics = writeMetrics;
+      this.commandMetrics = commandMetrics;
       this.out = out;
     }
 
@@ -130,10 +180,17 @@ public class DataStreamManagement {
     }
 
     CompletableFuture<DataStreamReply> write(DataStreamRequestByteBuf request, Executor executor) {
-      final Timekeeper.Context context = metrics.start();
+      final Timekeeper.Context context = writeMetrics.start();
       return composeAsync(sendFuture, executor,
           n -> out.writeAsync(request.slice().retain(), addFlush(request.getWriteOptionList()))
-              .whenComplete((l, e) -> metrics.stop(context, e == null)));
+              .whenComplete((l, e) -> writeMetrics.stop(context, e == null)));
+    }
+
+    CompletableFuture<DataStreamReply> command(ByteBuffer command, Executor executor) {
+      final Timekeeper.Context context = commandMetrics.start();
+      return composeAsync(sendFuture, executor,
+          n -> out.commandAsync(command)
+              .whenComplete((l, e) -> commandMetrics.stop(context, e == null)));
     }
   }
 
@@ -152,12 +209,16 @@ public class DataStreamManagement {
         throws IOException {
       this.request = request;
       this.primary = primary;
-      this.local = new LocalStream(stream, metricsConstructor.apply(RequestType.LOCAL_WRITE));
+      this.local = new LocalStream(stream,
+          metricsConstructor.apply(RequestType.LOCAL_WRITE),
+          metricsConstructor.apply(RequestType.LOCAL_COMMAND));
       this.division = division;
       final Set<RaftPeer> successors = getSuccessors(division.getId());
       final Set<DataStreamOutputImpl> outs = getStreams.apply(request, successors);
       this.remotes = outs.stream()
-          .map(o -> new RemoteStream(o, metricsConstructor.apply(RequestType.REMOTE_WRITE)))
+          .map(o -> new RemoteStream(o,
+              metricsConstructor.apply(RequestType.REMOTE_WRITE),
+              metricsConstructor.apply(RequestType.REMOTE_COMMAND)))
           .collect(Collectors.toSet());
     }
 
@@ -303,6 +364,21 @@ public class DataStreamManagement {
     return CompletableFuture.supplyAsync(() -> writeTo(buf, options, stream), e);
   }
 
+  static ByteBuffer copyBuffer(ByteBuf buf) {
+    final ByteBuffer copy = ByteBuffer.allocate(buf.readableBytes());
+    for (ByteBuffer buffer : buf.nioBuffers()) {
+      copy.put(buffer);
+    }
+    copy.flip();
+    return copy.asReadOnlyBuffer();
+  }
+
+  static CompletableFuture<ByteBuffer> commandToAsync(ByteBuffer command, long streamOffset,
+      DataStream stream, Executor defaultExecutor) {
+    return CompletableFuture.completedFuture(null)
+        .thenCompose(ignored -> stream.onCommand(command, streamOffset));
+  }
+
   static long writeTo(ByteBuf buf, Iterable<WriteOption> options,
                       DataStream stream) {
     final DataChannel channel = stream.getDataChannel();
@@ -357,15 +433,18 @@ public class DataStreamManagement {
   }
 
   private void sendReply(List<CompletableFuture<DataStreamReply>> remoteWrites,
-      DataStreamRequestByteBuf request, long bytesWritten, Collection<CommitInfoProto> commitInfos,
+      DataStreamRequestByteBuf request, LocalResult localResult, Collection<CommitInfoProto> commitInfos,
       ChannelHandlerContext ctx) {
-    final boolean success = checkSuccessRemoteWrite(remoteWrites, bytesWritten, request);
+    final boolean success = checkSuccessRemoteWrite(remoteWrites, localResult, request);
     final DataStreamReplyByteBuffer.Builder builder = DataStreamReplyByteBuffer.newBuilder()
         .setDataStreamPacket(request)
         .setSuccess(success)
         .setCommitInfos(commitInfos);
     if (success) {
-      builder.setBytesWritten(bytesWritten);
+      builder.setBytesWritten(localResult.getByteWritten());
+      if (localResult.getCommandReply() != null) {
+        builder.setBuffer(localResult.getCommandReply());
+      }
     }
     ctx.writeAndFlush(builder.build());
   }
@@ -469,24 +548,30 @@ public class DataStreamManagement {
           () -> new IllegalStateException("Failed to get StreamInfo for " + request));
     }
 
-    final CompletableFuture<Long> localWrite;
+    final CompletableFuture<LocalResult> localResult;
     final List<CompletableFuture<DataStreamReply>> remoteWrites;
     if (request.getType() == Type.STREAM_HEADER) {
-      localWrite = CompletableFuture.completedFuture(0L);
+      localResult = CompletableFuture.completedFuture(LocalResult.ZERO);
       remoteWrites = Collections.emptyList();
     } else if (request.getType() == Type.STREAM_DATA) {
-      localWrite = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
+      localResult = info.getLocal().write(request.slice(), request.getWriteOptionList(), writeExecutor);
       remoteWrites = info.applyToRemotes(out -> out.write(request, requestExecutor));
+    } else if (request.getType() == Type.STREAM_COMMAND) {
+      // command is supposed to have small data size, just copy it
+      final ByteBuffer command = copyBuffer(request.slice());
+      localResult = info.getLocal().command(command.duplicate(), request.getStreamOffset(), writeExecutor);
+      remoteWrites = info.applyToRemotes(out -> out.command(command, requestExecutor));
     } else {
       throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
     }
 
     composeAsync(info.getPrevious(), requestExecutor, n -> JavaUtils.allOf(remoteWrites)
-        .thenCombineAsync(localWrite, (v, bytesWritten) -> {
+        .thenCombineAsync(localResult, (v, local) -> {
           if (request.getType() == Type.STREAM_HEADER
               || request.getType() == Type.STREAM_DATA
+              || request.getType() == Type.STREAM_COMMAND
               || close) {
-            sendReply(remoteWrites, request, bytesWritten, info.getCommitInfos(), ctx);
+            sendReply(remoteWrites, request, local, info.getCommitInfos(), ctx);
           } else {
             throw new IllegalStateException(this + ": Unexpected type " + request.getType() + ", request=" + request);
           }
@@ -519,28 +604,46 @@ public class DataStreamManagement {
     Preconditions.assertTrue(request.getStreamOffset() == reply.getStreamOffset());
   }
 
-  private boolean checkSuccessRemoteWrite(List<CompletableFuture<DataStreamReply>> replyFutures, long bytesWritten,
-      final DataStreamRequestByteBuf request) {
+  private boolean checkSuccessRemoteWrite(List<CompletableFuture<DataStreamReply>> replyFutures,
+      LocalResult localResult, final DataStreamRequestByteBuf request) {
     for (CompletableFuture<DataStreamReply> replyFuture : replyFutures) {
       final DataStreamReply reply;
       try {
         reply = replyFuture.get(requestTimeout.getDuration(), requestTimeout.getUnit());
       } catch (Exception e) {
-        throw new CompletionException("Failed to get reply for bytesWritten=" + bytesWritten + ", " + request, e);
+        throw new CompletionException("Failed to get reply for " + localResult + ", " + request, e);
       }
       assertReplyCorrespondingToRequest(request, reply);
       if (!reply.isSuccess()) {
         LOG.warn("reply is not success, request: {}", request);
         return false;
       }
-      if (reply.getBytesWritten() != bytesWritten) {
-        LOG.warn(
-            "reply written bytes not match, local size: {} remote size: {} request: {}",
-            bytesWritten, reply.getBytesWritten(), request);
+      if (reply.getBytesWritten() != localResult.getByteWritten()) {
+        LOG.warn("reply written bytes not match, local size: {} remote size: {} request: {}",
+            localResult.getByteWritten(), reply.getBytesWritten(), request);
+        return false;
+      }
+      if (!commandReplyEquals(reply.nioBuffer(), localResult.getCommandReply())) {
+        LOG.warn("reply buffer not match, local: {} remote: {} request: {}",
+            commandReplyString(localResult.getCommandReply()),
+            commandReplyString(reply.nioBuffer()),
+            request);
         return false;
       }
     }
     return true;
+  }
+
+  private static boolean commandReplyEquals(ByteBuffer a, ByteBuffer b) {
+    if (a == null || a.remaining() == 0) {
+      return b == null || b.remaining() == 0;
+    }
+    return a.equals(b);
+  }
+
+  private static String commandReplyString(ByteBuffer buffer) {
+    return buffer == null || buffer.remaining() == 0
+        ? "null" : StringUtils.bytes2HexString(buffer);
   }
 
   NettyServerStreamRpcMetrics getMetrics() {

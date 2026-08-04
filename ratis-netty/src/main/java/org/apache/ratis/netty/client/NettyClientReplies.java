@@ -60,8 +60,15 @@ public class NettyClientReplies {
 
     ReplyEntry submitRequest(RequestEntry requestEntry, boolean isClose, CompletableFuture<DataStreamReply> f) {
       LOG.debug("put {} to the map for {}", requestEntry, clientInvocationId);
-      // ConcurrentHashMap.computeIfAbsent javadoc: the function is applied at most once per key.
-      return map.computeIfAbsent(requestEntry, r -> new ReplyEntry(isClose, f));
+      final MemoizedSupplier<ReplyEntry> supplier = MemoizedSupplier.valueOf(() -> new ReplyEntry(isClose, f));
+      final ReplyEntry reply = map.computeIfAbsent(requestEntry, r -> supplier.get());
+      if (requestEntry.type == Type.STREAM_COMMAND && !supplier.isInitialized()) {
+        final IllegalStateException exception = new IllegalStateException(
+            "STREAM_COMMAND already exist: " + requestEntry + " for " + clientInvocationId);
+        f.completeExceptionally(exception);
+        return null;
+      }
+      return reply;
     }
 
     void receiveReply(DataStreamReply reply) {

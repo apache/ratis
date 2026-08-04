@@ -19,6 +19,7 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.netty.client.NettyClientStreamRpc;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -41,6 +42,7 @@ import org.slf4j.event.Level;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -50,8 +52,18 @@ import java.util.concurrent.TimeUnit;
 
 @Timeout(value = 300)
 public abstract class DataStreamAsyncClusterTests<CLUSTER extends MiniRaftCluster>
-    extends DataStreamClusterTests<CLUSTER> {
+    extends DataStreamClusterTests<CLUSTER> implements DataStreamCommandE2ETestCases {
   final Executor executor = Executors.newFixedThreadPool(16);
+
+  @Override
+  public MiniRaftCluster.Factory.Get<CLUSTER> getClusterFactory() {
+    return this;
+  }
+
+  @Override
+  public RoutingTable routingTable(Collection<RaftPeer> peers, RaftPeer primary) {
+    return getRoutingTable(peers, primary);
+  }
 
   @Test
   public void testSingleStreamsMultipleServers() throws Exception {

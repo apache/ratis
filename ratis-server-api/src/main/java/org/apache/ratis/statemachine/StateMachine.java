@@ -385,6 +385,19 @@ public interface StateMachine extends Closeable {
     default Executor getExecutor() {
       return null;
     }
+
+    /**
+     * Handle a command received in the middle of a data stream.
+     * The {@code streamOffset} indicates the current byte offset in the stream
+     * (i.e. the total number of data bytes received so far).
+     *
+     * @param command the command payload
+     * @param streamOffset the current stream byte offset
+     * @return a future for the command task
+     */
+    default CompletableFuture<ByteBuffer> onCommand(ByteBuffer command, long streamOffset) {
+      return CompletableFuture.completedFuture(null);
+    }
   }
 
   /**
