@@ -48,11 +48,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 /**
  * Simplest Ratis server, use a simple state machine {@link CounterStateMachine}
  * which maintain a counter across multi server.
- * This server application designed to run several times with different
- * parameters (1,2 or 3). server addresses hard coded in {@link Constants}
+ * The single positional argument is the 0-based index of this server in
+ * {@code raft.server.address.list} of the conf file resolved by {@link Constants}
+ * (see the {@code RATIS_EXAMPLE_CONF} environment variable).
  * <p>
- * Run this application three times with three different parameter set-up a
- * ratis cluster which maintain a counter value replicated in each server memory
+ * Run this application once per address on the list to set up a ratis cluster
+ * which maintain a counter value replicated in each server memory
  * <p>
  * Pass {@code --quic} as the last argument to use QUIC transport instead of Netty.
  */
@@ -146,8 +147,11 @@ public final class CounterServer implements Closeable {
             "Invalid argument number: expected 1 positional argument but got " + positional.size());
       }
       final int peerIndex = Integer.parseInt(positional.get(0));
-      if (peerIndex < 0 || peerIndex > 2) {
-        throw new IllegalArgumentException("The server index must be 0, 1 or 2: peerIndex=" + peerIndex);
+      final int numPeers = Constants.PEERS.size();
+      if (peerIndex < 0 || peerIndex >= numPeers) {
+        throw new IllegalArgumentException("The server index must be in [0, " + (numPeers - 1)
+            + "] for the " + numPeers + " peer(s) configured in raft.server.address.list"
+            + ": peerIndex=" + peerIndex);
       }
       TimeDuration simulatedSlowness = Optional.ofNullable(Constants.SIMULATED_SLOWNESS)
           .map(slownessList -> slownessList.get(peerIndex))
@@ -158,12 +162,28 @@ public final class CounterServer implements Closeable {
       System.err.println();
       System.err.println("args = " + Arrays.toString(args));
       System.err.println();
-      System.err.println("Usage: java org.apache.ratis.examples.counter.server.CounterServer peer_index [--quic]");
-      System.err.println();
-      System.err.println("       peer_index must be 0, 1 or 2");
-      System.err.println("       --quic     use QUIC transport (default: Netty/TCP)");
+      if (e instanceof IllegalArgumentException) {   // NumberFormatException is a subclass
+        printUsage();
+      } else {
+        System.err.println("The failure above is NOT an argument problem"
+            + " (conf file, storage, port or TLS?) - read the stack trace at the top.");
+      }
       System.exit(1);
     }
+  }
+
+  private static void printUsage() {
+    System.err.println("Usage: java " + CounterServer.class.getName() + " peer_index [--quic]");
+    System.err.println();
+    System.err.println("       peer_index 0-based index into raft.server.address.list"
+        + " of the conf file (see RATIS_EXAMPLE_CONF)");
+    try {
+      System.err.println("       currently configured peers (" + Constants.PEERS.size() + "): "
+          + Constants.PEERS);
+    } catch (Throwable ignored) {
+      System.err.println("       (peer list unavailable - the conf file could not be loaded)");
+    }
+    System.err.println("       --quic     use QUIC transport (default: Netty/TCP)");
   }
 
   private static void startServer(int peerIndex, TimeDuration simulatedSlowness,

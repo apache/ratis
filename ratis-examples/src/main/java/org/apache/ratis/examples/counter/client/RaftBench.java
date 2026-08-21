@@ -26,7 +26,6 @@ import org.apache.ratis.examples.common.Constants;
 import org.apache.ratis.examples.counter.CounterCommand;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.quic.QuicConfigKeys;
@@ -77,6 +76,8 @@ import java.util.stream.Collectors;
  *             --conn       {A|B}               A = new connection per request, B = reused
  *             [--warmup    W]                  warmup iterations per client (default 20)
  *             [--csv       FILE]               append results
+ *             [--run-id    S]                  tags every CSV row with this sweep id (default "-")
+ *             [--rep       N]                  repetition number of this measurement (default 1)
  * </pre>
  */
 public final class RaftBench {
@@ -89,12 +90,19 @@ public final class RaftBench {
   /** Where readers read from. */
   enum ReadFrom { LEADER, FOLLOWERS }
 
-  /** scaling = writer/reader split, plain stale read (minIndex=0);
-   *  rywrites = same client writes to leader then reads its OWN write from a follower (minIndex=N).
-   *  rywrites requires the server flag raft.server.read.stale-read.wait.enabled=true (long-poll). */
+  /** scaling (obsolete, kept for comparison) = writer/reader split, plain stale read (minIndex=0);
+   *  rywrites = each worker writes to the leader, then reads its OWN key from its assigned
+   *  follower as a plain stale read (minIndex=0, served immediately - no long-poll, no waiting).
+   *  --read-ratio and --read-from apply only to scaling; rywrites ignores both. */
   enum Mode { SCALING, RYWRITES }
 
   private static Transport transport = Transport.TCP_TLS;
+
+  /** Identity of a single measurement, so a CSV row stays unique even after files are merged:
+   *  runId groups one sweep, rep numbers the repetitions of an otherwise identical config
+   *  (methodology: discard rep 1 as the cold JVM, take the median of the rest). */
+  private static String runId = "-";
+  private static int rep = 1;
 
   // ---- Client construction ------------------------------------------------
 
@@ -258,10 +266,9 @@ public final class RaftBench {
   // ---- read-your-writes mode ---------------------------------------------
 
   /** Each of {@code total} workers loops (blocking, request->response->next):
-   *  write to the leader, take the committed index N = {@link RaftClientReply#getLogIndex()},
-   *  then read its OWN write from a follower with {@code minIndex=N}. With the server long-poll
-   *  flag on, the follower holds the read until it has applied N. Write and read latency are
-   *  measured separately; the read latency includes the replication catch-up (client-observed lag). */
+   *  write to the leader, then read its OWN key from its assigned follower as a plain
+   *  stale read ({@code minIndex=0}, served immediately from the follower's current state).
+   *  Write and read latency are measured separately. */
   static Result runBenchRywrites(int total, int payloadSize, int requestsPerClient, int warmup,
       ConnMode conn, List<RaftPeerId> followers) throws InterruptedException {
 
@@ -367,7 +374,8 @@ public final class RaftBench {
   // ---- CSV / arg parsing --------------------------------------------------
 
   private static final String CSV_HEADER =
-      "transport,mode,total,writers,readers,payload_bytes,conn,read_from,duration_s,"
+      "run_id,rep,transport,cluster_size,mode,total,writers,readers,payload_bytes,conn,read_from,"
+          + "duration_s,"
           + "write_tput_req_s,write_MB_s,write_p50_ms,write_p99_ms,"
           + "read_tput_req_s,read_MB_s,read_p50_ms,read_p99_ms";
 
@@ -382,8 +390,9 @@ public final class RaftBench {
     final double readMB = durationS > 0
         ? (reads * (double) payloadSize) / (1024 * 1024) / durationS : 0;
     return String.format(Locale.ROOT,
-        "%s,%s,%d,%d,%d,%d,%s,%s,%.3f,%.1f,%.2f,%.3f,%.3f,%.1f,%.2f,%.3f,%.3f",
-        transport, mode.name().toLowerCase(Locale.ROOT), r.total, r.writers, r.readers, payloadSize, conn,
+        "%s,%d,%s,%d,%s,%d,%d,%d,%d,%s,%s,%.3f,%.1f,%.2f,%.3f,%.3f,%.1f,%.2f,%.3f,%.3f",
+        runId, rep, transport, Constants.PEERS.size(),
+        mode.name().toLowerCase(Locale.ROOT), r.total, r.writers, r.readers, payloadSize, conn,
         readFrom.name().toLowerCase(Locale.ROOT), durationS,
         writeTput, writeMB, percentileMs(r.writeLatNanos, 50), percentileMs(r.writeLatNanos, 99),
         readTput, readMB, percentileMs(r.readLatNanos, 50), percentileMs(r.readLatNanos, 99));
@@ -416,6 +425,8 @@ public final class RaftBench {
     }
     try {
       transport = Transport.valueOf(opt(o, "transport", "TCP_TLS").toUpperCase(Locale.ROOT));
+      runId = opt(o, "run-id", "-");
+      rep = Integer.parseInt(opt(o, "rep", "1"));
       final ConnMode conn = ConnMode.valueOf(opt(o, "conn", "B").toUpperCase(Locale.ROOT));
       final ReadFrom readFrom = ReadFrom.valueOf(opt(o, "read-from", "followers").toUpperCase(Locale.ROOT));
       final Mode mode = Mode.valueOf(opt(o, "mode", "scaling").toUpperCase(Locale.ROOT));
@@ -490,7 +501,8 @@ public final class RaftBench {
       System.err.println();
       System.err.println("Usage: RaftBench --transport {TCP_TLS|QUIC} --mode {scaling|rywrites} "
           + "--clients FROM:TO:STEP --read-ratio R --read-from {leader|followers} "
-          + "--payload SIZE --requests N --conn {A|B} [--warmup W] [--csv FILE]");
+          + "--payload SIZE --requests N --conn {A|B} [--warmup W] [--csv FILE] "
+          + "[--run-id S] [--rep N]");
       Runtime.getRuntime().halt(1);
     }
   }
