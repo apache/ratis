@@ -28,7 +28,10 @@ public class TestRaftWithNetty
   @Override
   @Test
   public void testWithLoad() throws Exception {
-    super.testWithLoad();
-    BlockRequestHandlingInjection.getInstance().unblockAll();
+    try {
+      super.testWithLoad();
+    } finally {
+      BlockRequestHandlingInjection.getInstance().unblockAll();
+    }
   }
 }

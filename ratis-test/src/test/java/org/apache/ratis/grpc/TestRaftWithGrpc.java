@@ -63,8 +63,11 @@ public class TestRaftWithGrpc
   @ValueSource(booleans = {true, false})
   public void testWithLoad(boolean separateHeartbeat) throws Exception {
     GrpcConfigKeys.Server.setHeartbeatChannel(getProperties(), separateHeartbeat);
-    super.testWithLoad();
-    BlockRequestHandlingInjection.getInstance().unblockAll();
+    try {
+      super.testWithLoad();
+    } finally {
+      BlockRequestHandlingInjection.getInstance().unblockAll();
+    }
   }
 
   @ParameterizedTest
