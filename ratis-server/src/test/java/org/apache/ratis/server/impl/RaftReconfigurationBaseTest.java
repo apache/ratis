@@ -41,7 +41,7 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
-import org.apache.ratis.test.tag.Flaky;
+import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Slf4jUtils;
@@ -56,8 +56,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -507,86 +509,112 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
    * retrying.
    */
   @Test
-  @Flaky("RATIS-2251")
+  @Timeout(120)
   public void testKillLeaderDuringReconf() throws Exception {
     // originally 3 peers
     runWithNewCluster(3, this::runTestKillLeaderDuringReconf);
   }
 
+  private static boolean isBootstrappingPeer(RaftServer.Division server, RaftPeerId peerId) {
+    return ((RaftServerImpl) server).getRole().getLeaderState()
+        .filter(LeaderStateImpl::inStagingState)
+        .map(state -> state.isBootStrappingPeer(peerId))
+        .orElse(false);
+  }
+
   void runTestKillLeaderDuringReconf(CLUSTER cluster) throws Exception {
-    final AtomicBoolean clientRunning = new AtomicBoolean(true);
-    Thread clientThread = null;
+    final ExecutorService executor = ConcurrentUtils.newSingleThreadExecutor(
+        JavaUtils.getClassSimpleName(getClass()) + "-testKillLeaderDuringReconf-client");
     try {
       final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
-      PeerChanges c1 = cluster.addNewPeers(1, false);
-      PeerChanges c2 = cluster.removePeers(1, false, c1.getAddedPeers());
+      final PeerChanges c1 = cluster.addNewPeers(1, false);
+      final PeerChanges c2 = cluster.removePeers(1, false, c1.getAddedPeers());
+      final RaftPeerId newPeerId = c1.getAddedPeers().get(0).getId();
 
       LOG.info("Start setConf: {}", c2.getPeersInNewConf());
       LOG.info(cluster.printServers());
 
-      final CompletableFuture<Void> setConf = new CompletableFuture<>();
-      clientThread = new Thread(() -> {
-        try(final RaftClient client = cluster.createClient(leaderId)) {
-          for(int i = 0; clientRunning.get() && !setConf.isDone(); i++) {
-            final RaftClientReply reply = client.admin().setConfiguration(c2.getPeersInNewConf());
-            if (reply.isSuccess()) {
-              setConf.complete(null);
-              return;
-            }
-            LOG.info("setConf attempt #{} failed, {}", i, cluster.printServers());
-          }
-        } catch(Exception e) {
-          LOG.error("Failed to setConf", e);
-          setConf.completeExceptionally(e);
+      final Future<RaftClientReply> setConfTask = executor.submit(() -> {
+        try (RaftClient client = cluster.createClient(leaderId)) {
+          return client.admin().setConfiguration(c2.getPeersInNewConf());
         }
       });
-      clientThread.start();
-
-      // the leader cannot generate the (old, new) conf, and it will keep
-      // bootstrapping the 1 new peer since it has not started yet.
-      Assertions.assertFalse(((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).isTransitional());
-
-      // (0) the first conf entry, (1) the 1st setConf entry, (2) a metadata entry
-      // (3) new current conf entry  (4) a metadata entry
-      {
-        final RaftLog leaderLog = cluster.getLeader().getRaftLog();
-        for(LogEntryProto e : RaftTestUtil.getLogEntryProtos(leaderLog)) {
-          LOG.info("{}", LogProtoUtils.toLogEntryString(e));
-        }
-        final long commitIndex = leaderLog.getLastCommittedIndex();
-        Assertions.assertTrue(commitIndex <= 2, "commitIndex = " + commitIndex + " > 2");
-      }
-
-      final RaftPeerId killed = RaftTestUtil.waitAndKillLeader(cluster);
-      Assertions.assertEquals(leaderId, killed);
-      final RaftPeerId newLeaderId = RaftTestUtil.waitForLeader(cluster).getId();
-      LOG.info("newLeaderId: {}", newLeaderId);
-      TimeDuration.valueOf(1500, TimeUnit.MILLISECONDS).sleep();
-
-      LOG.info("start new peers: {}", c1.getAddedPeers());
-      for (RaftPeer np : c1.getAddedPeers()) {
-        cluster.restartServer(np.getId(), false);
-      }
 
       try {
-        setConf.get(10, TimeUnit.SECONDS);
-      } catch(TimeoutException ignored) {
-      }
+        JavaUtils.attempt(() -> {
+          Assertions.assertFalse(setConfTask.isDone(),
+              () -> "setConfiguration completed before the leader was killed; " + cluster.printServers());
+          Assertions.assertTrue(isBootstrappingPeer(cluster.getDivision(leaderId), newPeerId),
+              () -> "Leader " + leaderId + " is not bootstrapping peer " + newPeerId
+                  + "; " + cluster.printServers());
+        }, 10, cluster.getTimeoutMax(), "wait for the original leader to bootstrap " + newPeerId, LOG);
 
-      RaftServerProxy newServer = cluster.getServer(c1.getAddedPeers().get(0).getId());
-      if (newServer.getLifeCycleState() == LifeCycle.State.CLOSED) {
-        LOG.info("New peer {} is shutdown. Skip the check", c1.getAddedPeers().get(0).getId());
-      } else {
+        // The leader cannot generate the (old, new) conf, and it will keep
+        // bootstrapping the new peer since it has not started yet.
+        Assertions.assertFalse(((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).isTransitional());
+
+        // (0) the first conf entry, (1) the 1st setConf entry, (2) a metadata entry
+        // (3) new current conf entry  (4) a metadata entry
+        {
+          final RaftLog leaderLog = cluster.getLeader().getRaftLog();
+          for(LogEntryProto e : RaftTestUtil.getLogEntryProtos(leaderLog)) {
+            LOG.info("{}", LogProtoUtils.toLogEntryString(e));
+          }
+          final long commitIndex = leaderLog.getLastCommittedIndex();
+          Assertions.assertTrue(commitIndex <= 2,
+              () -> "commitIndex = " + commitIndex + " > 2; " + cluster.printServers());
+        }
+
+        final RaftPeerId killed = RaftTestUtil.waitAndKillLeader(cluster);
+        Assertions.assertEquals(leaderId, killed);
+        final RaftServer.Division newLeader = RaftTestUtil.waitForLeader(cluster);
+        final RaftPeerId newLeaderId = newLeader.getId();
+        Assertions.assertNotEquals(leaderId, newLeaderId);
+        LOG.info("newLeaderId: {}", newLeaderId);
+
+        JavaUtils.attempt(() -> {
+          Assertions.assertFalse(setConfTask.isDone(),
+              () -> "setConfiguration completed before the new peer was started; " + cluster.printServers());
+          Assertions.assertTrue(isBootstrappingPeer(newLeader, newPeerId),
+              () -> "New leader " + newLeaderId + " is not bootstrapping peer " + newPeerId
+                  + "; " + cluster.printServers());
+        }, 30, cluster.getTimeoutMax(), "wait for the new leader to bootstrap " + newPeerId, LOG);
+
+        LOG.info("start new peer: {}", newPeerId);
+        cluster.getServer(newPeerId).start();
+        final RaftServer.Division newDivision = cluster.getDivision(newPeerId);
+
+        final RaftClientReply reply;
+        try {
+          reply = setConfTask.get(30, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+          throw new AssertionError("Timed out waiting for reconfiguration; newPeer=" + newPeerId
+              + ", newPeerState=" + newDivision.getInfo().getLifeCycleState() + ", setConfTask[done="
+              + setConfTask.isDone() + ", cancelled=" + setConfTask.isCancelled() + "], "
+              + cluster.printServers(), e);
+        } catch (ExecutionException e) {
+          throw new AssertionError("setConfiguration failed; newPeer=" + newPeerId
+              + ", newPeerState=" + newDivision.getInfo().getLifeCycleState() + ", "
+              + cluster.printServers(), e.getCause());
+        }
+
+        Assertions.assertTrue(reply.isSuccess(),
+            () -> "setConfiguration returned an unsuccessful reply: " + reply + "; " + cluster.printServers());
+        Assertions.assertEquals(LifeCycle.State.RUNNING, newDivision.getInfo().getLifeCycleState(),
+            () -> "New peer " + newPeerId + " stopped during reconfiguration; " + cluster.printServers());
+
         // the client fails with the first leader, and then retry the same setConfiguration request
         waitAndCheckNewConf(cluster, c2.getPeersInNewConf(), 1, Collections.singletonList(leaderId));
-        setConf.get(2, TimeUnit.SECONDS);
+      } finally {
+        if (!setConfTask.isDone()) {
+          setConfTask.cancel(true);
+        }
       }
     } finally {
-      if (clientThread != null) {
-        clientRunning.set(false);
-        clientThread.interrupt();
-      }
+      executor.shutdownNow();
+      Assertions.assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS),
+          "setConfiguration executor did not terminate");
     }
   }
 
