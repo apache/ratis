@@ -78,6 +78,10 @@ import java.util.stream.Collectors;
  *             [--csv       FILE]               append results
  *             [--run-id    S]                  tags every CSV row with this sweep id (default "-")
  *             [--rep       N]                  repetition number of this measurement (default 1)
+ *             [--worker-offset K]              first worker id of this process (default 0);
+ *                                              set when several RaftBench processes share one
+ *                                              cluster so their ids (= state-machine keys) do
+ *                                              not collide, e.g. 0 / 8 / 16 / 24 for 4 x 8
  * </pre>
  */
 public final class RaftBench {
@@ -268,9 +272,15 @@ public final class RaftBench {
   /** Each of {@code total} workers loops (blocking, request->response->next):
    *  write to the leader, then read its OWN key from its assigned follower as a plain
    *  stale read ({@code minIndex=0}, served immediately from the follower's current state).
-   *  Write and read latency are measured separately. */
-  static Result runBenchRywrites(int total, int payloadSize, int requestsPerClient, int warmup,
-      ConnMode conn, List<RaftPeerId> followers) throws InterruptedException {
+   *  Write and read latency are measured separately.
+   *
+   *  <p>Worker ids run from {@code offset} to {@code offset + total - 1}. The id is the
+   *  state-machine key, and every process numbers its workers from zero, so two processes
+   *  on one cluster would write over each other's keys unless each gets its own offset.
+   *  The follower is chosen by the global id, so the spread over followers comes out the same
+   *  as if one process ran all the workers. */
+  static Result runBenchRywrites(int total, int offset, int payloadSize, int requestsPerClient,
+      int warmup, ConnMode conn, List<RaftPeerId> followers) throws InterruptedException {
 
     final List<Thread> threads = new ArrayList<>(total);
     final Map<Integer, long[]> writeLat = new ConcurrentHashMap<>();
@@ -279,10 +289,10 @@ public final class RaftBench {
     final CountDownLatch go = new CountDownLatch(1);
 
     for (int w = 0; w < total; w++) {
-      final int id = w;
-      final RaftPeerId follower = followers.get(w % followers.size());
+      final int id = offset + w;
+      final RaftPeerId follower = followers.get(id % followers.size());
       final Thread t = new Thread(() -> runRywritesWorker(id, conn, warmup, requestsPerClient,
-          payloadSize, follower, ready, go, writeLat, readLat), "bench-ryw-" + w);
+          payloadSize, follower, ready, go, writeLat, readLat), "bench-ryw-" + id);
       t.start();
       threads.add(t);
     }
@@ -436,10 +446,14 @@ public final class RaftBench {
       final int warmup = Integer.parseInt(opt(o, "warmup", "20"));
       final String csvPath = o.get("csv");
       final int[] range = parseClients(opt(o, "clients", "5:30:5"));
+      final int workerOffset = Integer.parseInt(opt(o, "worker-offset", "0"));
+      if (workerOffset < 0) {
+        throw new IllegalArgumentException("--worker-offset must be >= 0: " + workerOffset);
+      }
 
       // rywrites has no writer/reader split, so read-ratio is irrelevant there.
       final String modeSpecific = (mode == Mode.RYWRITES)
-          ? "read=own-writes-from-follower"
+          ? "read=own-writes-from-follower worker-offset=" + workerOffset
           : String.format(Locale.ROOT, "read-from=%s read-ratio=%.2f",
               readFrom.name().toLowerCase(Locale.ROOT), readRatio);
       System.out.printf("RaftBench: transport=%s mode=%s conn=%s %s "
@@ -475,7 +489,7 @@ public final class RaftBench {
         final Result r;
         final ReadFrom rowReadFrom;
         if (mode == Mode.RYWRITES) {
-          r = runBenchRywrites(total, payloadSize, requests, warmup, conn, followers);
+          r = runBenchRywrites(total, workerOffset, payloadSize, requests, warmup, conn, followers);
           rowReadFrom = ReadFrom.FOLLOWERS;   // reads always come from a follower in rywrites
         } else {
           final int readers = Math.max(1, (int) Math.round(total * readRatio));
@@ -502,7 +516,7 @@ public final class RaftBench {
       System.err.println("Usage: RaftBench --transport {TCP_TLS|QUIC} --mode {scaling|rywrites} "
           + "--clients FROM:TO:STEP --read-ratio R --read-from {leader|followers} "
           + "--payload SIZE --requests N --conn {A|B} [--warmup W] [--csv FILE] "
-          + "[--run-id S] [--rep N]");
+          + "[--run-id S] [--rep N] [--worker-offset K]");
       Runtime.getRuntime().halt(1);
     }
   }
