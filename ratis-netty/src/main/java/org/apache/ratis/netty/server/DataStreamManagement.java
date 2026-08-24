@@ -522,6 +522,26 @@ public class DataStreamManagement {
     return removed;
   }
 
+  /**
+   * RATIS-2213: a closed stream's DataStreamMap entry is normally removed by the Raft log worker when the
+   * DATASTREAM log entry is linked. If that never happens (the commit is not logged -- e.g. abort, leader
+   * change or follower truncation), the entry and the DataStream's Netty buffers would leak: the closed
+   * stream is no longer tracked by {@code streams} or {@code channels}, and the client may keep the channel
+   * open (Ozone reuses it), so channel-inactive cleanup cannot reclaim it. Schedule a backstop that reclaims
+   * the entry if it is still unlinked after the request timeout. A non-null remove result means the log
+   * worker has not linked it, so the DataStream is not yet owned by the state machine and is safe to clean.
+   */
+  private void scheduleUnlinkedStreamCleanup(StreamInfo info, ClientInvocationId invocationId) {
+    TimeoutExecutor.getInstance().onTimeout(requestTimeout, () -> {
+      final CompletableFuture<DataStream> removed = info.getDivision().getDataStreamMap().remove(invocationId);
+      if (removed != null) {
+        LOG.warn("{}: reclaimed unlinked data stream {} after {} (no DATASTREAM log entry was written)",
+            this, invocationId, requestTimeout);
+        removed.thenAccept(DataStream::cleanUp);
+      }
+    }, LOG, () -> "reclaim unlinked data stream " + invocationId);
+  }
+
   private void readImpl(DataStreamRequestByteBuf request, ChannelHandlerContext ctx,
       CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams,
       ClientInvocationId key, ChannelId channelId) {
@@ -588,6 +608,7 @@ public class DataStreamManagement {
           }
         } else if (close) {
           info.applyToRemotes(remote -> remote.out.closeAsync());
+          scheduleUnlinkedStreamCleanup(info, key);
         }
       } finally {
         request.release();

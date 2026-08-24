@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.netty.server;
 
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.client.impl.OrderedAsync;
@@ -28,6 +29,7 @@ import org.apache.ratis.io.WriteOption;
 import org.apache.ratis.netty.metrics.NettyServerStreamRpcMetrics;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -70,6 +72,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -581,6 +585,104 @@ class TestDataStreamManagement {
     } finally {
       embeddedChannel.finishAndReleaseAll();
       management.shutdown();
+    }
+  }
+
+  @Test
+  void closedStreamLeaksDataStreamMapWhenNotLogged() throws Exception {
+    // RATIS-2213 / HDDS-11939 repro.
+    // A stream's DataStreamMap entry is added on STREAM_HEADER (computeDataStreamIfAbsent) and is removed
+    // either by the Raft log worker when the DATASTREAM log entry is written (SegmentedRaftLogWorker) or by
+    // StreamInfo.cleanUp on error / channel-inactive. On a *successful* CLOSE, DataStreamManagement drains
+    // `streams` and the `channels` entry, but hands the DataStreamMap entry off to the log path -- it does
+    // not remove it itself. If that DATASTREAM log entry is never written (commit failure, leader change,
+    // follower truncation), the entry is orphaned, and the channel-inactive safety net cannot reclaim it
+    // because `channels` was already drained on close. This unit harness has no log worker, faithfully
+    // modelling "the commit was never logged".
+    final RaftPeerId serverId = RaftPeerId.valueOf("s1");
+    final ClientId clientId = ClientId.randomId();
+    final RaftGroupId groupId = RaftGroupId.randomId();
+    final long callId = 1L;
+
+    final RaftProperties properties = new RaftProperties();
+    // Reclaim quickly so the test does not wait the 3s default request timeout.
+    RaftClientConfigKeys.DataStream.setRequestTimeout(properties, TimeDuration.valueOf(300, TimeUnit.MILLISECONDS));
+
+    final AtomicReference<CountingDataChannel> channelRef = new AtomicReference<>();
+    final CountingDataStreamMap streamMap = new CountingDataStreamMap();
+    final StateMachine stateMachine = newWriteStateMachine(channelRef,
+        Collections.synchronizedList(new ArrayList<>()));
+    final RaftServer.Division division = newWriteDivision(serverId, groupId, stateMachine, streamMap);
+    final RaftServer server = newRaftServer(serverId, properties, groupId, division);
+
+    final NettyServerStreamRpcMetrics metrics = new NettyServerStreamRpcMetrics("s1");
+    final DataStreamManagement management = new DataStreamManagement(server, metrics);
+    final EmbeddedChannel embeddedChannel = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
+    final ChannelHandlerContext ctx = embeddedChannel.pipeline().firstContext();
+    final ChannelId channelId = embeddedChannel.id();
+    final CheckedBiFunction<RaftClientRequest, Set<RaftPeer>, Set<DataStreamOutputImpl>, IOException> getStreams =
+        (r, p) -> Collections.emptySet();
+
+    final RaftClientRequest raftClientRequest = RaftClientRequest.newBuilder()
+        .setClientId(clientId)
+        .setServerId(serverId)
+        .setGroupId(groupId)
+        .setCallId(callId)
+        .setType(RaftClientRequest.dataStreamRequestType())
+        .build();
+    final ByteBuffer headerPayload = ClientProtoUtils.toRaftClientRequestProtoByteBuffer(raftClientRequest);
+
+    try {
+      // Drive a full, successful stream: HEADER -> DATA -> DATA+CLOSE.
+      management.read(newWriteRequest(clientId, Type.STREAM_HEADER, callId, 0,
+          Unpooled.wrappedBuffer(headerPayload), StandardWriteOption.FLUSH), ctx, getStreams);
+      management.read(newWriteRequest(clientId, Type.STREAM_DATA, callId, 0,
+          Unpooled.wrappedBuffer(new byte[10]), StandardWriteOption.FLUSH), ctx, getStreams);
+      management.read(newWriteRequest(clientId, Type.STREAM_DATA, callId, 10,
+          Unpooled.wrappedBuffer(new byte[4]), StandardWriteOption.CLOSE), ctx, getStreams);
+      drainWriteReplies(embeddedChannel, 3);
+
+      // STREAM_HEADER created exactly one DataStreamMap entry.
+      assertEquals(1, streamMap.liveCount(), "STREAM_HEADER should create one DataStreamMap entry");
+
+      // After a successful close the channel map is drained, so the channel-inactive safety net can no
+      // longer reclaim this stream; the DataStreamMap entry is handed off to the (never-run here) log path.
+      JavaUtils.attempt(() -> assertEquals(0, management.getChannelInvocationCount(channelId),
+          "channel map should be drained on close"), 50,
+          TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "channel drained on close", null);
+      assertEquals(1, streamMap.liveCount(),
+          "closed stream is handed off to the log path; DataStreamMap still holds it");
+
+      // RATIS-2213: without the close-time backstop the orphaned entry (and its Netty buffers) leaks
+      // forever. With the fix it is reclaimed once the request timeout elapses with no DATASTREAM log
+      // entry. This assertion FAILS on unpatched code (liveCount stays 1) and passes with the fix.
+      JavaUtils.attempt(() -> assertEquals(0, streamMap.liveCount(),
+          "unlinked DataStreamMap entry should be reclaimed after the data-stream request timeout"),
+          30, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "DataStreamMap reclaimed", null);
+    } finally {
+      embeddedChannel.finishAndReleaseAll();
+      management.shutdown();
+    }
+  }
+
+  /** Mirrors {@link org.apache.ratis.server.impl.DataStreamMapImpl} (a ConcurrentHashMap wrapper) while
+   *  exposing the live entry count so a test can observe DataStreamMap leaks. */
+  private static final class CountingDataStreamMap implements DataStreamMap {
+    private final ConcurrentMap<ClientInvocationId, CompletableFuture<DataStream>> map = new ConcurrentHashMap<>();
+
+    @Override
+    public CompletableFuture<DataStream> computeIfAbsent(ClientInvocationId invocationId,
+        Function<ClientInvocationId, CompletableFuture<DataStream>> newDataStream) {
+      return map.computeIfAbsent(invocationId, newDataStream);
+    }
+
+    @Override
+    public CompletableFuture<DataStream> remove(ClientInvocationId invocationId) {
+      return map.remove(invocationId);
+    }
+
+    int liveCount() {
+      return map.size();
     }
   }
 
