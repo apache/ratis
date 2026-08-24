@@ -91,12 +91,14 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   private final GrpcServices.Customizer servicesCustomizer;
+  private final TlsHandshakeFailureListener tlsHandshakeFailureListener;
 
   private final Supplier<SslContexts> forServerSupplier;
   private final Supplier<SslContexts> forClientSupplier;
 
   public GrpcFactory(Parameters parameters) {
     this(GrpcConfigKeys.Server.servicesCustomizer(parameters),
+        GrpcConfigKeys.Server.tlsHandshakeFailureListener(parameters),
         GrpcConfigKeys.TLS.conf(parameters),
         GrpcConfigKeys.Admin.tlsConf(parameters),
         GrpcConfigKeys.Client.tlsConf(parameters),
@@ -105,9 +107,11 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   private GrpcFactory(GrpcServices.Customizer servicesCustomizer,
+      TlsHandshakeFailureListener tlsHandshakeFailureListener,
       GrpcTlsConfig tlsConfig, GrpcTlsConfig adminTlsConfig,
       GrpcTlsConfig clientTlsConfig, GrpcTlsConfig serverTlsConfig) {
     this.servicesCustomizer = servicesCustomizer;
+    this.tlsHandshakeFailureListener = tlsHandshakeFailureListener;
 
     this.forServerSupplier = MemoizedSupplier.valueOf(() -> new SslContexts(
         tlsConfig, adminTlsConfig, clientTlsConfig, serverTlsConfig, BUILD_SSL_CONTEXT_FOR_SERVER));
@@ -134,6 +138,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
     return GrpcServicesImpl.newBuilder()
         .setServer(server)
         .setCustomizer(servicesCustomizer)
+        .setTlsHandshakeFailureListener(tlsHandshakeFailureListener)
         .setAdminSslContext(forServer.adminSslContext)
         .setServerSslContextForServer(forServer.serverSslContext)
         .setServerSslContextForClient(forClient.serverSslContext)

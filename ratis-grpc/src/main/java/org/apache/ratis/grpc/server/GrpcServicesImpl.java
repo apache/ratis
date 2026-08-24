@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.TlsHandshakeFailureListener;
 import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.util.NettyUtils;
@@ -99,6 +100,7 @@ public final class GrpcServicesImpl
   public static final class Builder {
     private RaftServer server;
     private Customizer customizer;
+    private TlsHandshakeFailureListener tlsHandshakeFailureListener;
 
     private String adminHost;
     private int adminPort;
@@ -157,6 +159,11 @@ public final class GrpcServicesImpl
       return this;
     }
 
+    public Builder setTlsHandshakeFailureListener(TlsHandshakeFailureListener listener) {
+      this.tlsHandshakeFailureListener = listener;
+      return this;
+    }
+
     private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target, EventLoopGroup eventLoopGroup) {
       return new GrpcServerProtocolClient(target, serverStubPoolSize, flowControlWindow.getSizeInt(),
           requestTimeoutDuration, serverSslContextForClient, separateHeartbeatChannel, eventLoopGroup);
@@ -202,7 +209,17 @@ public final class GrpcServicesImpl
     private NettyServerBuilder newNettyServerBuilder(String hostname, int port, SslContext sslContext) {
       final InetSocketAddress address = hostname == null || hostname.isEmpty() ?
           new InetSocketAddress(port) : new InetSocketAddress(hostname, port);
-      final NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forAddress(address)
+      final NettyServerBuilder nettyServerBuilder;
+      if (sslContext != null && tlsHandshakeFailureListener != null) {
+        nettyServerBuilder = NettyServerBuilder.forAddress(address,
+            TlsHandshakeFailureServerCredentials.create(sslContext, tlsHandshakeFailureListener));
+      } else {
+        nettyServerBuilder = NettyServerBuilder.forAddress(address);
+        if (sslContext != null) {
+          nettyServerBuilder.sslContext(sslContext);
+        }
+      }
+      nettyServerBuilder
           .withChildOption(ChannelOption.SO_REUSEADDR, true)
           .maxInboundMessageSize(messageSizeMax.getSizeInt())
           .flowControlWindow(flowControlWindow.getSizeInt());
@@ -220,7 +237,6 @@ public final class GrpcServicesImpl
 
       if (sslContext != null) {
         LOG.info("Setting TLS for {}", address);
-        nettyServerBuilder.sslContext(sslContext);
       }
       return nettyServerBuilder;
     }

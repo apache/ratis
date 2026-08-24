@@ -293,6 +293,22 @@ public interface GrpcConfigKeys {
       parameters.put(SERVICES_CUSTOMIZER_PARAMETER, customizer, SERVICES_CUSTOMIZER_CLASS);
     }
 
+    String TLS_HANDSHAKE_FAILURE_LISTENER_PARAMETER = PREFIX + ".tls.handshake.failure.listener";
+    Class<TlsHandshakeFailureListener> TLS_HANDSHAKE_FAILURE_LISTENER_CLASS =
+        TlsHandshakeFailureListener.class;
+    static TlsHandshakeFailureListener tlsHandshakeFailureListener(Parameters parameters) {
+      return parameters == null ? null
+          : parameters.get(
+              TLS_HANDSHAKE_FAILURE_LISTENER_PARAMETER, TLS_HANDSHAKE_FAILURE_LISTENER_CLASS);
+    }
+    static void setTlsHandshakeFailureListener(
+        Parameters parameters, TlsHandshakeFailureListener listener) {
+      parameters.put(
+          TLS_HANDSHAKE_FAILURE_LISTENER_PARAMETER,
+          listener,
+          TLS_HANDSHAKE_FAILURE_LISTENER_CLASS);
+    }
+
     String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
     Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
     static GrpcTlsConfig tlsConf(Parameters parameters) {
