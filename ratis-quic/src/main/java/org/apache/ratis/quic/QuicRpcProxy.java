@@ -88,10 +88,10 @@ public class QuicRpcProxy implements Closeable {
    *  ChannelOption.CONNECT_TIMEOUT_MILLIS). connect() is synchronous: on failure it
    *  throws and PeerProxyMap recreates the proxy on the next request — no in-proxy
    *  async reconnect / null "reconnecting" state (that combination busy-looped into a
-   *  connection storm under load). Generous (5 s) so concurrent handshakes under load
-   *  do not spuriously fail, yet bounded so a request to a dead leader eventually fails
-   *  over instead of blocking forever. */
-  private static final long CONNECT_TIMEOUT_MS = 5000;
+   *  connection storm under load). 30 s = Netty's default CONNECT_TIMEOUT_MILLIS, so both
+   *  transports wait equally long for a handshake; bounded so a request to a dead leader
+   *  eventually fails over instead of blocking forever. */
+  private static final long CONNECT_TIMEOUT_MS = 30_000;
 
   /** Diagnostics only: with -Dratis.quic.connect.timing=true every connect() prints how its
    *  latency splits between building the quiche codec, binding the UDP socket, the handshake
@@ -345,9 +345,9 @@ public class QuicRpcProxy implements Closeable {
     final ChannelHandler codec = new QuicClientCodecBuilder()
         .sslContext(sslCtx)
         .maxIdleTimeout(0, TimeUnit.MILLISECONDS)
-        .initialMaxData(10_000_000)
-        .initialMaxStreamDataBidirectionalLocal(1_000_000)
-        .initialMaxStreamDataBidirectionalRemote(1_000_000)
+        .initialMaxData(128 * 1024 * 1024)
+        .initialMaxStreamDataBidirectionalLocal(16 * 1024 * 1024)
+        .initialMaxStreamDataBidirectionalRemote(16 * 1024 * 1024)
         .initialMaxStreamsBidirectional(100)
         .build();
     final long t1 = System.nanoTime();

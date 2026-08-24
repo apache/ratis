@@ -285,7 +285,7 @@ public final class QuicRpcService
    * InstallSnapshot, RequestVote and ReadIndex streams keep running on the event loop as before.
    */
   private final EventExecutorGroup clientRequestExecutor = new DefaultEventExecutorGroup(
-      Runtime.getRuntime().availableProcessors(),
+      Runtime.getRuntime().availableProcessors() * 2,
       (java.util.concurrent.ThreadFactory) r -> {
         final Thread t = new Thread(r, "QuicRpcService-clientRequest-");
         t.setDaemon(true);
@@ -332,9 +332,9 @@ public final class QuicRpcService
     final ChannelHandler quicCodec = new QuicServerCodecBuilder()
         .sslContext(sslCtx)
         .maxIdleTimeout(0, TimeUnit.MILLISECONDS)
-        .initialMaxData(10_000_000)
-        .initialMaxStreamDataBidirectionalLocal(1_000_000)
-        .initialMaxStreamDataBidirectionalRemote(1_000_000)
+        .initialMaxData(128 * 1024 * 1024)
+        .initialMaxStreamDataBidirectionalLocal(16 * 1024 * 1024)
+        .initialMaxStreamDataBidirectionalRemote(16 * 1024 * 1024)
         .initialMaxStreamsBidirectional(100)
         .tokenHandler(InsecureQuicTokenHandler.INSTANCE)
         .streamHandler(streamInit)

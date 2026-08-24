@@ -118,11 +118,11 @@ public final class RaftBench {
       RaftConfigKeys.Rpc.setType(properties, SupportedRpcType.QUIC);
       QuicConfigKeys.Client.setTlsCaCert(properties, "ratis-test/src/test/resources/ssl/ca.crt");
       RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
-          TimeDuration.valueOf(5_000, TimeUnit.MILLISECONDS));
+          TimeDuration.valueOf(30_000, TimeUnit.MILLISECONDS));
     } else {
       RaftConfigKeys.Rpc.setType(properties, SupportedRpcType.NETTY);
       RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
-          TimeDuration.valueOf(5_000, TimeUnit.MILLISECONDS));
+          TimeDuration.valueOf(30_000, TimeUnit.MILLISECONDS));
       final TlsConf tlsConf = new TlsConf.Builder()
           .setName("client")
           .setPrivateKey(new PrivateKeyConf(new File("ratis-test/src/test/resources/ssl/client.pem")))
