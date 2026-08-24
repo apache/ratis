@@ -69,6 +69,17 @@ class SegmentedRaftLogWorker {
   private static final String CLASS_NAME = JavaUtils.getClassSimpleName(SegmentedRaftLogWorker.class);
   static final String RUN_WORKER = CLASS_NAME + ".runWorker";
 
+  private static final Task WAKE_UP_TASK = new Task() {
+    @Override
+    void execute() {
+    }
+
+    @Override
+    long getEndIndex() {
+      return RaftLog.INVALID_LOG_INDEX;
+    }
+  };
+
   static class StateMachineDataPolicy {
     private final boolean sync;
     private final TimeDuration syncTimeout;
@@ -246,6 +257,9 @@ class SegmentedRaftLogWorker {
 
   void close() {
     this.running = false;
+    // Wake up the worker if it is waiting on an empty queue.  If the queue is full,
+    // the worker is not waiting and will observe running == false after its current task.
+    queue.offer(WAKE_UP_TASK);
     Optional.ofNullable(flushExecutor).ifPresent(ExecutorService::shutdown);
     ConcurrentUtils.shutdownAndWait(TimeDuration.ONE_SECOND.multiply(3),
         workerThreadExecutor, timeout -> LOG.warn("{}: shutdown timeout in " + timeout, name));
@@ -308,6 +322,9 @@ class SegmentedRaftLogWorker {
       try {
         Task task = queue.poll(ONE_SECOND);
         if (task != null) {
+          if (task == WAKE_UP_TASK) {
+            return;
+          }
           task.stopTimerOnDequeue();
           try {
             if (logIOException != null) {
