@@ -40,6 +40,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   private static final String IN_USE_LOCK_NAME = "in_use.lock";
   private static final String META_FILE_NAME = "raft-meta";
   private static final String CONF_EXTENSION = ".conf";
+  private static final String BOOTSTRAP_CONF_EXTENSION = ".bootstrap";
   private static final String JVM_NAME = ManagementFactory.getRuntimeMXBean().getName();
 
   enum StorageState {
@@ -104,6 +105,10 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
 
   File getMetaConfFile() {
     return new File(getCurrentDir(), META_FILE_NAME + CONF_EXTENSION);
+  }
+
+  File getBootstrapConfFile() {
+    return new File(getCurrentDir(), META_FILE_NAME + BOOTSTRAP_CONF_EXTENSION);
   }
 
   /**
