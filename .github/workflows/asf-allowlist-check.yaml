@@ -44,6 +44,6 @@ jobs:
         with:
           persist-credentials: false
       - name: Check actions
-        uses: apache/infrastructure-actions/allowlist-check@69afc125e535c4c41e7f1b7470f583087e0f344b
+        uses: apache/infrastructure-actions/allowlist-check@36d3e31fe2790e33283edde40f054e31d548c947
         with:
           scan-glob: ".github/workflows/*.y*ml"
