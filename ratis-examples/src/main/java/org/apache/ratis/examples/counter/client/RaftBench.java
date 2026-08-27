@@ -41,6 +41,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.ByteBuffer;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -118,11 +120,11 @@ public final class RaftBench {
       RaftConfigKeys.Rpc.setType(properties, SupportedRpcType.QUIC);
       QuicConfigKeys.Client.setTlsCaCert(properties, "ratis-test/src/test/resources/ssl/ca.crt");
       RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
-          TimeDuration.valueOf(30_000, TimeUnit.MILLISECONDS));
+          TimeDuration.valueOf(5_000, TimeUnit.MILLISECONDS));
     } else {
       RaftConfigKeys.Rpc.setType(properties, SupportedRpcType.NETTY);
       RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
-          TimeDuration.valueOf(30_000, TimeUnit.MILLISECONDS));
+          TimeDuration.valueOf(5_000, TimeUnit.MILLISECONDS));
       final TlsConf tlsConf = new TlsConf.Builder()
           .setName("client")
           .setPrivateKey(new PrivateKeyConf(new File("ratis-test/src/test/resources/ssl/client.pem")))
@@ -138,6 +140,14 @@ public final class RaftBench {
         .setParameters(parameters)
         .setRaftGroup(Constants.RAFT_GROUP)
         .build();
+  }
+
+  private static final DateTimeFormatter WALL_CLOCK = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+
+  /** Wall-clock stamp for the progress lines below. Latencies are measured with nanoTime;
+   *  this is only so a stuck run can be lined up against the server logs and the script output. */
+  private static String now() {
+    return LocalTime.now().format(WALL_CLOCK);
   }
 
   /** Write payload = "INCREMENT" + clientId(4B) + payloadSize(4B) + zero-bytes. */
@@ -325,6 +335,9 @@ public final class RaftBench {
       ready.countDown();
       go.await();
       final int total = warmup + requests;
+      final long tStart = System.nanoTime();
+      System.out.printf("[%s] worker %d: START, %d zadan, follower=%s%n", now(), id, total, follower);
+      System.out.flush();
       for (int i = 0; i < total; i++) {
         final RaftClient client = (conn == ConnMode.A) ? newClient() : reused;
         try {
@@ -336,6 +349,15 @@ public final class RaftBench {
           if (i >= warmup) {
             wlat[i - warmup] = t1 - t0;
             rlat[i - warmup] = t2 - t1;
+          }
+          // Postep na zywo co 10 zadan: bez tego widac dopiero koncowy CSV i nie da sie
+          // odroznic "wolno" od "wisi". w/r = czas ostatniego zapisu i odczytu.
+          if ((i + 1) % 10 == 0) {
+            final double el = (System.nanoTime() - tStart) / 1e9;
+            System.out.printf("[%s] worker %d: %d/%d  %.1fs  %.2f req/s  w=%.0fms r=%.0fms%n",
+                now(), id, i + 1, total, el, (i + 1) / el,
+                (t1 - t0) / 1e6, (t2 - t1) / 1e6);
+            System.out.flush();
           }
         } finally {
           if (conn == ConnMode.A) {

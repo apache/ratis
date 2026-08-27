@@ -30,6 +30,7 @@ import org.apache.ratis.security.TlsConf.CertificatesConf;
 import org.apache.ratis.security.TlsConf.PrivateKeyConf;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -72,6 +73,16 @@ public final class CounterServer implements Closeable {
 
     //set the storage directory (different for each peer) in the RaftProperty object
     RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
+
+    // TYMCZASOWE, DO EKSPERYMENTU - USUNAC PO ZAKONCZENIU POMIAROW.
+    // Ile bajtow wpisow logu lider pakuje w JEDNO AppendEntries. Domyslna wartosc jest
+    // identyczna z domyslna Ratisa (4MB), wiec bez podania -Dratis.appender.buffer nic sie
+    // nie zmienia. Sluzy do sprawdzenia, czy zapasc przy 1MB bierze sie stad, ze przesylka
+    // ucisza lacze do followera dluzej niz okno elekcji (150-300 ms).
+    // UWAGA: wartosc musi byc WIEKSZA niz najwiekszy pojedynczy wpis - DataQueue.offer ma
+    // assertTrue(elementNumBytes <= byteLimit) i przy mniejszej rzuca wyjatkiem.
+    RaftServerConfigKeys.Log.Appender.setBufferByteLimit(properties,
+        SizeInBytes.valueOf(System.getProperty("ratis.appender.buffer", "4MB")));
 
     // DEFAULT read policy — routes read-only requests to the leader (no server-to-server ReadIndex).
     // Same setting for QUIC and NETTY so the comparison is fair.

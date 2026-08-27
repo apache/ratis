@@ -22,7 +22,6 @@ import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.Channel;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelFuture;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelInitializer;
-import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.util.JavaUtils;
@@ -50,7 +49,6 @@ public class NettyClient implements Closeable {
         () -> channel = new Bootstrap()
             .group(group)
             .channel(NettyUtils.getSocketChannelClass(group))
-            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 300)
             .handler(initializer)
             .connect(address)
             .sync()
