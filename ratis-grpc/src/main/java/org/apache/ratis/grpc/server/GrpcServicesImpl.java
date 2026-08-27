@@ -19,7 +19,6 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.grpc.TlsHandshakeFailureListener;
 import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.util.NettyUtils;
@@ -32,10 +31,11 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
+import org.apache.ratis.thirdparty.io.grpc.Server;
+import org.apache.ratis.thirdparty.io.grpc.ServerCredentials;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptor;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
-import org.apache.ratis.thirdparty.io.grpc.Server;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
@@ -100,7 +100,7 @@ public final class GrpcServicesImpl
   public static final class Builder {
     private RaftServer server;
     private Customizer customizer;
-    private TlsHandshakeFailureListener tlsHandshakeFailureListener;
+    private ServerCredentials serverCredentials;
 
     private String adminHost;
     private int adminPort;
@@ -159,8 +159,8 @@ public final class GrpcServicesImpl
       return this;
     }
 
-    public Builder setTlsHandshakeFailureListener(TlsHandshakeFailureListener listener) {
-      this.tlsHandshakeFailureListener = listener;
+    public Builder setServerCredentials(ServerCredentials credentials) {
+      this.serverCredentials = credentials;
       return this;
     }
 
@@ -210,9 +210,8 @@ public final class GrpcServicesImpl
       final InetSocketAddress address = hostname == null || hostname.isEmpty() ?
           new InetSocketAddress(port) : new InetSocketAddress(hostname, port);
       final NettyServerBuilder nettyServerBuilder;
-      if (sslContext != null && tlsHandshakeFailureListener != null) {
-        nettyServerBuilder = NettyServerBuilder.forAddress(address,
-            TlsHandshakeFailureServerCredentials.create(sslContext, tlsHandshakeFailureListener));
+      if (serverCredentials != null) {
+        nettyServerBuilder = NettyServerBuilder.forAddress(address, serverCredentials);
       } else {
         nettyServerBuilder = NettyServerBuilder.forAddress(address);
         if (sslContext != null) {
@@ -235,7 +234,9 @@ public final class GrpcServicesImpl
         nettyServerBuilder.workerEventLoopGroup(serverWorkers);
       }
 
-      if (sslContext != null) {
+      if (serverCredentials != null) {
+        LOG.info("Setting server credentials for {}", address);
+      } else if (sslContext != null) {
         LOG.info("Setting TLS for {}", address);
       }
       return nettyServerBuilder;

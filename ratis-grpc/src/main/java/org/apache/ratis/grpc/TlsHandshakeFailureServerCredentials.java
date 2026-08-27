@@ -15,10 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc.server;
+package org.apache.ratis.grpc;
 
-import org.apache.ratis.grpc.TlsHandshakeFailureEvent;
-import org.apache.ratis.grpc.TlsHandshakeFailureListener;
 import org.apache.ratis.thirdparty.io.grpc.Attributes;
 import org.apache.ratis.thirdparty.io.grpc.Grpc;
 import org.apache.ratis.thirdparty.io.grpc.InternalChannelz;
@@ -49,19 +47,25 @@ import java.util.Objects;
 import java.util.concurrent.Executor;
 
 /** Builds gRPC server credentials which report initial TLS handshake failures. */
-final class TlsHandshakeFailureServerCredentials {
+public final class TlsHandshakeFailureServerCredentials {
   private static final Logger LOG =
       LoggerFactory.getLogger(TlsHandshakeFailureServerCredentials.class);
   private static final AsciiString HTTPS = AsciiString.of("https");
 
   private TlsHandshakeFailureServerCredentials() {}
 
-  static ServerCredentials create(SslContext sslContext, TlsHandshakeFailureListener listener) {
-    Objects.requireNonNull(sslContext, "sslContext");
+  /**
+   * Creates server credentials from the given TLS configuration and failure listener.
+   *
+   * @param tlsConfig the server TLS configuration
+   * @param listener the listener for TLS handshake failures
+   * @return server credentials reporting TLS handshake failures
+   */
+  public static ServerCredentials create(
+      GrpcTlsConfig tlsConfig, TlsHandshakeFailureListener listener) {
+    Objects.requireNonNull(tlsConfig, "tlsConfig");
     Objects.requireNonNull(listener, "listener");
-    if (!sslContext.isServer()) {
-      throw new IllegalArgumentException("Client SSL context cannot be used for a server");
-    }
+    final SslContext sslContext = GrpcUtil.buildSslContextForServer(tlsConfig);
     return InternalNettyServerCredentials.create(new Factory(sslContext, listener));
   }
 

@@ -31,6 +31,7 @@ import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.ServerFactory;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
+import org.apache.ratis.thirdparty.io.grpc.ServerCredentials;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.JavaUtils;
@@ -91,14 +92,14 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   private final GrpcServices.Customizer servicesCustomizer;
-  private final TlsHandshakeFailureListener tlsHandshakeFailureListener;
+  private final ServerCredentials serverCredentials;
 
   private final Supplier<SslContexts> forServerSupplier;
   private final Supplier<SslContexts> forClientSupplier;
 
   public GrpcFactory(Parameters parameters) {
     this(GrpcConfigKeys.Server.servicesCustomizer(parameters),
-        GrpcConfigKeys.Server.tlsHandshakeFailureListener(parameters),
+        GrpcConfigKeys.Server.credentials(parameters),
         GrpcConfigKeys.TLS.conf(parameters),
         GrpcConfigKeys.Admin.tlsConf(parameters),
         GrpcConfigKeys.Client.tlsConf(parameters),
@@ -107,11 +108,11 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   private GrpcFactory(GrpcServices.Customizer servicesCustomizer,
-      TlsHandshakeFailureListener tlsHandshakeFailureListener,
+      ServerCredentials serverCredentials,
       GrpcTlsConfig tlsConfig, GrpcTlsConfig adminTlsConfig,
       GrpcTlsConfig clientTlsConfig, GrpcTlsConfig serverTlsConfig) {
     this.servicesCustomizer = servicesCustomizer;
-    this.tlsHandshakeFailureListener = tlsHandshakeFailureListener;
+    this.serverCredentials = serverCredentials;
 
     this.forServerSupplier = MemoizedSupplier.valueOf(() -> new SslContexts(
         tlsConfig, adminTlsConfig, clientTlsConfig, serverTlsConfig, BUILD_SSL_CONTEXT_FOR_SERVER));
@@ -138,7 +139,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
     return GrpcServicesImpl.newBuilder()
         .setServer(server)
         .setCustomizer(servicesCustomizer)
-        .setTlsHandshakeFailureListener(tlsHandshakeFailureListener)
+        .setServerCredentials(serverCredentials)
         .setAdminSslContext(forServer.adminSslContext)
         .setServerSslContextForServer(forServer.serverSslContext)
         .setServerSslContextForClient(forClient.serverSslContext)

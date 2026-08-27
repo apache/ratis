@@ -518,8 +518,9 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
         SecurityTestUtils.getTrustManager(SecurityTestUtils::getTrustStore);
 
     final Parameters parameters = new Parameters();
-    GrpcConfigKeys.Server.setTlsConf(parameters,
-        new GrpcTlsConfig(serverKeyManager, serverTrustManager, true));
+    final GrpcTlsConfig serverConfig =
+        new GrpcTlsConfig(serverKeyManager, serverTrustManager, true);
+    GrpcConfigKeys.Server.setTlsConf(parameters, serverConfig);
     final GrpcTlsConfig clientConfig =
         new GrpcTlsConfig(clientKeyManager, clientTrustManager, true);
     GrpcConfigKeys.Admin.setTlsConf(parameters, clientConfig);
@@ -528,11 +529,12 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     final AtomicInteger failureCount = new AtomicInteger();
     final AtomicReference<TlsHandshakeFailureEvent> failure = new AtomicReference<>();
     final CountDownLatch failureReported = new CountDownLatch(1);
-    GrpcConfigKeys.Server.setTlsHandshakeFailureListener(parameters, event -> {
-      failureCount.incrementAndGet();
-      failure.set(event);
-      failureReported.countDown();
-    });
+    GrpcConfigKeys.Server.setCredentials(parameters,
+        TlsHandshakeFailureServerCredentials.create(serverConfig, event -> {
+          failureCount.incrementAndGet();
+          failure.set(event);
+          failureReported.countDown();
+        }));
 
     final String[] ids = MiniRaftCluster.generateIds(1, 1);
     try (MiniRaftClusterWithGrpc cluster =
