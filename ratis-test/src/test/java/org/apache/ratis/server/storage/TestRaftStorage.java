@@ -24,9 +24,15 @@ import static org.apache.ratis.util.MD5FileUtil.MD5_SUFFIX;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectoryImpl.StorageState;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.SnapshotRetentionPolicy;
@@ -171,6 +177,37 @@ public class TestRaftStorage extends BaseTest {
     final RaftStorageImpl storage = formatRaftStorage(storageDir);
     assertMetadataFile(storage.getStorageDir().getMetaFile());
     storage.close();
+  }
+
+  @Test
+  public void testBootstrapConfiguration() throws Exception {
+    final RaftPeer follower = RaftPeer.newBuilder()
+        .setId("follower")
+        .setAddress("localhost:1001")
+        .setPriority(1)
+        .build();
+    final RaftPeer listener = RaftPeer.newBuilder()
+        .setId("listener")
+        .setAddress("localhost:1002")
+        .setStartupRole(RaftPeerRole.LISTENER)
+        .build();
+    final RaftConfiguration bootstrap = ServerImplUtils.newRaftConfiguration(
+        Collections.singletonList(follower), Collections.singletonList(listener));
+    final RaftConfigurationProto expected = LogProtoUtils.toRaftConfigurationProtoBuilder(bootstrap).build();
+
+    try (RaftStorageImpl storage = formatRaftStorage(storageDir)) {
+      storage.writeBootstrapConfiguration(bootstrap);
+      final RaftConfiguration recovered = storage.readBootstrapConfiguration();
+      Assertions.assertEquals(expected,
+          LogProtoUtils.toRaftConfigurationProtoBuilder(recovered).build());
+
+      storage.writeRaftConfiguration(LogProtoUtils.toLogEntryProto(bootstrap, 1L, 0L));
+      Assertions.assertNull(storage.readBootstrapConfiguration());
+      Assertions.assertEquals(0L, storage.readRaftConfiguration().getLogEntryIndex());
+
+      Files.write(storage.getStorageDir().getBootstrapConfFile().toPath(), new byte[0]);
+      Assertions.assertThrows(IOException.class, storage::readBootstrapConfiguration);
+    }
   }
 
   /**

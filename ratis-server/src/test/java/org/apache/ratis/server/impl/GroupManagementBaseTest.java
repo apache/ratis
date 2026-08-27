@@ -33,6 +33,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedBiConsumer;
@@ -45,10 +46,12 @@ import org.slf4j.event.Level;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.Random;
@@ -214,6 +217,103 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     Assertions.assertNotNull(RaftTestUtil.waitForLeader(cluster));
 
     cluster.shutdown();
+  }
+
+  @Test
+  public void testRecoverGroupBeforeInitialConfigurationEntry() throws Exception {
+    final MiniRaftCluster cluster = getCluster(0);
+    final BlockRequestHandlingInjection injection = BlockRequestHandlingInjection.getInstance();
+
+    try {
+      // Start three servers without an initial group.  The group will be added dynamically below.
+      final List<RaftPeerId> ids = Arrays.stream(MiniRaftCluster.generateIds(3, 0))
+          .map(RaftPeerId::valueOf).collect(Collectors.toList());
+      ids.forEach(id -> cluster.putNewServer(id, null, true));
+      cluster.start();
+
+      final List<RaftPeer> peers = cluster.getPeers();
+      final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(), peers);
+
+      // Prevent every candidate from receiving votes, so no leader can append the initial
+      // configuration entry before the servers are restarted.
+      peers.forEach(peer -> injection.blockRequestor(peer.getId().toString()));
+      try (RaftClient client = cluster.createClient(group)) {
+        for (RaftPeer peer : peers) {
+          client.getGroupManagementApi(peer.getId()).add(group);
+        }
+      }
+
+      cluster.getTimeoutMax().sleep();
+      for (RaftPeer peer : peers) {
+        final RaftServer.Division division = cluster.getDivision(peer.getId(), group.getGroupId());
+        Assertions.assertEquals(LifeCycle.State.RUNNING, division.getInfo().getLifeCycleState());
+        Assertions.assertNull(division.getRaftLog().getLastEntryTermIndex());
+        Assertions.assertFalse(division.getGroup().getPeers().isEmpty());
+        Assertions.assertTrue(new File(division.getRaftStorage().getStorageDir().getCurrentDir(),
+            "raft-meta.bootstrap").isFile());
+      }
+
+      // Restart through directory scanning: passing a null group makes recovery reconstruct
+      // the division from its directory name (group ID) only.
+      for (RaftPeer peer : peers) {
+        cluster.restartServer(peer.getId(), null, false);
+      }
+      injection.unblockAll();
+
+      cluster.getTimeoutMax().sleep();
+      for (RaftPeer peer : peers) {
+        final RaftServer.Division division = cluster.getDivision(peer.getId(), group.getGroupId());
+        Assertions.assertIterableEquals(peers, division.getGroup().getPeers());
+        Assertions.assertEquals(LifeCycle.State.RUNNING, division.getInfo().getLifeCycleState());
+      }
+      Assertions.assertNotNull(RaftTestUtil.waitForLeader(cluster, group.getGroupId()));
+      JavaUtils.attempt(() -> {
+        for (RaftPeer peer : peers) {
+          final RaftServer.Division division = cluster.getDivision(peer.getId(), group.getGroupId());
+          Assertions.assertFalse(new File(division.getRaftStorage().getStorageDir().getCurrentDir(),
+              "raft-meta.bootstrap").exists());
+        }
+      }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS),
+          "wait for bootstrap configuration cleanup", LOG);
+    } finally {
+      injection.unblockAll();
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testRejectConflictingBootstrapConfiguration() throws Exception {
+    final MiniRaftCluster cluster = getCluster(0);
+    try {
+      final List<RaftPeerId> ids = Arrays.stream(MiniRaftCluster.generateIds(3, 0))
+          .map(RaftPeerId::valueOf).collect(Collectors.toList());
+      ids.forEach(id -> cluster.putNewServer(id, null, true));
+      cluster.start();
+
+      final List<RaftPeer> peers = cluster.getPeers();
+      final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(), peers);
+      final RaftPeer target = peers.get(0);
+      try (RaftClient client = cluster.createClient(group)) {
+        client.getGroupManagementApi(target.getId()).add(group);
+      }
+
+      final RaftServer.Division division = cluster.getDivision(target.getId(), group.getGroupId());
+      Assertions.assertNull(division.getRaftLog().getLastEntryTermIndex());
+
+      final List<RaftPeer> conflictingPeers = new ArrayList<>(peers.subList(0, 2));
+      conflictingPeers.add(RaftPeer.newBuilder()
+          .setId("conflicting-peer")
+          .setAddress("localhost:12345")
+          .build());
+      final RaftGroup conflictingGroup = RaftGroup.valueOf(group.getGroupId(), conflictingPeers);
+      final CompletionException exception = Assertions.assertThrows(CompletionException.class,
+          () -> cluster.restartServer(target.getId(), conflictingGroup, false));
+      final Throwable cause = JavaUtils.unwrapCompletionException(exception);
+      Assertions.assertInstanceOf(IOException.class, cause);
+      Assertions.assertTrue(cause.toString().contains("Conflicting bootstrap configuration"), cause::toString);
+    } finally {
+      cluster.shutdown();
+    }
   }
 
   @Test

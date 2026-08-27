@@ -1938,7 +1938,11 @@ class RaftServerImpl implements RaftServer.Division,
     case CONFIGURATIONENTRY:
       // the reply should have already been set. only need to record
       // the new conf in the metadata file and notify the StateMachine.
-      state.writeRaftConfiguration(next);
+      try {
+        state.writeRaftConfiguration(next);
+      } catch (IOException e) {
+        throw new RaftLogIOException(e);
+      }
       stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(),
           next.getConfigurationEntry());
       role.getLeaderState().ifPresent(leader -> leader.checkReady(next));
