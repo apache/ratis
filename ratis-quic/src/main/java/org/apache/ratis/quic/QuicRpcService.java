@@ -30,6 +30,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import io.netty.util.concurrent.EventExecutorGroup;
+import io.netty.channel.socket.nio.NioChannelOption;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
@@ -85,7 +86,9 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -272,6 +275,23 @@ public final class QuicRpcService
   private final EventLoopGroup group;
   private final InetSocketAddress socketAddress;
   private final MemoizedSupplier<ChannelFuture> channelFuture;
+  /** Kodeki gniazd 2..N (puste gdy SOCKETS == 1). QuicheQuicCodec.isSharable() == false,
+   *  wiec kazde gniazdo musi dostac wlasny egzemplarz. */
+  private final List<ChannelHandler> extraCodecs = new ArrayList<>();
+  /** Gniazda 2..N, zbindowane w startImpl(), zamykane w closeImpl(). */
+  private final List<Channel> extraChannels = new ArrayList<>();
+
+  // TYMCZASOWE (eksperyment 2026-08-27): -Dratis.quic.single.pool=true laczy pule
+  // clientRequest i peerRequest w jedna, 2x rdzenie — tyle co workerGroup w Netty.
+  // Domyslnie false = zachowanie dotychczasowe. DO USUNIECIA po pomiarach.
+  private static final boolean SINGLE_POOL = Boolean.getBoolean("ratis.quic.single.pool");
+
+  // TYMCZASOWE (eksperyment 2026-08-27): -Dratis.quic.sockets=N binduje N gniazd UDP na tym
+  // samym porcie z SO_REUSEPORT, kazde z wlasnym kodekiem i wlasnym watkiem petli — inaczej
+  // caly transport (syscalle, krypto quiche, kodeki) siedzi na jednym watku, bo jedno gniazdo
+  // = jeden kanal = jeden event loop. Domyslnie 1 = zachowanie dotychczasowe.
+  // DO USUNIECIA po pomiarach.
+  private static final int SOCKETS = Math.max(1, Integer.getInteger("ratis.quic.sockets", 1));
 
   /**
    * Runs the blocking client-request handler off the event loop.
@@ -287,7 +307,8 @@ public final class QuicRpcService
   private final EventExecutorGroup clientRequestExecutor = new DefaultEventExecutorGroup(
       Runtime.getRuntime().availableProcessors() * 2,
       (java.util.concurrent.ThreadFactory) r -> {
-        final Thread t = new Thread(r, "QuicRpcService-clientRequest-");
+        final Thread t = new Thread(r, SINGLE_POOL
+            ? "QuicRpcService-request-" : "QuicRpcService-clientRequest-");
         t.setDaemon(true);
         return t;
       });
@@ -303,13 +324,15 @@ public final class QuicRpcService
    * streams and distinct peers proceed in parallel. TCP reaches parallelism per connection and
    * can go no finer, since one connection carries one ordered byte stream.
    */
-  private final EventExecutorGroup peerRequestExecutor = new DefaultEventExecutorGroup(
-      Runtime.getRuntime().availableProcessors(),
-      (java.util.concurrent.ThreadFactory) r -> {
-        final Thread t = new Thread(r, "QuicRpcService-peerRequest-");
-        t.setDaemon(true);
-        return t;
-      });
+  private final EventExecutorGroup peerRequestExecutor = SINGLE_POOL
+      ? clientRequestExecutor
+      : new DefaultEventExecutorGroup(
+          Runtime.getRuntime().availableProcessors(),
+          (java.util.concurrent.ThreadFactory) r -> {
+            final Thread t = new Thread(r, "QuicRpcService-peerRequest-");
+            t.setDaemon(true);
+            return t;
+          });
 
   // ---- Constructor --------------------------------------------------------
 
@@ -329,16 +352,10 @@ public final class QuicRpcService
           }
         };
 
-    final ChannelHandler quicCodec = new QuicServerCodecBuilder()
-        .sslContext(sslCtx)
-        .maxIdleTimeout(0, TimeUnit.MILLISECONDS)
-        .initialMaxData(128 * 1024 * 1024)
-        .initialMaxStreamDataBidirectionalLocal(16 * 1024 * 1024)
-        .initialMaxStreamDataBidirectionalRemote(16 * 1024 * 1024)
-        .initialMaxStreamsBidirectional(100)
-        .tokenHandler(InsecureQuicTokenHandler.INSTANCE)
-        .streamHandler(streamInit)
-        .build();
+    final ChannelHandler quicCodec = newQuicCodec(sslCtx, streamInit);
+    for (int i = 1; i < SOCKETS; i++) {
+      extraCodecs.add(newQuicCodec(sslCtx, streamInit));
+    }
 
     this.group = new NioEventLoopGroup(0,
         (java.util.concurrent.ThreadFactory) r ->
@@ -351,12 +368,49 @@ public final class QuicRpcService
         : new InetSocketAddress(host, port);
 
     // Lazy bind — actual socket open happens in startImpl().
-    this.channelFuture = JavaUtils.memoize(() ->
-        new Bootstrap()
-            .group(group)
-            .channel(NioDatagramChannel.class)
-            .handler(quicCodec)
-            .bind(socketAddress));
+    this.channelFuture = JavaUtils.memoize(() -> newBootstrap(quicCodec).bind(socketAddress));
+  }
+
+  /** Kodek QUIC dla jednego gniazda. Wolane raz na gniazdo — patrz {@link #extraCodecs}. */
+  private static ChannelHandler newQuicCodec(QuicSslContext sslCtx,
+      ChannelInitializer<QuicStreamChannel> streamInit) {
+    return new QuicServerCodecBuilder()
+        .sslContext(sslCtx)
+        .maxIdleTimeout(0, TimeUnit.MILLISECONDS)
+        .initialMaxData(128 * 1024 * 1024)
+        .initialMaxStreamDataBidirectionalLocal(16 * 1024 * 1024)
+        .initialMaxStreamDataBidirectionalRemote(16 * 1024 * 1024)
+        .initialMaxStreamsBidirectional(100)
+        .tokenHandler(InsecureQuicTokenHandler.INSTANCE)
+        .streamHandler(streamInit)
+        .build();
+  }
+
+  /** SO_REUSEPORT ustawiany tylko gdy gniazd jest wiecej niz jedno, zeby domyslna sciezka
+   *  byla identyczna jak przed eksperymentem. */
+  private Bootstrap newBootstrap(ChannelHandler codec) {
+    final Bootstrap b = new Bootstrap()
+        .group(group)
+        .channel(NioDatagramChannel.class)
+        .handler(codec);
+    if (SOCKETS > 1) {
+      b.option(NioChannelOption.of(reusePortOption()), true);
+    }
+    return b;
+  }
+
+  /** StandardSocketOptions.SO_REUSEPORT przez refleksje: projekt kompiluje sie z API Javy 8
+   *  (javaVersion=8), a pole istnieje od Javy 9 — bez refleksji kompilator Eclipse wszywa
+   *  blad "cannot be resolved" do klasy. W runtime (jdk21) pole zawsze jest. */
+  @SuppressWarnings("unchecked")
+  private static java.net.SocketOption<Boolean> reusePortOption() {
+    try {
+      return (java.net.SocketOption<Boolean>)
+          StandardSocketOptions.class.getField("SO_REUSEPORT").get(null);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException(
+          "-Dratis.quic.sockets > 1 requires SO_REUSEPORT (Java 9+)", e);
+    }
   }
 
   // ---- RaftServerRpc interface --------------------------------------------
@@ -370,6 +424,17 @@ public final class QuicRpcService
   public void startImpl() throws IOException {
     try {
       channelFuture.get().syncUninterruptibly();
+      if (!extraCodecs.isEmpty()) {
+        // Port moze byc efemeryczny (PORT_DEFAULT == 0), wiec pozostale gniazda binduja sie
+        // pod adres, ktory dostalo pierwsze — nie pod socketAddress.
+        final InetSocketAddress bound =
+            (InetSocketAddress) channelFuture.get().channel().localAddress();
+        for (ChannelHandler codec : extraCodecs) {
+          extraChannels.add(newBootstrap(codec).bind(bound).syncUninterruptibly().channel());
+        }
+        LOG.info("{}: {} UDP sockets bound on {} (SO_REUSEPORT)",
+            getId(), extraChannels.size() + 1, bound);
+      }
       LOG.info("{}: QUIC server started on {}", getId(), getInetSocketAddress());
     } catch (Exception e) {
       throw new IOException(getId() + ": Failed to start " + CLASS_NAME, e);
@@ -378,6 +443,10 @@ public final class QuicRpcService
 
   @Override
   public void closeImpl() throws IOException {
+    for (Channel ch : extraChannels) {
+      ch.close().syncUninterruptibly();
+    }
+    extraChannels.clear();
     if (channelFuture.isInitialized()) {
       channelFuture.get().awaitUninterruptibly().channel()
           .close().syncUninterruptibly();
