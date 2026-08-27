@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.Timestamp;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -91,13 +92,60 @@ class TestLogAppenderDefault {
     verifyNoMoreInteractions(leaderState);
   }
 
+  @Test
+  void noInstallSnapshotWhenFollowerSnapshotCoversPreviousEntry() {
+    // RATIS-2500: leader log is [159, 168) with the previous entry 158 purged, and the follower
+    // (nextIndex = 159) has a snapshot covering 158 (typically reported via ALREADY_INSTALLED).
+    // The leader should append (previous == null is allowed by newAppendEntriesRequest in this case)
+    // instead of looping on InstallSnapshot notifications.
+    final LeaderState leaderState = mock(LeaderState.class);
+    final TestFollowerInfo follower = new TestFollowerInfo(159, 158);
+    follower.setSnapshotIndex(158);
+    final LogAppenderDefault appender = newLogAppender(leaderState, follower, newRaftLog(168, 159));
+
+    Assertions.assertFalse(appender.shouldInstallSnapshot(true));
+  }
+
+  @Test
+  void installSnapshotWhenFollowerSnapshotDoesNotCoverPreviousEntry() {
+    final LeaderState leaderState = mock(LeaderState.class);
+    final TestFollowerInfo follower = new TestFollowerInfo(159, 100);
+    follower.setSnapshotIndex(100);
+    final LogAppenderDefault appender = newLogAppender(leaderState, follower, newRaftLog(168, 159));
+
+    Assertions.assertTrue(appender.shouldInstallSnapshot(true));
+  }
+
+  @Test
+  void installSnapshotWhenFollowerNextIndexBelowLeaderStartIndex() {
+    final LeaderState leaderState = mock(LeaderState.class);
+    final TestFollowerInfo follower = new TestFollowerInfo(150, 149);
+    follower.setSnapshotIndex(149);
+    final LogAppenderDefault appender = newLogAppender(leaderState, follower, newRaftLog(168, 159));
+
+    Assertions.assertTrue(appender.shouldInstallSnapshot(true));
+  }
+
   private static LogAppenderDefault newLogAppender(LeaderState leaderState, FollowerInfo follower) {
+    return newLogAppender(leaderState, follower, mock(RaftLog.class));
+  }
+
+  private static LogAppenderDefault newLogAppender(LeaderState leaderState, FollowerInfo follower, RaftLog raftLog) {
     final RaftServer.Division division = mock(RaftServer.Division.class);
     final RaftServer raftServer = mock(RaftServer.class);
     when(division.getRaftServer()).thenReturn(raftServer);
     when(division.getThreadGroup()).thenReturn(Thread.currentThread().getThreadGroup());
     when(raftServer.getProperties()).thenReturn(new RaftProperties());
+    when(division.getRaftLog()).thenReturn(raftLog);
+    when(division.getStateMachine()).thenReturn(mock(StateMachine.class));
     return new LogAppenderDefault(division, leaderState, follower);
+  }
+
+  private static RaftLog newRaftLog(long nextIndex, long startIndex) {
+    final RaftLog raftLog = mock(RaftLog.class);
+    when(raftLog.getNextIndex()).thenReturn(nextIndex);
+    when(raftLog.getStartIndex()).thenReturn(startIndex);
+    return raftLog;
   }
 
   private static AppendEntriesReplyProto newSuccessReply(long nextIndex) {
@@ -113,6 +161,7 @@ class TestLogAppenderDefault {
     private final AtomicInteger nextIndexIncreases = new AtomicInteger();
     private long matchIndex;
     private long nextIndex;
+    private long snapshotIndex;
 
     private TestFollowerInfo(long nextIndex, long matchIndex) {
       this.nextIndex = nextIndex;
@@ -161,11 +210,12 @@ class TestLogAppenderDefault {
 
     @Override
     public long getSnapshotIndex() {
-      return 0;
+      return snapshotIndex;
     }
 
     @Override
     public void setSnapshotIndex(long newSnapshotIndex) {
+      snapshotIndex = newSnapshotIndex;
     }
 
     @Override
