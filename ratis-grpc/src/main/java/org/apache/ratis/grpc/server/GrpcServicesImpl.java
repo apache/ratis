@@ -211,10 +211,12 @@ public final class GrpcServicesImpl
           new InetSocketAddress(port) : new InetSocketAddress(hostname, port);
       final NettyServerBuilder nettyServerBuilder;
       if (serverCredentials != null) {
+        LOG.info("Setting server credentials for {}", address);
         nettyServerBuilder = NettyServerBuilder.forAddress(address, serverCredentials);
       } else {
         nettyServerBuilder = NettyServerBuilder.forAddress(address);
         if (sslContext != null) {
+          LOG.info("Setting sslContext for {}", address);
           nettyServerBuilder.sslContext(sslContext);
         }
       }
@@ -234,11 +236,6 @@ public final class GrpcServicesImpl
         nettyServerBuilder.workerEventLoopGroup(serverWorkers);
       }
 
-      if (serverCredentials != null) {
-        LOG.info("Setting server credentials for {}", address);
-      } else if (sslContext != null) {
-        LOG.info("Setting TLS for {}", address);
-      }
       return nettyServerBuilder;
     }
 

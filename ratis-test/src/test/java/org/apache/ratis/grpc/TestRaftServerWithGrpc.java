@@ -527,7 +527,8 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     GrpcConfigKeys.Client.setTlsConf(parameters, clientConfig);
 
     final AtomicInteger failureCount = new AtomicInteger();
-    final AtomicReference<TlsHandshakeFailureEvent> failure = new AtomicReference<>();
+    final AtomicReference<TlsHandshakeFailureServerCredentials.Event> failure =
+        new AtomicReference<>();
     final CountDownLatch failureReported = new CountDownLatch(1);
     GrpcConfigKeys.Server.setCredentials(parameters,
         TlsHandshakeFailureServerCredentials.create(serverConfig, event -> {
@@ -553,7 +554,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
         socket.getOutputStream().flush();
 
         Assertions.assertTrue(failureReported.await(10, TimeUnit.SECONDS));
-        final TlsHandshakeFailureEvent event = failure.get();
+        final TlsHandshakeFailureServerCredentials.Event event = failure.get();
         Assertions.assertNotNull(event);
         Assertions.assertTrue(event.isInbound());
         Assertions.assertEquals(serverAddress.getPort(),

@@ -25,7 +25,7 @@
   </Match>
   <!-- The original cause and its chain are part of the handshake failure event API. -->
   <Match>
-    <Class name="org.apache.ratis.grpc.TlsHandshakeFailureEvent"/>
+    <Class name="org.apache.ratis.grpc.TlsHandshakeFailureServerCredentials$Event"/>
     <Bug pattern="EI_EXPOSE_REP"/>
   </Match>
 </FindBugsFilter>

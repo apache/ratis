@@ -43,8 +43,11 @@ import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 
+import java.net.SocketAddress;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /** Builds gRPC server credentials which report initial TLS handshake failures. */
 public final class TlsHandshakeFailureServerCredentials {
@@ -58,11 +61,12 @@ public final class TlsHandshakeFailureServerCredentials {
    * Creates server credentials from the given TLS configuration and failure listener.
    *
    * @param tlsConfig the server TLS configuration
-   * @param listener the listener for TLS handshake failures
+   * @param listener the listener for TLS handshake failures; it is invoked on a transport event-loop
+   *                 thread and must not block
    * @return server credentials reporting TLS handshake failures
    */
   public static ServerCredentials create(
-      GrpcTlsConfig tlsConfig, TlsHandshakeFailureListener listener) {
+      GrpcTlsConfig tlsConfig, Consumer<Event> listener) {
     Objects.requireNonNull(tlsConfig, "tlsConfig");
     Objects.requireNonNull(listener, "listener");
     final SslContext sslContext = GrpcUtil.buildSslContextForServer(tlsConfig);
@@ -80,9 +84,9 @@ public final class TlsHandshakeFailureServerCredentials {
 
   private static final class Factory implements InternalProtocolNegotiator.ServerFactory {
     private final SslContext sslContext;
-    private final TlsHandshakeFailureListener listener;
+    private final Consumer<Event> listener;
 
-    private Factory(SslContext sslContext, TlsHandshakeFailureListener listener) {
+    private Factory(SslContext sslContext, Consumer<Event> listener) {
       this.sslContext = sslContext;
       this.listener = listener;
     }
@@ -96,11 +100,11 @@ public final class TlsHandshakeFailureServerCredentials {
 
   private static final class Negotiator implements InternalProtocolNegotiator.ProtocolNegotiator {
     private final SslContext sslContext;
-    private final TlsHandshakeFailureListener listener;
+    private final Consumer<Event> listener;
     private final ObjectPool<? extends Executor> offloadExecutorPool;
     private final Executor executor;
 
-    private Negotiator(SslContext sslContext, TlsHandshakeFailureListener listener,
+    private Negotiator(SslContext sslContext, Consumer<Event> listener,
         ObjectPool<? extends Executor> offloadExecutorPool) {
       this.sslContext = sslContext;
       this.listener = listener;
@@ -118,7 +122,7 @@ public final class TlsHandshakeFailureServerCredentials {
       final ChannelHandler grpcNegotiationHandler =
           InternalProtocolNegotiators.grpcNegotiationHandler(grpcHandler);
       final ChannelHandler tlsHandler = new ServerTlsHandler(grpcNegotiationHandler, grpcHandler,
-          sslContext, listener, offloadExecutorPool);
+          sslContext, listener, executor);
       return InternalProtocolNegotiators.waitUntilActiveHandler(
           tlsHandler, grpcHandler.getNegotiationLogger());
     }
@@ -134,17 +138,16 @@ public final class TlsHandshakeFailureServerCredentials {
   private static final class ServerTlsHandler
       extends InternalProtocolNegotiators.ProtocolNegotiationHandler {
     private final SslContext sslContext;
-    private final TlsHandshakeFailureListener listener;
+    private final Consumer<Event> listener;
     private final Executor executor;
-    private boolean failureReported;
+    private final AtomicBoolean failureReported = new AtomicBoolean();
 
     private ServerTlsHandler(ChannelHandler next, GrpcHttp2ConnectionHandler grpcHandler,
-        SslContext sslContext, TlsHandshakeFailureListener listener,
-        ObjectPool<? extends Executor> offloadExecutorPool) {
+        SslContext sslContext, Consumer<Event> listener, Executor executor) {
       super(next, grpcHandler.getNegotiationLogger());
       this.sslContext = sslContext;
       this.listener = listener;
-      this.executor = offloadExecutorPool != null ? offloadExecutorPool.getObject() : null;
+      this.executor = executor;
     }
 
     @Override
@@ -175,11 +178,12 @@ public final class TlsHandshakeFailureServerCredentials {
       }
 
       final SslHandler sslHandler = context.pipeline().get(SslHandler.class);
-      if (!sslContext.applicationProtocolNegotiator().protocols()
-          .contains(sslHandler.applicationProtocol())) {
-        final RuntimeException cause = Status.UNAVAILABLE
-            .withDescription("Failed protocol negotiation: Unable to find compatible protocol")
-            .asRuntimeException();
+      final String protocol = sslHandler.applicationProtocol();
+      if (!sslContext.applicationProtocolNegotiator().protocols().contains(protocol)) {
+        final Exception cause = Status.UNAVAILABLE
+            .withDescription(
+                "Failed protocol negotiation: Unable to find compatible protocol for " + protocol)
+            .asException();
         notifyListener(context, cause);
         context.fireExceptionCaught(cause);
         return;
@@ -188,12 +192,11 @@ public final class TlsHandshakeFailureServerCredentials {
     }
 
     private void notifyListener(ChannelHandlerContext context, Throwable cause) {
-      if (failureReported) {
+      if (!failureReported.compareAndSet(false, true)) {
         return;
       }
-      failureReported = true;
       try {
-        listener.onFailure(new TlsHandshakeFailureEvent(cause,
+        listener.accept(new Event(cause,
             context.channel().localAddress(), context.channel().remoteAddress(), true));
       } catch (Throwable listenerFailure) {
         LOG.warn("TLS handshake failure listener threw an exception", listenerFailure);
@@ -211,6 +214,38 @@ public final class TlsHandshakeFailureServerCredentials {
               getProtocolNegotiationEvent(), attributes),
           new InternalChannelz.Security(new InternalChannelz.Tls(session))));
       fireProtocolNegotiationEvent(context);
+    }
+  }
+
+  /** Information about a failed TLS handshake. */
+  public static final class Event {
+    private final Throwable cause;
+    private final SocketAddress localAddress;
+    private final SocketAddress remoteAddress;
+    private final boolean inbound;
+
+    Event(Throwable cause, SocketAddress localAddress,
+        SocketAddress remoteAddress, boolean inbound) {
+      this.cause = Objects.requireNonNull(cause, "cause");
+      this.localAddress = localAddress;
+      this.remoteAddress = remoteAddress;
+      this.inbound = inbound;
+    }
+
+    public Throwable getCause() {
+      return cause;
+    }
+
+    public SocketAddress getLocalAddress() {
+      return localAddress;
+    }
+
+    public SocketAddress getRemoteAddress() {
+      return remoteAddress;
+    }
+
+    public boolean isInbound() {
+      return inbound;
     }
   }
 }
