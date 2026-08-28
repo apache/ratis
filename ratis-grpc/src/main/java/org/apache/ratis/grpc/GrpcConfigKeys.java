@@ -21,6 +21,7 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.server.GrpcServices;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.thirdparty.io.grpc.ServerCredentials;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -291,6 +292,16 @@ public interface GrpcConfigKeys {
     }
     static void setServicesCustomizer(Parameters parameters, GrpcServices.Customizer customizer) {
       parameters.put(SERVICES_CUSTOMIZER_PARAMETER, customizer, SERVICES_CUSTOMIZER_CLASS);
+    }
+
+    String CREDENTIALS_PARAMETER = PREFIX + ".credentials";
+    Class<ServerCredentials> CREDENTIALS_CLASS = ServerCredentials.class;
+    static ServerCredentials credentials(Parameters parameters) {
+      return parameters == null ? null
+          : parameters.get(CREDENTIALS_PARAMETER, CREDENTIALS_CLASS);
+    }
+    static void setCredentials(Parameters parameters, ServerCredentials credentials) {
+      parameters.put(CREDENTIALS_PARAMETER, credentials, CREDENTIALS_CLASS);
     }
 
     String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";

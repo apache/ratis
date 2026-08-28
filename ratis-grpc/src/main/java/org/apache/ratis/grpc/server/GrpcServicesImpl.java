@@ -31,10 +31,11 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
+import org.apache.ratis.thirdparty.io.grpc.Server;
+import org.apache.ratis.thirdparty.io.grpc.ServerCredentials;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptor;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
-import org.apache.ratis.thirdparty.io.grpc.Server;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
@@ -99,6 +100,7 @@ public final class GrpcServicesImpl
   public static final class Builder {
     private RaftServer server;
     private Customizer customizer;
+    private ServerCredentials serverCredentials;
 
     private String adminHost;
     private int adminPort;
@@ -157,6 +159,11 @@ public final class GrpcServicesImpl
       return this;
     }
 
+    public Builder setServerCredentials(ServerCredentials credentials) {
+      this.serverCredentials = credentials;
+      return this;
+    }
+
     private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target, EventLoopGroup eventLoopGroup) {
       return new GrpcServerProtocolClient(target, serverStubPoolSize, flowControlWindow.getSizeInt(),
           requestTimeoutDuration, serverSslContextForClient, separateHeartbeatChannel, eventLoopGroup);
@@ -202,7 +209,18 @@ public final class GrpcServicesImpl
     private NettyServerBuilder newNettyServerBuilder(String hostname, int port, SslContext sslContext) {
       final InetSocketAddress address = hostname == null || hostname.isEmpty() ?
           new InetSocketAddress(port) : new InetSocketAddress(hostname, port);
-      final NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forAddress(address)
+      final NettyServerBuilder nettyServerBuilder;
+      if (serverCredentials != null) {
+        LOG.info("Setting server credentials for {}", address);
+        nettyServerBuilder = NettyServerBuilder.forAddress(address, serverCredentials);
+      } else {
+        nettyServerBuilder = NettyServerBuilder.forAddress(address);
+        if (sslContext != null) {
+          LOG.info("Setting sslContext for {}", address);
+          nettyServerBuilder.sslContext(sslContext);
+        }
+      }
+      nettyServerBuilder
           .withChildOption(ChannelOption.SO_REUSEADDR, true)
           .maxInboundMessageSize(messageSizeMax.getSizeInt())
           .flowControlWindow(flowControlWindow.getSizeInt());
@@ -218,10 +236,6 @@ public final class GrpcServicesImpl
         nettyServerBuilder.workerEventLoopGroup(serverWorkers);
       }
 
-      if (sslContext != null) {
-        LOG.info("Setting TLS for {}", address);
-        nettyServerBuilder.sslContext(sslContext);
-      }
       return nettyServerBuilder;
     }
 
