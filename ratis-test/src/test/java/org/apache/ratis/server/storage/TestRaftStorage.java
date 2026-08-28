@@ -491,7 +491,10 @@ public class TestRaftStorage extends BaseTest {
       simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
 
       List<String> snapshotNames = listMatchingFileNames(stateMachineDir, SNAPSHOT_REGEX);
-      Assertions.assertEquals(3, snapshotNames.size());
+      Assertions.assertEquals(2, snapshotNames.size());
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 300)));
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 200)));
+      Assertions.assertFalse(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 100)));
       Assertions.assertTrue(listMatchingFileNames(stateMachineDir, SNAPSHOT_MD5_REGEX).isEmpty());
     } finally {
       storage.close();

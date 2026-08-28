@@ -135,6 +135,14 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
       }
     }
 
+    // Backward compatibility: before MD5 files existed, all snapshots counted toward
+    // retention. When there are fewer MD5 snapshots than numSnapshotsRetained (e.g.
+    // all old snapshots without MD5, or old snapshots mixed with new ones after upgrade),
+    // fall back to retaining the newest numSnapshotsRetained snapshots regardless of MD5.
+    if (deleteIdx < 0 && allSnapshotFiles.size() > numSnapshotsRetained) {
+      deleteIdx = numSnapshotsRetained;
+    }
+
     if (deleteIdx > 0) {
       allSnapshotFiles.subList(deleteIdx, allSnapshotFiles.size())
           .stream()
