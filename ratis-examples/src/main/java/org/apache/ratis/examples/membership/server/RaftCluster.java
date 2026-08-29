@@ -143,15 +143,24 @@ public class RaftCluster {
   }
 
   public void queryCounter() throws IOException {
-    RaftClient client = createClient();
-    try {
-      RaftClientReply reply = client.io().sendReadOnly(CounterCommand.GET.getMessage());
-      String count = reply.getMessage().getContent().toStringUtf8();
-      System.out.println("Current counter value: " + count);
-    } finally {
-      client.close();
-    }
+  RaftClient client = createClient();
+  try {
+    RaftClientReply reply = client.io().sendReadOnly(
+        CounterCommand.GET.getMessage());
+
+    ByteBuffer buffer =
+        reply.getMessage()
+             .getContent()
+             .asReadOnlyByteBuffer();
+
+    int count = buffer.getInt();
+
+    System.out.println(
+        "Current counter value: " + count);
+  } finally {
+    client.close();
   }
+}
 
   /**
    * Configure the raft group with initial peers.
