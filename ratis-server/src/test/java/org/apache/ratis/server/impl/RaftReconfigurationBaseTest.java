@@ -66,7 +66,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -515,6 +519,13 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     runWithNewCluster(3, this::runTestKillLeaderDuringReconf);
   }
 
+  /**
+   * Checks whether the server is bootstrapping the given peer.
+   *
+   * @param server the server division to check
+   * @param peerId the ID of the peer to check
+   * @return true if the peer is being bootstrapped in the leader staging state; otherwise, false
+   */
   private static boolean isBootstrappingPeer(RaftServer.Division server, RaftPeerId peerId) {
     return ((RaftServerImpl) server).getRole().getLeaderState()
         .filter(LeaderStateImpl::inStagingState)
@@ -543,16 +554,16 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       try {
         JavaUtils.attempt(() -> {
-          Assertions.assertFalse(setConfTask.isDone(),
+          assertFalse(setConfTask.isDone(),
               () -> "setConfiguration completed before the leader was killed; " + cluster.printServers());
-          Assertions.assertTrue(isBootstrappingPeer(cluster.getDivision(leaderId), newPeerId),
+          assertTrue(isBootstrappingPeer(cluster.getDivision(leaderId), newPeerId),
               () -> "Leader " + leaderId + " is not bootstrapping peer " + newPeerId
                   + "; " + cluster.printServers());
         }, 10, cluster.getTimeoutMax(), "wait for the original leader to bootstrap " + newPeerId, LOG);
 
         // The leader cannot generate the (old, new) conf, and it will keep
         // bootstrapping the new peer since it has not started yet.
-        Assertions.assertFalse(((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).isTransitional());
+        assertFalse(((RaftConfigurationImpl)cluster.getLeader().getRaftConf()).isTransitional());
 
         // (0) the first conf entry, (1) the 1st setConf entry, (2) a metadata entry
         // (3) new current conf entry  (4) a metadata entry
@@ -562,21 +573,21 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
             LOG.info("{}", LogProtoUtils.toLogEntryString(e));
           }
           final long commitIndex = leaderLog.getLastCommittedIndex();
-          Assertions.assertTrue(commitIndex <= 2,
+          assertTrue(commitIndex <= 2,
               () -> "commitIndex = " + commitIndex + " > 2; " + cluster.printServers());
         }
 
         final RaftPeerId killed = RaftTestUtil.waitAndKillLeader(cluster);
-        Assertions.assertEquals(leaderId, killed);
+        assertEquals(leaderId, killed);
         final RaftServer.Division newLeader = RaftTestUtil.waitForLeader(cluster);
         final RaftPeerId newLeaderId = newLeader.getId();
-        Assertions.assertNotEquals(leaderId, newLeaderId);
+        assertNotEquals(leaderId, newLeaderId);
         LOG.info("newLeaderId: {}", newLeaderId);
 
         JavaUtils.attempt(() -> {
-          Assertions.assertFalse(setConfTask.isDone(),
+          assertFalse(setConfTask.isDone(),
               () -> "setConfiguration completed before the new peer was started; " + cluster.printServers());
-          Assertions.assertTrue(isBootstrappingPeer(newLeader, newPeerId),
+          assertTrue(isBootstrappingPeer(newLeader, newPeerId),
               () -> "New leader " + newLeaderId + " is not bootstrapping peer " + newPeerId
                   + "; " + cluster.printServers());
         }, 30, cluster.getTimeoutMax(), "wait for the new leader to bootstrap " + newPeerId, LOG);
@@ -599,9 +610,9 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
               + cluster.printServers(), e.getCause());
         }
 
-        Assertions.assertTrue(reply.isSuccess(),
+        assertTrue(reply.isSuccess(),
             () -> "setConfiguration returned an unsuccessful reply: " + reply + "; " + cluster.printServers());
-        Assertions.assertEquals(LifeCycle.State.RUNNING, newDivision.getInfo().getLifeCycleState(),
+        assertEquals(LifeCycle.State.RUNNING, newDivision.getInfo().getLifeCycleState(),
             () -> "New peer " + newPeerId + " stopped during reconfiguration; " + cluster.printServers());
 
         // the client fails with the first leader, and then retry the same setConfiguration request
@@ -613,7 +624,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       }
     } finally {
       executor.shutdownNow();
-      Assertions.assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS),
+      assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS),
           "setConfiguration executor did not terminate");
     }
   }
