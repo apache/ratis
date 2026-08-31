@@ -120,11 +120,13 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     final List<SingleFileSnapshotInfo> allSnapshotFiles = getSingleFileSnapshotInfos(stateMachineDir.toPath());
     allSnapshotFiles.sort(Comparator.comparing(SingleFileSnapshotInfo::getIndex).reversed());
     int numSnapshotsWithMd5 = 0;
+    int lastSnapshotsWithMd5 = -1;
     int deleteIdx = -1;
 
     for (int i = 0; i < allSnapshotFiles.size(); i++) {
       final SingleFileSnapshotInfo snapshot = allSnapshotFiles.get(i);
       if (snapshot.hasMd5()) {
+        lastSnapshotsWithMd5 = i;
         if (++numSnapshotsWithMd5 == numSnapshotsRetained) {
           // We have found the last snapshot with an MD5 file that needs to be retained
           deleteIdx = i + 1;
@@ -135,12 +137,12 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
       }
     }
 
-    // Backward compatibility: before MD5 files existed, all snapshots counted toward
-    // retention. When there are fewer MD5 snapshots than numSnapshotsRetained (e.g.
-    // all old snapshots without MD5, or old snapshots mixed with new ones after upgrade),
-    // fall back to retaining the newest numSnapshotsRetained snapshots regardless of MD5.
     if (deleteIdx < 0 && allSnapshotFiles.size() > numSnapshotsRetained) {
-      deleteIdx = numSnapshotsRetained;
+      // Before RATIS-244, the newest numSnapshotsRetained snapshots (with or without md5) are retained.
+      // For backward compatibility:
+      // - All snapshots without MD5 : retain the newest numSnapshotsRetained snapshots.
+      // - Snapshots mixed (with and without md5): retain all snapshots with md5 and the newer snapshots without md5.
+      deleteIdx = Math.max(numSnapshotsRetained, lastSnapshotsWithMd5 + 1);
     }
 
     if (deleteIdx > 0) {
