@@ -17,7 +17,6 @@
  */
 package org.apache.ratis;
 
-import org.apache.ratis.test.tag.Flaky;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
@@ -72,6 +71,7 @@ import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHIN
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS_DESC;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_APPLIED_INDEX_GAUGE;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_APPLY_COMPLETED_GAUGE;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -490,7 +490,6 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  @Flaky("RATIS-2262")
   @Test
   public void testStateMachineMetrics() throws Exception {
     runWithNewCluster(NUM_SERVERS, cluster -> runTestStateMachineMetrics(false, cluster));
@@ -499,30 +498,36 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   static void runTestStateMachineMetrics(boolean async, MiniRaftCluster cluster) throws Exception {
     RaftServer.Division leader = waitForLeader(cluster);
     try (final RaftClient client = cluster.createClient(leader.getId())) {
-      Gauge appliedIndexGauge = getStatemachineGaugeWithName(leader,
+      Gauge<?> appliedIndexGauge = getStatemachineGaugeWithName(leader,
           STATEMACHINE_APPLIED_INDEX_GAUGE);
-      Gauge smAppliedIndexGauge = getStatemachineGaugeWithName(leader,
+      Gauge<?> smAppliedIndexGauge = getStatemachineGaugeWithName(leader,
           STATEMACHINE_APPLY_COMPLETED_GAUGE);
 
       long appliedIndexBefore = (Long) appliedIndexGauge.getValue();
       long smAppliedIndexBefore = (Long) smAppliedIndexGauge.getValue();
       checkFollowerCommitLagsLeader(cluster);
 
-      if (async) {
-        CompletableFuture<RaftClientReply> replyFuture = client.async().send(new SimpleMessage("abc"));
-        replyFuture.get();
-      } else {
-        client.io().send(new SimpleMessage("abc"));
-      }
+      final RaftClientReply reply = async
+          ? client.async().send(new SimpleMessage("abc")).get(10, TimeUnit.SECONDS)
+          : client.io().send(new SimpleMessage("abc"));
+      RaftTestUtil.assertSuccessReply(reply);
 
-      long appliedIndexAfter = (Long) appliedIndexGauge.getValue();
-      long smAppliedIndexAfter = (Long) smAppliedIndexGauge.getValue();
+      final long expectedIndex = reply.getLogIndex();
+      assertTrue(expectedIndex > appliedIndexBefore,
+          () -> "expectedIndex=" + expectedIndex + " <= appliedIndexBefore=" + appliedIndexBefore);
+      assertTrue(expectedIndex > smAppliedIndexBefore,
+          () -> "expectedIndex=" + expectedIndex + " <= applyCompletedIndexBefore=" + smAppliedIndexBefore);
+
+      JavaUtils.attempt(() -> {
+        final long appliedIndex = (Long) appliedIndexGauge.getValue();
+        final long applyCompletedIndex = (Long) smAppliedIndexGauge.getValue();
+        assertTrue(appliedIndex >= expectedIndex,
+            () -> "appliedIndex=" + appliedIndex + " < expectedIndex=" + expectedIndex);
+        assertTrue(applyCompletedIndex >= expectedIndex,
+            () -> "applyCompletedIndex=" + applyCompletedIndex + " < expectedIndex=" + expectedIndex);
+      }, 10, HUNDRED_MILLIS, "state machine metrics reach index " + expectedIndex, RaftServer.Division.LOG);
+
       checkFollowerCommitLagsLeader(cluster);
-
-      Assertions.assertTrue(appliedIndexAfter > appliedIndexBefore,
-          "StateMachine Applied Index not incremented");
-      Assertions.assertTrue(smAppliedIndexAfter > smAppliedIndexBefore,
-          "StateMachine Apply completed Index not incremented");
     }
   }
 
@@ -530,21 +535,21 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final List<RaftServer.Division> followers = cluster.getFollowers();
     final RaftGroupMemberId leader = cluster.getLeader().getMemberId();
 
-    Gauge leaderCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, leader.getPeerId());
+    Gauge<?> leaderCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, leader.getPeerId());
 
     for (RaftServer.Division f : followers) {
       final RaftGroupMemberId follower = f.getMemberId();
-      Gauge followerCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, follower.getPeerId());
+      Gauge<?> followerCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, follower.getPeerId());
       Assertions.assertTrue((Long)leaderCommitGauge.getValue() >=
           (Long)followerCommitGauge.getValue());
-      Gauge followerMetric = ServerMetricsTestUtils.getPeerCommitIndexGauge(follower, follower.getPeerId());
+      Gauge<?> followerMetric = ServerMetricsTestUtils.getPeerCommitIndexGauge(follower, follower.getPeerId());
       System.out.println(followerCommitGauge.getValue());
       System.out.println(followerMetric.getValue());
       Assertions.assertTrue((Long)followerCommitGauge.getValue()  <= (Long)followerMetric.getValue());
     }
   }
 
-  private static Gauge getStatemachineGaugeWithName(RaftServer.Division server, String gaugeName) {
+  private static Gauge<?> getStatemachineGaugeWithName(RaftServer.Division server, String gaugeName) {
 
     MetricRegistryInfo info = new MetricRegistryInfo(server.getMemberId().toString(),
         RATIS_APPLICATION_NAME_METRICS,
