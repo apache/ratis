@@ -137,7 +137,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
       }
     }
 
-    if (deleteIdx < 0 && allSnapshotFiles.size() > numSnapshotsRetained) {
+    if (deleteIdx == -1 && allSnapshotFiles.size() > numSnapshotsRetained) {
       // Before RATIS-244, the newest numSnapshotsRetained snapshots (with or without md5) are retained.
       // For backward compatibility:
       // - All snapshots without MD5 : retain the newest numSnapshotsRetained snapshots.
