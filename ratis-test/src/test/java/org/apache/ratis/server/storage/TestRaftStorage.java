@@ -491,8 +491,128 @@ public class TestRaftStorage extends BaseTest {
       simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
 
       List<String> snapshotNames = listMatchingFileNames(stateMachineDir, SNAPSHOT_REGEX);
-      Assertions.assertEquals(3, snapshotNames.size());
+      Assertions.assertEquals(2, snapshotNames.size());
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 300)));
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 200)));
+      Assertions.assertFalse(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 100)));
       Assertions.assertTrue(listMatchingFileNames(stateMachineDir, SNAPSHOT_MD5_REGEX).isEmpty());
+    } finally {
+      storage.close();
+    }
+  }
+
+  @Test
+  public void testCleanupOldSnapshotsMixedRetainsAllMd5AndNewerWithoutMd5() throws Exception {
+    SnapshotRetentionPolicy snapshotRetentionPolicy = new SnapshotRetentionPolicy() {
+      @Override
+      public int getNumSnapshotsRetained() {
+        return 3;
+      }
+    };
+
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+    try {
+      // Newer snapshots without MD5 (pre-upgrade) at higher indices.
+      createSnapshot(simpleStateMachineStorage, 1, 900, false);
+      createSnapshot(simpleStateMachineStorage, 1, 800, false);
+      // Newer snapshots with MD5 (post-upgrade) at lower indices; fewer than numSnapshotsRetained.
+      createSnapshot(simpleStateMachineStorage, 1, 700, true);
+      createSnapshot(simpleStateMachineStorage, 1, 600, true);
+
+      File stateMachineDir = storage.getStorageDir().getStateMachineDir();
+      simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
+
+      // Fallback retains all MD5 snapshots and the newer snapshots without MD5.
+      List<String> snapshotNames = listMatchingFileNames(stateMachineDir, SNAPSHOT_REGEX);
+      Assertions.assertEquals(4, snapshotNames.size());
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 900)));
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 800)));
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 700)));
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 600)));
+
+      List<String> md5Names = listMatchingFileNames(stateMachineDir, SNAPSHOT_MD5_REGEX);
+      Assertions.assertEquals(2, md5Names.size());
+      Assertions.assertTrue(md5Names.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 700) + MD5_SUFFIX));
+      Assertions.assertTrue(md5Names.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 600) + MD5_SUFFIX));
+    } finally {
+      storage.close();
+    }
+  }
+
+  @Test
+  public void testCleanupOldSnapshotsMixedUpgradeScenario() throws Exception {
+    SnapshotRetentionPolicy snapshotRetentionPolicy = new SnapshotRetentionPolicy() {
+      @Override
+      public int getNumSnapshotsRetained() {
+        return 3;
+      }
+    };
+
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+    try {
+      // Old snapshots without MD5 created before upgrade.
+      createSnapshot(simpleStateMachineStorage, 1, 500, false);
+      createSnapshot(simpleStateMachineStorage, 1, 600, false);
+      createSnapshot(simpleStateMachineStorage, 1, 700, false);
+      // New snapshots with MD5 created after upgrade; fewer than numSnapshotsRetained.
+      createSnapshot(simpleStateMachineStorage, 1, 800, true);
+      createSnapshot(simpleStateMachineStorage, 1, 900, true);
+
+      File stateMachineDir = storage.getStorageDir().getStateMachineDir();
+      simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
+
+      // Retain all MD5 snapshots plus the newest old snapshot without MD5.
+      List<String> snapshotNames = listMatchingFileNames(stateMachineDir, SNAPSHOT_REGEX);
+      Assertions.assertEquals(3, snapshotNames.size());
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 900)));
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 800)));
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 700)));
+      Assertions.assertFalse(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 600)));
+      Assertions.assertFalse(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 500)));
+
+      List<String> md5Names = listMatchingFileNames(stateMachineDir, SNAPSHOT_MD5_REGEX);
+      Assertions.assertEquals(2, md5Names.size());
+    } finally {
+      storage.close();
+    }
+  }
+
+  @Test
+  public void testCleanupOldSnapshotsMixedDeletesOlderWithoutMd5BeyondRetention() throws Exception {
+    SnapshotRetentionPolicy snapshotRetentionPolicy = new SnapshotRetentionPolicy() {
+      @Override
+      public int getNumSnapshotsRetained() {
+        return 3;
+      }
+    };
+
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    final RaftStorage storage = newRaftStorage(storageDir);
+    simpleStateMachineStorage.init(storage);
+    try {
+      createSnapshot(simpleStateMachineStorage, 1, 900, false);
+      createSnapshot(simpleStateMachineStorage, 1, 700, true);
+      createSnapshot(simpleStateMachineStorage, 1, 600, true);
+      createSnapshot(simpleStateMachineStorage, 1, 500, false);
+      createSnapshot(simpleStateMachineStorage, 1, 400, false);
+
+      File stateMachineDir = storage.getStorageDir().getStateMachineDir();
+      simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
+
+      List<String> snapshotNames = listMatchingFileNames(stateMachineDir, SNAPSHOT_REGEX);
+      Assertions.assertEquals(3, snapshotNames.size());
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 900)));
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 700)));
+      Assertions.assertTrue(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 600)));
+      Assertions.assertFalse(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 500)));
+      Assertions.assertFalse(snapshotNames.contains(SimpleStateMachineStorage.getSnapshotFileName(1, 400)));
+
+      List<String> md5Names = listMatchingFileNames(stateMachineDir, SNAPSHOT_MD5_REGEX);
+      Assertions.assertEquals(2, md5Names.size());
     } finally {
       storage.close();
     }
