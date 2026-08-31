@@ -71,6 +71,7 @@ import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHIN
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS_DESC;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_APPLIED_INDEX_GAUGE;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_APPLY_COMPLETED_GAUGE;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -512,17 +513,17 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       RaftTestUtil.assertSuccessReply(reply);
 
       final long expectedIndex = reply.getLogIndex();
-      Assertions.assertTrue(expectedIndex > appliedIndexBefore,
+      assertTrue(expectedIndex > appliedIndexBefore,
           () -> "expectedIndex=" + expectedIndex + " <= appliedIndexBefore=" + appliedIndexBefore);
-      Assertions.assertTrue(expectedIndex > smAppliedIndexBefore,
+      assertTrue(expectedIndex > smAppliedIndexBefore,
           () -> "expectedIndex=" + expectedIndex + " <= applyCompletedIndexBefore=" + smAppliedIndexBefore);
 
       JavaUtils.attempt(() -> {
         final long appliedIndex = (Long) appliedIndexGauge.getValue();
         final long applyCompletedIndex = (Long) smAppliedIndexGauge.getValue();
-        Assertions.assertTrue(appliedIndex >= expectedIndex,
+        assertTrue(appliedIndex >= expectedIndex,
             () -> "appliedIndex=" + appliedIndex + " < expectedIndex=" + expectedIndex);
-        Assertions.assertTrue(applyCompletedIndex >= expectedIndex,
+        assertTrue(applyCompletedIndex >= expectedIndex,
             () -> "applyCompletedIndex=" + applyCompletedIndex + " < expectedIndex=" + expectedIndex);
       }, 10, HUNDRED_MILLIS, "state machine metrics reach index " + expectedIndex, RaftServer.Division.LOG);
 
