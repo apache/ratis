@@ -26,7 +26,6 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.GroupManagementBaseTest;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.util.Slf4jUtils;
-import org.apache.ratis.test.tag.Flaky;
 import org.apache.ratis.util.function.CheckedBiConsumer;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -37,7 +36,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Flaky("RATIS-2218")
 @Timeout(value = 300)
 public class TestMultiRaftGroup extends BaseTest {
   static {
