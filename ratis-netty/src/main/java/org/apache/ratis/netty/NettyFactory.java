@@ -28,7 +28,11 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.ServerFactory;
 
 public class NettyFactory implements ServerFactory, ClientFactory {
-  public NettyFactory(Parameters parameters) {}
+  private final Parameters parameters;
+
+  public NettyFactory(Parameters parameters) {
+    this.parameters = parameters;
+  }
 
   @Override
   public SupportedRpcType getRpcType() {
@@ -37,11 +41,11 @@ public class NettyFactory implements ServerFactory, ClientFactory {
 
   @Override
   public NettyRpcService newRaftServerRpc(RaftServer server) {
-    return NettyRpcService.newBuilder().setServer(server).build();
+    return NettyRpcService.newBuilder().setServer(server).setParameters(parameters).build();
   }
 
   @Override
   public NettyClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties) {
-    return new NettyClientRpc(clientId, properties);
+    return new NettyClientRpc(clientId, properties, parameters);
   }
 }
