@@ -538,6 +538,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         JavaUtils.getClassSimpleName(getClass()) + "-testKillLeaderDuringReconf-client");
     try {
       final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+      final RaftGroup originalGroup = cluster.getGroup();
 
       final PeerChanges c1 = cluster.addNewPeers(1, false);
       final PeerChanges c2 = cluster.removePeers(1, false, c1.getAddedPeers());
@@ -547,7 +548,9 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       LOG.info(cluster.printServers());
 
       final Future<RaftClientReply> setConfTask = executor.submit(() -> {
-        try (RaftClient client = cluster.createClient(leaderId)) {
+        // Use the original group so that the client retries the current voting members.
+        // At this point, cluster.getGroup() contains an unstarted peer and may exclude the next leader.
+        try (RaftClient client = cluster.createClient(leaderId, originalGroup)) {
           return client.admin().setConfiguration(c2.getPeersInNewConf());
         }
       });
