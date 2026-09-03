@@ -28,4 +28,9 @@
     <Class name="org.apache.ratis.grpc.TlsHandshakeFailureServerCredentials$Event"/>
     <Bug pattern="EI_EXPOSE_REP"/>
   </Match>
+  <!-- The original error and its cause chain are part of the data transfer event API. -->
+  <Match>
+    <Class name="org.apache.ratis.grpc.GrpcDataTransferEvent"/>
+    <Bug pattern="EI_EXPOSE_REP"/>
+  </Match>
 </FindBugsFilter>

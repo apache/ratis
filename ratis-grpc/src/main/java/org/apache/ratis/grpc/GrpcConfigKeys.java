@@ -304,6 +304,24 @@ public interface GrpcConfigKeys {
       parameters.put(CREDENTIALS_PARAMETER, credentials, CREDENTIALS_CLASS);
     }
 
+    String DATA_TRANSFER_EVENT_CONSUMER_PARAMETER = PREFIX + ".data.transfer.event.consumer";
+    Class<Consumer> DATA_TRANSFER_EVENT_CONSUMER_CLASS = Consumer.class;
+    @SuppressWarnings("unchecked")
+    static Consumer<GrpcDataTransferEvent> dataTransferEventConsumer(Parameters parameters) {
+      return parameters == null ? null
+          : (Consumer<GrpcDataTransferEvent>) parameters.get(
+              DATA_TRANSFER_EVENT_CONSUMER_PARAMETER, DATA_TRANSFER_EVENT_CONSUMER_CLASS);
+    }
+
+    /**
+     * Sets the consumer for peer data transfer events. The consumer is invoked on Ratis internal
+     * threads and must not block.
+     */
+    static void setDataTransferEventConsumer(
+        Parameters parameters, Consumer<GrpcDataTransferEvent> consumer) {
+      parameters.put(DATA_TRANSFER_EVENT_CONSUMER_PARAMETER, consumer, DATA_TRANSFER_EVENT_CONSUMER_CLASS);
+    }
+
     String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
     Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
     static GrpcTlsConfig tlsConf(Parameters parameters) {
