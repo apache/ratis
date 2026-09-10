@@ -15,6 +15,12 @@
    limitations under the License.
 -->
 <FindBugsFilter>
+  <!-- The per-appender callback is intentionally supplied and owned by the application. -->
+  <Match>
+    <Class name="org.apache.ratis.grpc.server.GrpcLogAppender"/>
+    <Field name="listener"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
   <Match>
     <Class name="org.apache.ratis.grpc.server.GrpcAdminProtocolService"/>
     <Bug pattern="EI_EXPOSE_REP2"/>

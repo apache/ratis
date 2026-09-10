@@ -304,6 +304,18 @@ public interface GrpcConfigKeys {
       parameters.put(CREDENTIALS_PARAMETER, credentials, CREDENTIALS_CLASS);
     }
 
+    String LOG_APPENDER_LISTENER_FACTORY_PARAMETER = PREFIX + ".log.appender.listener.factory";
+    Class<GrpcLogAppenderListener.Factory> LOG_APPENDER_LISTENER_FACTORY_CLASS = GrpcLogAppenderListener.Factory.class;
+    static GrpcLogAppenderListener.Factory logAppenderListenerFactory(Parameters parameters) {
+      return parameters == null ? null : parameters.get(
+          LOG_APPENDER_LISTENER_FACTORY_PARAMETER, LOG_APPENDER_LISTENER_FACTORY_CLASS);
+    }
+
+    /** Sets an optional factory for observing the lifecycle of each peer log appender. */
+    static void setLogAppenderListenerFactory(Parameters parameters, GrpcLogAppenderListener.Factory factory) {
+      parameters.put(LOG_APPENDER_LISTENER_FACTORY_PARAMETER, factory, LOG_APPENDER_LISTENER_FACTORY_CLASS);
+    }
+
     String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
     Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
     static GrpcTlsConfig tlsConf(Parameters parameters) {
