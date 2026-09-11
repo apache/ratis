@@ -41,8 +41,28 @@ import java.util.concurrent.atomic.AtomicLong;
  * using {@link org.apache.ratis.server.protocol.RaftServerProtocol}.
  */
 class LogAppenderDefault extends LogAppenderBase {
+  // ---- HOPSTAT: RTT AppendEntries lider->follower dla benchmarku RaftBench ----
+  // Skumulowane liczniki per follower (watek appendera jest jeden na followera, wiec bez
+  // synchronizacji), wypisywane na stdout co >=1 s - stdout serwera laduje w server$i.log
+  // niezaleznie od log4j, a run_lan.sh liczy delty z ostatniej linii przed i po pomiarze.
+  // Tylko RPC z wpisami (heartbeaty pomijane): srednia ma mierzyc replikacje danych.
+  // Format: HOPSTAT <followerId> <liczba RPC> <suma ns>
+  private long hopStatCount = 0;
+  private long hopStatSumNs = 0;
+  private long hopStatLastPrintNs = 0;
+
   LogAppenderDefault(RaftServer.Division server, LeaderState leaderState, FollowerInfo f) {
     super(server, leaderState, f);
+  }
+
+  private void recordHopStat(long elapsedNs) {
+    hopStatCount++;
+    hopStatSumNs += elapsedNs;
+    final long now = System.nanoTime();
+    if (now - hopStatLastPrintNs >= 1_000_000_000L) {
+      hopStatLastPrintNs = now;
+      System.out.println("HOPSTAT " + getFollowerId() + " " + hopStatCount + " " + hopStatSumNs);
+    }
   }
 
   @Override
@@ -79,7 +99,11 @@ class LogAppenderDefault extends LogAppenderBase {
         final Timestamp sendTime = Timestamp.currentTime();
         getFollower().updateLastRpcSendTime(request.getEntriesCount() == 0);
         final AppendEntriesRequestProto proto = request;
+        final long hopT0 = System.nanoTime();
         final AppendEntriesReplyProto reply = getServerRpc().appendEntries(proto);
+        if (proto.getEntriesCount() > 0) {
+          recordHopStat(System.nanoTime() - hopT0);
+        }
         final long first = proto.getEntriesCount() > 0 ? proto.getEntries(0).getIndex() : RaftLog.INVALID_LOG_INDEX;
         requestFirstIndex.set(first);
         getFollower().updateLastRpcResponseTime();

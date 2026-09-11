@@ -95,6 +95,12 @@ public class CounterStateMachine extends BaseStateMachine {
    *  Not part of the snapshot — fine for short benchmark runs. */
   private final Map<Integer, ByteString> clientData = new ConcurrentHashMap<>();
 
+  /** Benchmarkowa sonda hop (RaftBench): "PING" -> "PONG &lt;t1&gt; &lt;t2&gt;", gdzie t1/t2 to nanoTime
+   *  TEGO serwera przy wejsciu do query i przy budowie odpowiedzi. Klient liczy z tego czasy
+   *  klient-&gt;serwer i serwer-&gt;klient bez synchronizacji zegarow (rachunek jak w NTP - dowolne
+   *  zera nanoTime obu maszyn skracaja sie w odejmowaniu). */
+  private static final ByteString PING = ByteString.copyFromUtf8("PING");
+
   private final TimeDuration simulatedSlowness;
 
   public CounterStateMachine(TimeDuration simulatedSlowness) {
@@ -239,7 +245,12 @@ public class CounterStateMachine extends BaseStateMachine {
    */
   @Override
   public CompletableFuture<Message> query(Message request) {
+    final long tIn = System.nanoTime();   // dla PING; dla GET koszt ~20 ns, bez znaczenia
     final ByteString content = request.getContent();
+    if (content.startsWith(PING)) {
+      return CompletableFuture.completedFuture(Message.valueOf(
+          "PONG " + tIn + " " + System.nanoTime()));
+    }
     if (!CounterCommand.GET.matches(content)) {
       return JavaUtils.completeExceptionally(new IllegalArgumentException("Invalid Command: " + content));
     }

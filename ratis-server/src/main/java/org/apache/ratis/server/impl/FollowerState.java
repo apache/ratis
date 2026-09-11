@@ -74,7 +74,21 @@ class FollowerState extends Daemon {
     this.reason = reason;
   }
 
+  // FGAP (diagnostyka benchmarku, HB-THREAD-CHANGES.md): odstep miedzy kolejnymi komunikatami
+  // od lidera, mierzony u followera w chwili rozpoczecia obslugi AppendEntries/InstallSnapshot.
+  // Wypisywany na stdout (server$i.log) jako "FGAP <id> <ms> <typ>" tylko gdy uruchomiono
+  // z -Dratis.fgap.threshold.ms=<prog> i odstep >= prog; bez tej wlasciwosci nic nie robi.
+  private static final long FGAP_THRESHOLD_MS = Long.getLong("ratis.fgap.threshold.ms", Long.MAX_VALUE);
+
   void updateLastRpcTime(UpdateType type) {
+    if (FGAP_THRESHOLD_MS != Long.MAX_VALUE
+        && (type == UpdateType.APPEND_START || type == UpdateType.INSTALL_SNAPSHOT_START
+            || type == UpdateType.INSTALL_SNAPSHOT_NOTIFICATION)) {
+      final long gapMs = lastRpcTime.elapsedTimeMs();
+      if (gapMs >= FGAP_THRESHOLD_MS) {
+        System.out.println("FGAP " + server.getMemberId() + " " + gapMs + " " + type);
+      }
+    }
     lastRpcTime = Timestamp.currentTime();
 
     final int n = type.update(outstandingOp);

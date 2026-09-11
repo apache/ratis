@@ -25,7 +25,12 @@ import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.ServerFactory;
+import org.apache.ratis.server.leader.FollowerInfo;
+import org.apache.ratis.server.leader.LeaderState;
+import org.apache.ratis.server.leader.LogAppender;
+import org.apache.ratis.server.leader.LogAppenderWithHeartbeatThread;
 
 public class NettyFactory implements ServerFactory, ClientFactory {
   private final Parameters parameters;
@@ -47,5 +52,16 @@ public class NettyFactory implements ServerFactory, ClientFactory {
   @Override
   public NettyClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties) {
     return new NettyClientRpc(clientId, properties, parameters);
+  }
+
+  /** Optional heartbeat thread (raft.server.log.appender.heartbeat.thread, HB-THREAD-CHANGES.md):
+   *  heartbeats are sent next to an in-flight AppendEntries/InstallSnapshot instead of after its
+   *  reply. Default false keeps the stock appender: one request in flight per follower. */
+  @Override
+  public LogAppender newLogAppender(RaftServer.Division server, LeaderState state, FollowerInfo f) {
+    final RaftProperties properties = server.getRaftServer().getProperties();
+    return RaftServerConfigKeys.Log.Appender.heartbeatThread(properties)
+        ? new LogAppenderWithHeartbeatThread(server, state, f)
+        : LogAppender.newLogAppenderDefault(server, state, f);
   }
 }

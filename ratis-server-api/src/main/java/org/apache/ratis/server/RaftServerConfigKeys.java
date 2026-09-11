@@ -695,6 +695,22 @@ public interface RaftServerConfigKeys {
         setBoolean(properties::setBoolean, INSTALL_SNAPSHOT_ENABLED_KEY, shouldInstallSnapshot);
       }
 
+      /** Heartbeat thread (option of the Netty and QUIC transports, see
+       *  org.apache.ratis.server.leader.LogAppenderWithHeartbeatThread and HB-THREAD-CHANGES.md):
+       *  the leader sends heartbeats to a follower from a dedicated thread, so they go out while
+       *  an AppendEntries batch or an InstallSnapshot chunk to that follower is still waiting for
+       *  its reply. The default appender sends one request at a time, so no heartbeat is ever in
+       *  flight next to a large message. Default false = unchanged behaviour. */
+      String HEARTBEAT_THREAD_KEY = PREFIX + ".heartbeat.thread";
+      boolean HEARTBEAT_THREAD_DEFAULT = false;
+      static boolean heartbeatThread(RaftProperties properties) {
+        return getBoolean(properties::getBoolean,
+            HEARTBEAT_THREAD_KEY, HEARTBEAT_THREAD_DEFAULT, getDefaultLog());
+      }
+      static void setHeartbeatThread(RaftProperties properties, boolean enabled) {
+        setBoolean(properties::setBoolean, HEARTBEAT_THREAD_KEY, enabled);
+      }
+
       String WAIT_TIME_MIN_KEY = PREFIX + ".wait-time.min";
       TimeDuration WAIT_TIME_MIN_DEFAULT = TimeDuration.ONE_MILLISECOND;
       static TimeDuration waitTimeMin(RaftProperties properties) {

@@ -43,6 +43,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -57,6 +59,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * which maintain a counter value replicated in each server memory
  * <p>
  * Pass {@code --quic} as the last argument to use QUIC transport instead of Netty.
+ * Add {@code --single-stream} (QUIC only) to carry every server-to-server message type on
+ * one QUIC stream per connection instead of one stream per type; that is the benchmark
+ * baseline for the per-type stream layout ({@code raft.quic.server.single-stream}).
  */
 public final class CounterServer implements Closeable {
   private final RaftServer server;
@@ -68,11 +73,43 @@ public final class CounterServer implements Closeable {
 
   public CounterServer(RaftPeer peer, File storageDir, TimeDuration simulatedSlowness,
       boolean useQuic) throws IOException {
+    this(peer, storageDir, simulatedSlowness, useQuic, false);
+  }
+
+  /** @param quicSingleStream QUIC only: one stream per server-to-server connection instead
+   *  of one per message type ({@code raft.quic.server.single-stream}), see --single-stream. */
+  public CounterServer(RaftPeer peer, File storageDir, TimeDuration simulatedSlowness,
+      boolean useQuic, boolean quicSingleStream) throws IOException {
+    this(peer, storageDir, simulatedSlowness, useQuic, quicSingleStream, false);
+  }
+
+  /** @param heartbeatThread both transports: heartbeats from a dedicated thread, sent next to
+   *  an in-flight AppendEntries/InstallSnapshot ({@code raft.server.log.appender.heartbeat.thread}),
+   *  see --hb-thread and HB-THREAD-CHANGES.md. Default false = stock appender. */
+  public CounterServer(RaftPeer peer, File storageDir, TimeDuration simulatedSlowness,
+      boolean useQuic, boolean quicSingleStream, boolean heartbeatThread) throws IOException {
+    this(peer, storageDir, simulatedSlowness, useQuic, quicSingleStream, heartbeatThread, null);
+  }
+
+  /** @param extraProperties optional server configuration applied after the defaults; carries the
+   *  benchmark flags --rpc-timeout=MIN,MAX and --no-prevote (HB-THREAD-CHANGES.md). May be null. */
+  public CounterServer(RaftPeer peer, File storageDir, TimeDuration simulatedSlowness,
+      boolean useQuic, boolean quicSingleStream, boolean heartbeatThread,
+      Consumer<RaftProperties> extraProperties) throws IOException {
     //create a property object
     final RaftProperties properties = new RaftProperties();
 
     //set the storage directory (different for each peer) in the RaftProperty object
     RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
+
+    // Heartbeat thread option (HB-THREAD-CHANGES.md): off unless --hb-thread was given.
+    if (heartbeatThread) {
+      RaftServerConfigKeys.Log.Appender.setHeartbeatThread(properties, true);
+    }
+    // Election-timeout range and pre-vote flags (HB-THREAD-CHANGES.md): no-op unless given.
+    if (extraProperties != null) {
+      extraProperties.accept(properties);
+    }
 
     // TYMCZASOWE, DO EKSPERYMENTU - USUNAC PO ZAKONCZENIU POMIAROW.
     // Ile bajtow wpisow logu lider pakuje w JEDNO AppendEntries. Domyslna wartosc jest
@@ -83,6 +120,13 @@ public final class CounterServer implements Closeable {
     // assertTrue(elementNumBytes <= byteLimit) i przy mniejszej rzuca wyjatkiem.
     RaftServerConfigKeys.Log.Appender.setBufferByteLimit(properties,
         SizeInBytes.valueOf(System.getProperty("ratis.appender.buffer", "4MB")));
+    // Bufor zapisu logu (raft.server.log.write.buffer.size, domyslnie 8MB) musi byc wiekszy niz
+    // limit paczki + 8 B, inaczej SegmentedRaftLogWorker odmawia startu. -Dratis.log.write.buffer
+    // pozwala podniesc go razem z -Dratis.appender.buffer (np. 16MB -> 32MB). HB-THREAD-CHANGES.md.
+    final String writeBuffer = System.getProperty("ratis.log.write.buffer");
+    if (writeBuffer != null) {
+      RaftServerConfigKeys.Log.setWriteBufferSize(properties, SizeInBytes.valueOf(writeBuffer));
+    }
 
     // DEFAULT read policy — routes read-only requests to the leader (no server-to-server ReadIndex).
     // Same setting for QUIC and NETTY so the comparison is fair.
@@ -104,6 +148,11 @@ public final class CounterServer implements Closeable {
       QuicConfigKeys.Server.setTlsCert(properties, "ratis-test/src/test/resources/ssl/server.crt");
       QuicConfigKeys.Server.setTlsKey(properties, "ratis-test/src/test/resources/ssl/server.pem");
       QuicConfigKeys.Client.setTlsCaCert(properties, "ratis-test/src/test/resources/ssl/ca.crt");
+
+      // Stream layout of server-to-server connections: default = one stream per message type.
+      if (quicSingleStream) {
+        QuicConfigKeys.Server.setSingleStream(properties, true);
+      }
     } else {
       RaftConfigKeys.Rpc.setType(properties, SupportedRpcType.NETTY);
       NettyConfigKeys.Server.setPort(properties, port);
@@ -149,6 +198,41 @@ public final class CounterServer implements Closeable {
     try {
       final List<String> argList = Arrays.asList(args);
       final boolean useQuic = argList.contains("--quic");
+      final boolean quicSingleStream = argList.contains("--single-stream");
+      if (quicSingleStream && !useQuic) {
+        throw new IllegalArgumentException("--single-stream applies to QUIC only: add --quic");
+      }
+      final boolean heartbeatThread = argList.contains("--hb-thread");
+      // --rpc-timeout=MIN,MAX (ms): election timeout range for this server (Ratis derives the
+      // heartbeat interval as MIN/2). --no-prevote: classic Raft without the pre-vote phase.
+      // Both are one-token flags so the positional filter below keeps working.
+      final String rpcTimeout = argList.stream().filter(a -> a.startsWith("--rpc-timeout="))
+          .map(a -> a.substring("--rpc-timeout=".length())).findFirst().orElse(null);
+      long rpcTimeoutMin = -1;
+      long rpcTimeoutMax = -1;
+      if (rpcTimeout != null) {
+        final String[] mm = rpcTimeout.split(",");
+        if (mm.length != 2) {
+          throw new IllegalArgumentException("--rpc-timeout=MIN,MAX (ms) expected, got: " + rpcTimeout);
+        }
+        rpcTimeoutMin = Long.parseLong(mm[0].trim());
+        rpcTimeoutMax = Long.parseLong(mm[1].trim());
+        if (rpcTimeoutMin <= 0 || rpcTimeoutMax < rpcTimeoutMin) {
+          throw new IllegalArgumentException("--rpc-timeout: need 0 < MIN <= MAX, got: " + rpcTimeout);
+        }
+      }
+      final long tMin = rpcTimeoutMin;
+      final long tMax = rpcTimeoutMax;
+      final boolean noPreVote = argList.contains("--no-prevote");
+      final Consumer<RaftProperties> extra = p -> {
+        if (tMin > 0) {
+          RaftServerConfigKeys.Rpc.setTimeoutMin(p, TimeDuration.valueOf(tMin, TimeUnit.MILLISECONDS));
+          RaftServerConfigKeys.Rpc.setTimeoutMax(p, TimeDuration.valueOf(tMax, TimeUnit.MILLISECONDS));
+        }
+        if (noPreVote) {
+          RaftServerConfigKeys.LeaderElection.setPreVote(p, false);
+        }
+      };
       final List<String> positional = argList.stream()
           .filter(a -> !a.startsWith("--"))
           .collect(java.util.stream.Collectors.toList());
@@ -167,7 +251,7 @@ public final class CounterServer implements Closeable {
       TimeDuration simulatedSlowness = Optional.ofNullable(Constants.SIMULATED_SLOWNESS)
           .map(slownessList -> slownessList.get(peerIndex))
           .orElse(TimeDuration.ZERO);
-      startServer(peerIndex, simulatedSlowness, useQuic);
+      startServer(peerIndex, simulatedSlowness, useQuic, quicSingleStream, heartbeatThread, extra);
     } catch(Throwable e) {
       e.printStackTrace();
       System.err.println();
@@ -184,7 +268,8 @@ public final class CounterServer implements Closeable {
   }
 
   private static void printUsage() {
-    System.err.println("Usage: java " + CounterServer.class.getName() + " peer_index [--quic]");
+    System.err.println("Usage: java " + CounterServer.class.getName()
+        + " peer_index [--quic [--single-stream]] [--hb-thread] [--rpc-timeout=MIN,MAX] [--no-prevote]");
     System.err.println();
     System.err.println("       peer_index 0-based index into raft.server.address.list"
         + " of the conf file (see RATIS_EXAMPLE_CONF)");
@@ -195,17 +280,28 @@ public final class CounterServer implements Closeable {
       System.err.println("       (peer list unavailable - the conf file could not be loaded)");
     }
     System.err.println("       --quic     use QUIC transport (default: Netty/TCP)");
+    System.err.println("       --single-stream  (with --quic) one QUIC stream per server-to-server"
+        + " connection instead of one stream per message type");
+    System.err.println("       --hb-thread      (both transports) heartbeats from a dedicated thread,"
+        + " sent next to an in-flight AppendEntries/InstallSnapshot"
+        + " (raft.server.log.appender.heartbeat.thread=true)");
+    System.err.println("       --rpc-timeout=MIN,MAX  election timeout range in ms"
+        + " (raft.server.rpc.timeout.min/max; heartbeat interval = MIN/2), default 150,300");
+    System.err.println("       --no-prevote     classic Raft without the pre-vote phase"
+        + " (raft.server.leaderelection.pre-vote=false)");
   }
 
   private static void startServer(int peerIndex, TimeDuration simulatedSlowness,
-      boolean useQuic) throws IOException {
+      boolean useQuic, boolean quicSingleStream, boolean heartbeatThread,
+      Consumer<RaftProperties> extraProperties) throws IOException {
     //get peer and define storage dir
     final RaftPeer currentPeer = Constants.PEERS.get(peerIndex);
     final File storageDir = new File("./" + currentPeer.getId());
 
     //start a counter server
     try(CounterServer counterServer = new CounterServer(
-        currentPeer, storageDir, simulatedSlowness, useQuic)) {
+        currentPeer, storageDir, simulatedSlowness, useQuic, quicSingleStream, heartbeatThread,
+        extraProperties)) {
       counterServer.start();
 
       //exit when any input entered

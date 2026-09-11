@@ -89,6 +89,27 @@ public interface QuicConfigKeys {
     static void setTlsKey(RaftProperties properties, String path) {
       set(properties::set, TLS_KEY_KEY, path);
     }
+
+    /**
+     * Stream layout of the server-to-server connections this server opens to its peers.
+     * {@code false} (default): one persistent stream per message type (AppendEntries,
+     * heartbeat, InstallSnapshot, RequestVote, other), so a heartbeat never waits behind
+     * a large log batch. {@code true}: a single persistent stream carries every message
+     * type in one ordered sequence, the way a TCP connection does, and the head-of-line
+     * blocking between message types returns. The single-stream layout is meant for
+     * benchmarks that isolate the contribution of the per-type layout; external Raft
+     * clients are unaffected, as they always use one stream per connection.
+     */
+    String SINGLE_STREAM_KEY = PREFIX + ".single-stream";
+    boolean SINGLE_STREAM_DEFAULT = false;
+
+    static boolean singleStream(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, SINGLE_STREAM_KEY,
+          SINGLE_STREAM_DEFAULT, getDefaultLog());
+    }
+    static void setSingleStream(RaftProperties properties, boolean singleStream) {
+      setBoolean(properties::setBoolean, SINGLE_STREAM_KEY, singleStream);
+    }
   }
 
   // -------------------------------------------------------------------------

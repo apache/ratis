@@ -103,13 +103,16 @@ import java.util.concurrent.TimeUnit;
  * TLS 1.3 is mandatory (built into the QUIC handshake).
  *
  * <h3>P2P stream protocol</h3>
- * Each peer that connects opens exactly 4 persistent bidirectional streams.
- * The first byte on every new stream is a one-byte tag that declares its role:
+ * Each peer that connects opens persistent bidirectional streams: by default one per
+ * message type, or a single one for everything when the peer runs with
+ * {@link QuicConfigKeys.Server#SINGLE_STREAM_KEY} (the TCP-like baseline used in the
+ * benchmarks). The first byte on every new stream is a one-byte tag that declares its role:
  * <ul>
  *   <li>{@link #TAG_APPEND_ENTRIES}   (0x00) – AppendEntries with log entries</li>
  *   <li>{@link #TAG_HEARTBEAT}        (0x01) – AppendEntries with no entries</li>
  *   <li>{@link #TAG_INSTALL_SNAPSHOT} (0x02) – InstallSnapshot</li>
  *   <li>{@link #TAG_REQUEST_VOTE}     (0x03) – RequestVote</li>
+ *   <li>{@link #TAG_PEER_SINGLE}      (0x06) – all of the above on one stream</li>
  * </ul>
  * After reading the tag, a one-shot {@link StreamTypeDecoder} configures the rest
  * of the pipeline (varint32 framing + shaded Protobuf codec) and removes itself.
@@ -140,6 +143,11 @@ public final class QuicRpcService
   public static final byte TAG_CLIENT_REQUEST   = 0x04;
   /** Server-to-server ReadIndex request for Linearizable Read. */
   public static final byte TAG_READ_INDEX       = 0x05;
+  /** Single-stream layout ({@link QuicConfigKeys.Server#SINGLE_STREAM_KEY}): the one
+   *  persistent stream of a server-to-server connection, carrying every message type
+   *  (AppendEntries, heartbeat, InstallSnapshot, RequestVote, other) in one ordered
+   *  sequence, the way a TCP connection does. Handled exactly like the per-type streams. */
+  public static final byte TAG_PEER_SINGLE      = 0x06;
 
   // ---- Builder ------------------------------------------------------------
 
@@ -253,7 +261,8 @@ public final class QuicRpcService
         p.addLast(new ShadedProtobufDecoder<>(RaftNettyServerRequestProto.getDefaultInstance()));
         p.addLast(clientRequestExecutor, inboundHandler);
       } else {
-        // AppendEntries / heartbeat / InstallSnapshot / RequestVote — see peerRequestExecutor.
+        // AppendEntries / heartbeat / InstallSnapshot / RequestVote (or all of them on one
+        // TAG_PEER_SINGLE stream) — see peerRequestExecutor.
         p.addLast(new ShadedProtobufDecoder<>(RaftNettyServerRequestProto.getDefaultInstance()));
         p.addLast(peerRequestExecutor, inboundHandler);
       }
@@ -340,6 +349,13 @@ public final class QuicRpcService
     super(server::getId,
         id -> new QuicRpcProxy.PeerMap(id.toString(), server.getProperties()));
     this.server = server;
+
+    // Layout of the streams this server opens to its peers (QuicRpcProxy.connect), logged
+    // once at startup so a benchmark run can be verified from the server log.
+    LOG.info("{}: server-to-server stream layout: {}", getId(),
+        QuicConfigKeys.Server.singleStream(server.getProperties())
+            ? "single stream (" + QuicConfigKeys.Server.SINGLE_STREAM_KEY + "=true)"
+            : "one stream per message type");
 
     final QuicSslContext sslCtx = buildServerSslContext(server);
 
