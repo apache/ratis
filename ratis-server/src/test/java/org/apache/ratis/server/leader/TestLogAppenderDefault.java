@@ -199,6 +199,16 @@ class TestLogAppenderDefault {
     }
 
     @Override
+    public long getAppliedIndex() {
+        return 0;
+    }
+
+    @Override
+    public boolean updateAppliedIndex(long newAppliedIndex) {
+        return false;
+    }
+
+    @Override
     public long getCommitIndex() {
       return 0;
     }

@@ -138,7 +138,7 @@ final class ServerProtoUtils {
   static AppendEntriesReplyProto toAppendEntriesReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId, long term,
       long followerCommit, long nextIndex, AppendResult result, long callId,
-      long matchIndex, boolean isHeartbeat) {
+      long matchIndex, boolean isHeartbeat, long appliedIndex) {
     RaftRpcReplyProto.Builder rpcReply = toRaftRpcReplyProtoBuilder(
         requestorId, replyId, result == AppendResult.SUCCESS)
         .setCallId(callId);
@@ -150,6 +150,7 @@ final class ServerProtoUtils {
         .setFollowerCommit(followerCommit)
         .setResult(result)
         .setIsHearbeat(isHeartbeat)
+        .setFollowerAppliedIndex(appliedIndex)
         .build();
   }
 
