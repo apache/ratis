@@ -68,6 +68,9 @@ import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_COUNT_METRIC;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIME_TAKEN;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.StateMachine;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -277,6 +280,41 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
       cluster.shutdown();
     }
+  }
+
+  @Test
+  public void testRiskyLeadershipTransfer() throws Exception {
+      final RaftProperties p = getProperties();
+      RaftServerConfigKeys.LeaderElection.setTransferLeadershipRequiredAppliedIndexGap(p, 10);
+      p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, SimpleStateMachine4Testing.class, StateMachine.class);
+
+
+      try (final MiniRaftCluster cluster = newCluster(3)) {
+          cluster.start();
+          
+          final RaftServer.Division leader = waitForLeader(cluster);
+          final RaftServer.Division target = cluster.getFollowers().get(0);
+
+          SimpleStateMachine4Testing.get(target).blockApplyTransaction();
+          try (RaftClient client = cluster.createClient(leader.getId())) {
+              // since the required appliedIndex value is 10, the test
+              // is sending 15 messages
+              for (int i = 0; i < 15; i++) {
+                  String messageId = "message" + i;
+                  client.io().send(new RaftTestUtil.SimpleMessage(messageId));
+              }
+
+              try {
+                  client.admin().transferLeadership(target.getId(), 5000);
+                  fail("expected TransferLeadershipException");
+              } catch (TransferLeadershipException e) {
+                  assertTrue(e.getMessage().contains(TransferLeadership.Result.Type.RISKY_LEADER_CHANGE.toString()));
+              }
+
+          }
+          SimpleStateMachine4Testing.get(target).unblockApplyTransaction();
+          cluster.shutdown();
+      }
   }
 
   @Test

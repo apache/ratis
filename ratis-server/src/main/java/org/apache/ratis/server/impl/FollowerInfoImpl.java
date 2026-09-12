@@ -42,6 +42,7 @@ class FollowerInfoImpl implements FollowerInfo {
   private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftLog.INVALID_LOG_INDEX);
   private final RaftLogIndex snapshotIndex = new RaftLogIndex("snapshotIndex", 0L);
+  private final RaftLogIndex appliedIndex = new RaftLogIndex("appliedIndex", RaftLog.INVALID_LOG_INDEX);
   private final ErrorState errorState = new ErrorStateImpl();
   private volatile boolean caughtUp;
   private volatile boolean ackInstallSnapshotAttempt = false;
@@ -92,6 +93,16 @@ class FollowerInfoImpl implements FollowerInfo {
   @Override
   public boolean updateMatchIndex(long newMatchIndex) {
     return matchIndex.updateToMax(newMatchIndex, this::debug);
+  }
+
+  @Override
+  public long getAppliedIndex() {
+      return appliedIndex.get();
+  }
+
+  @Override
+  public boolean updateAppliedIndex(long newAppliedIndex) {
+      return appliedIndex.updateToMax(newAppliedIndex, this::debug);
   }
 
   @Override
