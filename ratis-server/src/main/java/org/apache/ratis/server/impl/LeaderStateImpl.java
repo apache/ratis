@@ -698,6 +698,7 @@ class LeaderStateImpl implements LeaderState {
   private void stopAndRemoveSenders(Collection<LogAppender> toStop) {
     toStop.forEach(LogAppender::stopAsync);
     senders.removeAll(toStop);
+    toStop.forEach(s -> logAppenderMetrics.removeFollowerGauges(s.getFollowerId()));
   }
 
   boolean isRunning() {
