@@ -78,6 +78,8 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     /** For both ordered and unordered {@link #onNext(Object)} requests. */
     private final AtomicReference<CompletableFuture<REPLY>> requestFuture
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
+    /** Last reply sent on the gRPC stream (ordered requests discard the future value). */
+    private final AtomicReference<REPLY> lastReplySent = new AtomicReference<>();
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
     ServerRequestStreamObserver(RaftServer.Op op, StreamObserver<REPLY> responseObserver) {
@@ -119,13 +121,27 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     }
 
     private synchronized REPLY handleReply(REPLY reply) {
+      if (reply != null) {
+        lastReplySent.set(reply);
+      }
       if (!isClosed.get()) {
-        if (LOG.isDebugEnabled()) {
+        if (LOG.isDebugEnabled() && reply != null) {
           LOG.debug("{}: reply {}", getId(), replyToString(reply));
         }
         responseObserver.onNext(reply);
       }
       return reply;
+    }
+
+    private String getCompletedReplyLogString(REPLY futureReply) {
+      final REPLY sent = lastReplySent.get();
+      if (sent != null) {
+        return replyToString(sent);
+      }
+      if (futureReply != null) {
+        return replyToString(futureReply);
+      }
+      return "none";
     }
 
     void composeRequest(CompletableFuture<REPLY> current) {
@@ -173,9 +189,10 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
             suffix -> LOG.info("{}: Completed {}, lastRequest: {} {}",
                 getId(), op, getPreviousRequestString(), suffix));
         requestFuture.get().thenAccept(reply -> {
+          final String replyLog = getCompletedReplyLogString(reply);
           BatchLogger.print(BatchLogKey.COMPLETED_REPLY, getName(),
               suffix -> LOG.info("{}: Completed {}, lastReply: {} {}",
-                  getId(), op, ProtoUtils.shortDebugString(reply), suffix));
+                  getId(), op, replyLog, suffix));
           responseObserver.onCompleted();
         });
       }
