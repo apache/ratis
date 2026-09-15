@@ -233,7 +233,7 @@ public interface IOUtils {
     return readObject(new ByteArrayInputStream(bytes), clazz);
   }
 
-  /** @return an {@link ObjectInputStream}, which use a allowed list of packages. */
+  /** @return an {@link ObjectInputStream}, which apply an allow-list filter. */
   static ObjectInputStream newObjectInputStream(InputStream in) throws IOException {
     return new ObjectInputStream(in) {
       @Override
