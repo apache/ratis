@@ -79,12 +79,14 @@ public class TransferLeadership {
       TIMED_OUT,
       FAILED_TO_START,
       COMPLETED_EXCEPTIONALLY,
+      RISKY_LEADER_CHANGE,
     }
 
     static final Result SUCCESS = new Result(Type.SUCCESS);
     static final Result DIFFERENT_LEADER = new Result(Type.DIFFERENT_LEADER);
     static final Result NULL_FOLLOWER = new Result(Type.NULL_FOLLOWER);
     static final Result NULL_LOG_APPENDER = new Result(Type.NULL_LOG_APPENDER);
+    static final Result RISKY_LEADER_CHANGE = new Result(Type.RISKY_LEADER_CHANGE);
 
     private final Type type;
     private final String errorMessage;
@@ -164,12 +166,16 @@ public class TransferLeadership {
   private final RaftServerImpl server;
   private final TimeDuration requestTimeout;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
+  private static long appliedIndexThreshold;
 
   private final AtomicReference<PendingRequest> pending = new AtomicReference<>();
 
   TransferLeadership(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
     this.requestTimeout = RaftServerConfigKeys.Rpc.requestTimeout(properties);
+    appliedIndexThreshold = RaftServerConfigKeys
+                                 .LeaderElection
+                                 .transferLeadershipRequiredAppliedIndexGap(properties);
   }
 
   private Optional<RaftPeerId> getTransferee() {
@@ -194,6 +200,14 @@ public class TransferLeadership {
     if (followerMatchIndex < leaderLastEntry.getIndex()) {
       return new Result(Result.Type.NOT_UP_TO_DATE, "followerMatchIndex = " + followerMatchIndex
           + " < leaderLastEntry.getIndex() = " + leaderLastEntry.getIndex());
+    }
+
+    // the leadership transfer cannot proceed if 
+    // the follower's applied index gap is greater than the safe threshold.
+    final long followerAppliedIndex = follower.getAppliedIndex();
+    final long appliedIndexGap = leaderLastEntry.getIndex() - followerAppliedIndex;
+    if (appliedIndexGap > appliedIndexThreshold) {
+        return new Result(Result.Type.RISKY_LEADER_CHANGE, "follower's applied index gap is greater than " + appliedIndexThreshold);
     }
     return Result.SUCCESS;
   }
