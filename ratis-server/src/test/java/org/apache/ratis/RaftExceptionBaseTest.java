@@ -98,6 +98,23 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testNewNotLeaderException() throws Exception {
+    runWithNewCluster(NUM_PEERS, cluster -> {
+      final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+      final NotLeaderException leaderException = leader.newNotLeaderException();
+      Assertions.assertNull(leaderException.getSuggestedLeader());
+      Assertions.assertEquals(cluster.getPeers().size(), leaderException.getPeers().size());
+      Assertions.assertTrue(cluster.getPeers().containsAll(leaderException.getPeers()));
+
+      final RaftServer.Division follower = cluster.getFollowers().get(0);
+      follower.close();
+      final NotLeaderException closedException = follower.newNotLeaderException();
+      Assertions.assertNull(closedException.getSuggestedLeader());
+      Assertions.assertTrue(closedException.getPeers().isEmpty());
+    });
+  }
+
+  @Test
   public void testNotLeaderExceptionWithReconf() throws Exception {
     runWithNewCluster(NUM_PEERS, this::runTestNotLeaderExceptionWithReconf);
   }
