@@ -205,7 +205,7 @@ public class TransferLeadership {
     // the leadership transfer cannot proceed if 
     // the follower's applied index gap is greater than the safe threshold.
     final long followerAppliedIndex = follower.getAppliedIndex();
-    final long appliedIndexGap = followerMatchIndex - followerAppliedIndex;
+    final long appliedIndexGap = leaderLastEntry.getIndex() - followerAppliedIndex;
     if (appliedIndexGap > appliedIndexThreshold) {
         return new Result(Result.Type.RISKY_LEADER_CHANGE, "follower's applied index gap is greater than " + appliedIndexThreshold);
     }
