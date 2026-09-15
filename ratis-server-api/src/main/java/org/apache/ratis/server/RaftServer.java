@@ -96,6 +96,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
       }
       RaftPeerId leaderId = getInfo().getLeaderId();
       if (leaderId == null || leaderId.equals(getId())) {
+        // No idea about who is the current leader. Or the peer is the current
+        // leader, but it is about to step down. set the suggested leader as null.
         leaderId = null;
       }
       final RaftConfiguration conf = getRaftConf();
