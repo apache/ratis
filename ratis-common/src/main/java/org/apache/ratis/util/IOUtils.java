@@ -27,12 +27,17 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.io.InvalidClassException;
 import java.io.ObjectInputStream;
+import java.io.ObjectStreamClass;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -44,6 +49,30 @@ import java.util.function.Supplier;
  * IO related utility methods.
  */
 public interface IOUtils {
+  List<String> ALLOWED_PACKAGES_FOR_OBJECT_INPUT_STREAM = Collections.unmodifiableList(Arrays.asList(
+      "java.lang.",
+      "java.util.",
+      "java.io.",
+      "java.time.",
+      "java.net.",
+      "java.security.",
+      "javax.net.",
+      "javax.security.",
+      "org.apache.ratis."
+  ));
+
+  static void assertPackageForObjectInputStream(String fullClassName) throws InvalidClassException {
+    boolean isAllowed = false;
+    for (String allowed : ALLOWED_PACKAGES_FOR_OBJECT_INPUT_STREAM) {
+      if (fullClassName.startsWith(allowed)) {
+        isAllowed = true;
+      }
+    }
+    if (!isAllowed) {
+      throw new InvalidClassException(fullClassName, "Disallowed package");
+    }
+  }
+
   static InterruptedIOException toInterruptedIOException(
       String message, InterruptedException e) {
     final InterruptedIOException iioe = new InterruptedIOException(message);
@@ -204,6 +233,40 @@ public interface IOUtils {
     return readObject(new ByteArrayInputStream(bytes), clazz);
   }
 
+  /** @return an {@link ObjectInputStream}, which use a allowed list of packages. */
+  static ObjectInputStream newObjectInputStream(InputStream in) throws IOException {
+    return new ObjectInputStream(in) {
+      @Override
+      protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
+        final String fullClassName = desc.getName();
+
+        int i = 0;
+        for(; i < fullClassName.length() && fullClassName.charAt(i) == '['; ) {
+          i++;
+        }
+
+        final int last = fullClassName.length() - i;
+        if (i == fullClassName.length()) {
+          throw new InvalidClassException(fullClassName, "Invalid class name");
+        } else if (i == 0) {
+          // not an array
+          assertPackageForObjectInputStream(fullClassName);
+        } else if (i < last) {
+          // i == last   : primitive array (no package to check)
+          // 0 < i < last: non-primitive array
+          if (fullClassName.charAt(i) != 'L' || fullClassName.charAt(last) != ';') {
+            // Example: expect "[[Ljava.lang.String;" for String[][]
+            throw new InvalidClassException(fullClassName, "Invalid array name");
+          }
+          // check array element class
+          assertPackageForObjectInputStream(fullClassName.substring(i+1, last));
+        }
+
+        return super.resolveClass(desc);
+      }
+    };
+  }
+
   /**
    * Read an object from the given input stream.
    *
@@ -215,7 +278,7 @@ public interface IOUtils {
    */
   static <T> T readObject(InputStream in, Class<T> clazz) {
     final Object obj;
-    try(ObjectInputStream oin = new ObjectInputStream(in)) {
+    try(ObjectInputStream oin = newObjectInputStream(in)) {
       obj = oin.readObject();
     } catch (IOException | ClassNotFoundException e) {
       throw new IllegalStateException("Failed to readObject for class " + clazz, e);
