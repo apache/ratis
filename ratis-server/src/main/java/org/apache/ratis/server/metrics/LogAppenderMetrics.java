@@ -47,8 +47,13 @@ public final class LogAppenderMetrics extends RatisMetrics {
 
   public void addFollowerGauges(RaftPeerId id, LongSupplier getNextIndex, LongSupplier getMatchIndex,
       Supplier<Timestamp> getLastRpcTime) {
-    getRegistry().gauge(String.format(FOLLOWER_NEXT_INDEX, id), () -> getNextIndex::getAsLong);
-    getRegistry().gauge(String.format(FOLLOWER_MATCH_INDEX, id), () -> getMatchIndex::getAsLong);
-    getRegistry().gauge(String.format(FOLLOWER_RPC_RESP_TIME, id), () -> () -> getLastRpcTime.get().elapsedTimeMs());
+    replaceGauge(String.format(FOLLOWER_NEXT_INDEX, id), getNextIndex);
+    replaceGauge(String.format(FOLLOWER_MATCH_INDEX, id), getMatchIndex);
+    replaceGauge(String.format(FOLLOWER_RPC_RESP_TIME, id), () -> getLastRpcTime.get().elapsedTimeMs());
+  }
+
+  private void replaceGauge(String name, LongSupplier supplier) {
+    getRegistry().remove(name);
+    getRegistry().gauge(name, () -> supplier::getAsLong);
   }
 }

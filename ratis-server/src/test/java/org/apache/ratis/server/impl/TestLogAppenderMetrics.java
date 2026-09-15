@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
 public class TestLogAppenderMetrics {
 
   private RatisMetricRegistryImpl ratisMetricRegistry;
+  private LogAppenderMetrics logAppenderMetrics;
   private RaftPeerId raftPeerId;
   private MyFollowerInfo followerInfo;
 
@@ -45,7 +46,7 @@ public class TestLogAppenderMetrics {
     raftPeerId = RaftPeerId.valueOf("TestId");
     RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId.valueOf(raftPeerId, raftGroupId);
     followerInfo = new MyFollowerInfo(100L);
-    LogAppenderMetrics logAppenderMetrics = new LogAppenderMetrics(raftGroupMemberId);
+    logAppenderMetrics = new LogAppenderMetrics(raftGroupMemberId);
     ratisMetricRegistry = (RatisMetricRegistryImpl) logAppenderMetrics.getRegistry();
     logAppenderMetrics.addFollowerGauges(raftPeerId, followerInfo::getNextIndex, followerInfo::getMatchIndex,
         followerInfo::getLastRpcTime);
@@ -61,13 +62,37 @@ public class TestLogAppenderMetrics {
     Assertions.assertEquals(0L, matchIndex.getValue());
     Gauge rpcTime = ratisMetricRegistry.getGauges((s, metric) ->
         s.contains(String.format(FOLLOWER_RPC_RESP_TIME, raftPeerId.toString()))).values().iterator().next();
-    Assertions.assertTrue(((Long) rpcTime.getValue()) > 0);
+    // The elapsed time can be 0 ms when the test runs fast.
+    Assertions.assertTrue(((Long) rpcTime.getValue()) >= 0);
     followerInfo.updateNextIndex(200L);
     followerInfo.updateMatchIndex(100L);
     followerInfo.updateLastRpcResponseTime();
     Assertions.assertEquals(200L, nextIndex.getValue());
     Assertions.assertEquals(100L, matchIndex.getValue());
     Assertions.assertNotNull(rpcTime.getValue());
+  }
+
+  /**
+   * When a log appender is restarted, a new FollowerInfo is created for the same follower.
+   * The gauges must read from the new FollowerInfo instead of the stale one.
+   */
+  @Test
+  public void testFollowerGaugesAfterReAdd() {
+    final MyFollowerInfo newFollowerInfo = new MyFollowerInfo(300L);
+    logAppenderMetrics.addFollowerGauges(raftPeerId, newFollowerInfo::getNextIndex,
+        newFollowerInfo::getMatchIndex, newFollowerInfo::getLastRpcTime);
+
+    followerInfo.updateNextIndex(200L);
+    followerInfo.updateMatchIndex(100L);
+    newFollowerInfo.updateMatchIndex(250L);
+
+    Assertions.assertEquals(300L, getGaugeValue(FOLLOWER_NEXT_INDEX));
+    Assertions.assertEquals(250L, getGaugeValue(FOLLOWER_MATCH_INDEX));
+  }
+
+  private Object getGaugeValue(String format) {
+    return ratisMetricRegistry.getGauges((s, metric) ->
+        s.contains(String.format(format, raftPeerId.toString()))).values().iterator().next().getValue();
   }
 
   private static class MyFollowerInfo {
