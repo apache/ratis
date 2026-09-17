@@ -37,7 +37,9 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
+import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
@@ -82,6 +84,21 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the information about this division. */
     DivisionInfo getInfo();
+
+    /**
+     * Check whether this division is the leader and ready.
+     *
+     * @return null if this division is the leader and ready; otherwise,
+     *         return a {@link NotLeaderException} or a
+     *         {@link LeaderNotReadyException}.
+     */
+    default RaftException checkLeaderReady() {
+      if (!getInfo().isLeader()) {
+        return newNotLeaderException();
+      }
+      return getInfo().isLeaderReady() ? null
+          : new LeaderNotReadyException(getMemberId());
+    }
 
     /**
      * Create a {@link NotLeaderException} using the current division state.
