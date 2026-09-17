@@ -302,6 +302,7 @@ message ForwardRequestTypeProto {
 message ReadRequestTypeProto {
   bool preferNonLinearizable = 1;
   bool readAfterWriteConsistent = 2;
+  bool dummy = 3;
 }
 
 message StaleReadRequestTypeProto {
@@ -342,6 +343,7 @@ message DataStreamPacketHeaderProto {
   enum Type {
     STREAM_HEADER = 0;
     STREAM_DATA = 1;
+    STREAM_COMMAND = 2;
   }
 
   enum Option {

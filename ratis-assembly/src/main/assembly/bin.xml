@@ -33,6 +33,12 @@
       </includes>
       <outputDirectory>examples/lib</outputDirectory>
     </dependencySet>
+    <dependencySet>
+      <outputDirectory>lib/trace</outputDirectory>
+      <includes>
+        <include>io.opentelemetry.javaagent:*</include>
+      </includes>
+    </dependencySet>
   </dependencySets>
   <moduleSets>
     <moduleSet>
@@ -50,6 +56,7 @@
         <include>org.apache.ratis:ratis-metrics-api</include>
         <include>org.apache.ratis:ratis-metrics-default</include>
         <include>org.apache.ratis:ratis-metrics-dropwizard3</include>
+        <include>org.apache.ratis:ratis-trace-otel</include>
         <include>org.apache.ratis:ratis-shell</include>
         <include>org.apache.ratis:ratis-tools</include>
         <include>org.apache.ratis:ratis-resource-bundle</include>

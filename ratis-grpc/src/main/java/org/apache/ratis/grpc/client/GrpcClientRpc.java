@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
+import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupListRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
@@ -41,6 +42,8 @@ import org.apache.ratis.proto.RaftProtos.LeaderElectionManagementRequestProto;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -53,18 +56,30 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClient> {
+public final class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClient> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientRpc.class);
+
+  public static GrpcClientRpc create(ClientId clientId, RaftProperties properties,
+      SslContext adminSslContext, SslContext clientSslContext) {
+    final int workerGroupSize = GrpcConfigKeys.Client.workerGroupSize(properties);
+    final MemoizedSupplier<EventLoopGroup> eventLoopGroup = workerGroupSize > 0 ? MemoizedSupplier.valueOf(
+        () -> NettyUtils.newEventLoopGroup(
+            clientId + "-client-workers", workerGroupSize, GrpcConfigKeys.useEpoll(properties))) : null;
+    return new GrpcClientRpc(clientId, properties, adminSslContext, clientSslContext, eventLoopGroup);
+  }
 
   private final ClientId clientId;
   private final int maxMessageSize;
   private final TimeDuration requestTimeoutDuration;
   private final TimeDuration watchRequestTimeoutDuration;
+  private final MemoizedSupplier<EventLoopGroup> clientWorkers;
 
-  public GrpcClientRpc(ClientId clientId, RaftProperties properties,
-      SslContext adminSslContext, SslContext clientSslContext) {
+  private GrpcClientRpc(ClientId clientId, RaftProperties properties,
+      SslContext adminSslContext, SslContext clientSslContext, MemoizedSupplier<EventLoopGroup> clientWorkers) {
     super(new PeerProxyMap<>(clientId.toString(),
-        p -> new GrpcClientProtocolClient(clientId, p, properties, adminSslContext, clientSslContext)));
+        p -> new GrpcClientProtocolClient(clientId, p, properties, adminSslContext, clientSslContext, clientWorkers)));
+    this.clientWorkers = clientWorkers;
+
     this.clientId = clientId;
     this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug).getSizeInt();
     this.requestTimeoutDuration = RaftClientConfigKeys.Rpc.requestTimeout(properties);
@@ -211,6 +226,17 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
           + " exceeds maximum:" + maxMessageSize);
     }
     return proto;
+  }
+
+  @Override
+  public void close() {
+    try {
+      super.close();
+    } finally {
+      if (clientWorkers != null && clientWorkers.isInitialized()) {
+        NettyUtils.shutdownGracefully(clientWorkers.get());
+      }
+    }
   }
 
   @Override

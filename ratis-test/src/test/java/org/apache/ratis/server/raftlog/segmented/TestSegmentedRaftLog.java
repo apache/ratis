@@ -52,6 +52,7 @@ import org.apache.ratis.util.TimeDuration;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -179,6 +180,49 @@ public class TestSegmentedRaftLog extends BaseTest {
   public void tearDown() throws Exception {
     if (storageDir != null) {
       FileUtils.deleteFully(storageDir.getParentFile());
+    }
+  }
+
+  @Test
+  public void testCloseWakesUpIdleWorker() throws Exception {
+    final AtomicReference<Thread> workerThread = new AtomicReference<>();
+    final CountDownLatch workerStarted = new CountDownLatch(1);
+    final CountDownLatch runWorker = new CountDownLatch(1);
+    final SegmentedRaftLog raftLog = newSegmentedRaftLog();
+    CodeInjectionForTesting.put(RUN_WORKER, (localId, remoteId, args) -> {
+      workerThread.set(Thread.currentThread());
+      workerStarted.countDown();
+      try {
+        runWorker.await();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException(e);
+      }
+      return true;
+    });
+
+    boolean closeInvoked = false;
+    try {
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+      assertTrue(workerStarted.await(FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit()));
+      runWorker.countDown();
+
+      final long deadline = System.nanoTime() + FIVE_SECONDS.toLong(TimeUnit.NANOSECONDS);
+      while (System.nanoTime() < deadline) {
+        if (workerThread.get().getState() == Thread.State.TIMED_WAITING) {
+          closeInvoked = true;
+          Assertions.assertTimeout(Duration.ofMillis(500), raftLog::close);
+          return;
+        }
+        Thread.yield();
+      }
+      Assertions.fail("The worker did not wait for an I/O task");
+    } finally {
+      runWorker.countDown();
+      CodeInjectionForTesting.remove(RUN_WORKER);
+      if (!closeInvoked) {
+        raftLog.close();
+      }
     }
   }
 

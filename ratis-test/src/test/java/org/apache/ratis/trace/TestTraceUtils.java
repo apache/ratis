@@ -18,12 +18,14 @@
 package org.apache.ratis.trace;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.trace.otel.OTelTraceProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -39,6 +41,11 @@ public class TestTraceUtils {
   private void runTraceAsyncAndAssertClientSpan(boolean tracingEnabled, boolean expectClientSpan)
       throws Exception {
     TraceUtils.setTracerWhenEnabled(tracingEnabled);
+    if (tracingEnabled) {
+      assertSame(OTelTraceProvider.class, TraceUtils.getProvider().getClass());
+    } else {
+      assertSame(NoOpTraceProvider.class, TraceUtils.getProvider().getClass());
+    }
     TraceClient.asyncSend(
         () -> CompletableFuture.completedFuture("ok"),
         null,

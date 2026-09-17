@@ -27,6 +27,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.NettyUtils;
 
 import java.io.Closeable;
 import java.net.InetSocketAddress;

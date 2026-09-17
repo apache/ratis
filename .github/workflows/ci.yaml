@@ -48,14 +48,14 @@ jobs:
       - build
     strategy:
       matrix:
-        java: [ 8, 11, 17, 21 ]
+        java: [ 8, 17, 21, 25 ]
       fail-fast: false
     uses: ./.github/workflows/check.yaml
     with:
       java-version: ${{ matrix.java }}
       needs-source-tarball: true
       script: compile
-      script-args: -Dmaven.compiler.release=${{ matrix.java }}
+      script-args: -Prelease -Dmaven.compiler.release=${{ matrix.java }} -Dmaven.javadoc.failOnWarnings=${{ matrix.java != 8 }}
       split: ${{ matrix.java }}
       timeout-minutes: 30
     secrets:
@@ -124,12 +124,12 @@ jobs:
     if: github.event_name != 'pull_request'
     steps:
         - name: Checkout project
-          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
           with:
             fetch-depth: 0
             persist-credentials: false
         - name: Cache for maven dependencies
-          uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+          uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
           with:
             path: |
               ~/.m2/repository
@@ -138,7 +138,7 @@ jobs:
             restore-keys: |
               maven-repo-
         - name: Setup java 17
-          uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+          uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
           with:
             distribution: 'temurin'
             java-version: 17

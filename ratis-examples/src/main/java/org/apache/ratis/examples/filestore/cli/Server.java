@@ -77,7 +77,7 @@ public class Server extends SubCommandBase {
     JvmMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
 
     RaftPeerId peerId = RaftPeerId.valueOf(id);
-    RaftProperties properties = new RaftProperties();
+    RaftProperties properties = newRaftProperties();
 
     // Avoid leader change affect the performance
     RaftServerConfigKeys.Rpc.setTimeoutMin(properties, TimeDuration.valueOf(2, TimeUnit.SECONDS));

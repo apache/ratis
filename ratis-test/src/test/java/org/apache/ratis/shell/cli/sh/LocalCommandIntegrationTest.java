@@ -22,6 +22,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.NetUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,6 +30,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Inet6Address;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -120,6 +123,38 @@ public class LocalCommandIntegrationTest {
     }
   }
 
+
+  @Test
+  public void testRunMethodWithIpv6(@TempDir Path tempDir) throws Exception {
+    final int index = 1;
+    generateRaftConf(tempDir.resolve(RAFT_META_CONF), index);
+
+    // IPv6 literals must be enclosed in brackets, e.g. [2001:db8::1]:9872.
+    final String peersListStr = "peer1_ID|[2001:db8::1]:9872,peer2_ID|[2001:db8::2]:9873";
+    StringPrintStream out = new StringPrintStream();
+    RatisShell shell = new RatisShell(out.getPrintStream());
+    int ret = shell.run("local", "raftMetaConf", "-peers", peersListStr, "-path", tempDir.toString());
+    Assertions.assertEquals(0, ret);
+
+    final List<RaftPeerProto> peers;
+    try (InputStream in = Files.newInputStream(tempDir.resolve(NEW_RAFT_META_CONF))) {
+      peers = LogEntryProto.newBuilder().mergeFrom(in).build()
+          .getConfigurationEntry().getPeersList();
+    }
+    Assertions.assertEquals(2, peers.size());
+
+    // Each written address must stay bracketed and round-trip to an IPv6 address with the same port.
+    final int[] expectedPorts = {9872, 9873};
+    for (int i = 0; i < peers.size(); i++) {
+      final String address = peers.get(i).getAddress();
+      Assertions.assertTrue(address.startsWith("[") && address.contains("]:"),
+          () -> "IPv6 address is not bracketed: " + address);
+      final InetSocketAddress parsed = NetUtils.createSocketAddr(address);
+      Assertions.assertTrue(parsed.getAddress() instanceof Inet6Address,
+          () -> "Not an IPv6 address: " + address);
+      Assertions.assertEquals(expectedPorts[i], parsed.getPort());
+    }
+  }
 
   private void generateRaftConf(Path path, int index) throws IOException {
     Map<String, String> map = new HashMap<>();

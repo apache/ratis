@@ -18,6 +18,7 @@
 package org.apache.ratis.client.impl;
 
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuf;
 import org.apache.ratis.proto.RaftProtos.AlreadyClosedExceptionProto;
 import org.apache.ratis.proto.RaftProtos.ClientMessageEntryProto;
 import org.apache.ratis.proto.RaftProtos.GroupAddRequestProto;
@@ -373,6 +374,7 @@ public interface ClientProtoUtils {
         b.setIsRaftStorageHealthy(reply.isRaftStorageHealthy());
         b.setRole(reply.getRoleInfoProto());
         b.addAllCommitInfos(reply.getCommitInfos());
+        reply.getConf().ifPresent(conf -> b.setConf(conf));
         b.setLogInfo(reply.getLogInfoProto());
       }
     }
@@ -380,11 +382,13 @@ public interface ClientProtoUtils {
   }
 
   static RaftClientReply getRaftClientReply(DataStreamReply reply) {
-    if (!(reply instanceof DataStreamReplyByteBuffer)) {
-      throw new IllegalStateException("Unexpected " + reply.getClass() + ": reply is " + reply);
-    }
     try {
-      return toRaftClientReply(((DataStreamReplyByteBuffer) reply).slice());
+      if (reply instanceof DataStreamReplyByteBuffer) {
+        return toRaftClientReply(((DataStreamReplyByteBuffer) reply).slice());
+      } else if (reply instanceof DataStreamReplyByteBuf) {
+        return toRaftClientReply(((DataStreamReplyByteBuf) reply).slice().nioBuffer());
+      }
+      throw new IllegalStateException("Unexpected " + reply.getClass() + ": reply is " + reply);
     } catch (InvalidProtocolBufferException e) {
       throw new IllegalStateException("Failed to getRaftClientReply from " + reply, e);
     }

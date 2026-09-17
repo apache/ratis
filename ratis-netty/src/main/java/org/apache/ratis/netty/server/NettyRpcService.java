@@ -20,7 +20,7 @@ package org.apache.ratis.netty.server;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyRpcProxy;
-import org.apache.ratis.netty.NettyUtils;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.protocol.GroupListReply;
 import org.apache.ratis.protocol.RaftClientReply;

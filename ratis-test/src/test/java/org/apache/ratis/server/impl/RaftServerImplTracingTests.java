@@ -38,11 +38,12 @@ import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
-import org.apache.ratis.trace.RatisAttributes;
+import org.apache.ratis.trace.otel.OTelRatisAttributes;
 import org.apache.ratis.trace.SpanNames;
 import org.apache.ratis.trace.TraceConfigKeys;
 import org.apache.ratis.trace.TraceServer;
 import org.apache.ratis.trace.TraceUtils;
+import org.apache.ratis.trace.otel.OTelTraceUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -109,9 +110,9 @@ public class RaftServerImplTracingTests {
         .filter(s -> s.getKind() == SpanKind.INTERNAL && s.getName().equals(SpanNames.APPEND_ENTRIES_ASYNC))
         .findFirst()
         .orElseThrow(() -> new IllegalStateException("Expected INTERNAL span " + SpanNames.APPEND_ENTRIES_ASYNC));
-    assertEquals("n1", appendSpan.getAttributes().get(RatisAttributes.MEMBER_ID));
-    assertEquals("leader1", appendSpan.getAttributes().get(RatisAttributes.PEER_ID));
-    assertEquals(entriesCount, appendSpan.getAttributes().get(RatisAttributes.APPEND_ENTRIES_COUNT));
+    assertEquals("n1", appendSpan.getAttributes().get(OTelRatisAttributes.MEMBER_ID));
+    assertEquals("leader1", appendSpan.getAttributes().get(OTelRatisAttributes.PEER_ID));
+    assertEquals(entriesCount, appendSpan.getAttributes().get(OTelRatisAttributes.APPEND_ENTRIES_COUNT));
   }
 
   @Test
@@ -188,7 +189,7 @@ public class RaftServerImplTracingTests {
         .setSpanKind(SpanKind.CLIENT)
         .startSpan();
     try {
-      return TraceUtils.injectContextToProto(Context.current().with(remoteParent));
+      return OTelTraceUtils.injectContextToProto(Context.current().with(remoteParent));
     } finally {
       remoteParent.end();
     }
@@ -259,7 +260,7 @@ public class RaftServerImplTracingTests {
           .setGroupId(RaftGroupId.randomId())
           .setCallId(1L)
           .setType(type)
-          .setSpanContext(TraceUtils.injectContextToProto(clientContext))
+          .setSpanContext(OTelTraceUtils.injectContextToProto(clientContext))
           .build();
     } finally {
       clientSpan.end();

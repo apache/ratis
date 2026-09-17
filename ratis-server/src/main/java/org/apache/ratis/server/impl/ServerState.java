@@ -31,7 +31,6 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.memory.MemoryRaftLog;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.*;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
@@ -69,7 +68,6 @@ class ServerState {
   private final MemoizedSupplier<StateMachineUpdater> stateMachineUpdater;
   /** local storage for log and snapshot */
   private final MemoizedCheckedSupplier<RaftStorageImpl, IOException> raftStorage;
-  private final SnapshotManager snapshotManager;
   private final AtomicReference<Timestamp> lastNoLeaderTime;
   private final TimeDuration noLeaderTimeout;
 
@@ -118,9 +116,6 @@ class ServerState {
     this.raftStorage = MemoizedCheckedSupplier.valueOf(
         () -> StorageImplUtils.initRaftStorage(storageDirName, option, prop));
 
-    this.snapshotManager = StorageImplUtils.newSnapshotManager(id, () -> getStorage().getStorageDir(),
-        stateMachine.getStateMachineStorage());
-
     // On start the leader is null, start the clock now
     this.lastNoLeaderTime = new AtomicReference<>(Timestamp.currentTime());
     this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
@@ -134,8 +129,35 @@ class ServerState {
   void initialize(StateMachine stateMachine) throws IOException {
     // initialize raft storage
     final RaftStorageImpl storage = raftStorage.get();
-    // read configuration from the storage
-    Optional.ofNullable(storage.readRaftConfiguration()).ifPresent(this::setRaftConf);
+    final RaftConfigurationImpl initialConf = getRaftConf();
+    final boolean hasInitialConf = !initialConf.getCurrentPeers().isEmpty()
+        || !initialConf.getCurrentPeers(RaftPeerRole.LISTENER).isEmpty();
+
+    // The latest applied Raft configuration always takes precedence.  The bootstrap
+    // configuration is only a durable seed until the first configuration entry is applied.
+    final RaftConfiguration persistedConf = storage.readRaftConfiguration();
+    if (persistedConf != null) {
+      storage.deleteBootstrapConfiguration();
+      setRaftConf(persistedConf);
+    } else {
+      final RaftConfiguration bootstrapConf = storage.readBootstrapConfiguration();
+      if (bootstrapConf != null) {
+        if (!hasInitialConf) {
+          setRaftConf(bootstrapConf);
+        } else if (!((RaftConfigurationImpl) bootstrapConf).hasNoChange(
+            initialConf.getCurrentPeers(), initialConf.getCurrentPeers(RaftPeerRole.LISTENER))) {
+          throw new IOException("Conflicting bootstrap configuration for " + getMemberId()
+              + ": stored=" + bootstrapConf + ", supplied=" + initialConf);
+        } else {
+          // Preserve the supplied peer metadata, such as updated addresses, while keeping
+          // the voting membership and priorities unchanged.
+          storage.writeBootstrapConfiguration(initialConf);
+        }
+      } else if (hasInitialConf) {
+        // Persist before start() can acknowledge the group-add request.
+        storage.writeBootstrapConfiguration(initialConf);
+      }
+    }
 
     stateMachine.initialize(server.getRaftServer(), getMemberId().getGroupId(), storage);
 
@@ -160,7 +182,7 @@ class ServerState {
     return index >= 0 ? index : RaftLog.INVALID_LOG_INDEX;
   }
 
-  void writeRaftConfiguration(LogEntryProto conf) {
+  void writeRaftConfiguration(LogEntryProto conf) throws IOException {
     getStorage().writeRaftConfiguration(conf);
   }
 
@@ -468,13 +490,6 @@ class ServerState {
       throw new IllegalStateException(getMemberId() + ": raftStorage is uninitialized.");
     }
     return raftStorage.getUnchecked();
-  }
-
-  void installSnapshot(InstallSnapshotRequestProto request) throws IOException {
-    // TODO: verify that we need to install the snapshot
-    StateMachine sm = server.getStateMachine();
-    sm.pause(); // pause the SM to prepare for install snapshot
-    snapshotManager.installSnapshot(request, sm);
   }
 
   private SnapshotInfo getLatestSnapshot() {

@@ -55,8 +55,24 @@ class LogAppenderDefault extends LogAppenderBase {
     return CallId.getComparator();
   }
 
+  private static final class AppendEntriesResult {
+    private final AppendEntriesReplyProto reply;
+    private final long requestFirstIndex;
+    private final long requestPreviousIndex;
+    private final boolean requestHeartbeat;
+
+    private AppendEntriesResult(AppendEntriesReplyProto reply, AppendEntriesRequestProto request) {
+      this.reply = reply;
+      this.requestFirstIndex = request.getEntriesCount() > 0
+          ? request.getEntries(0).getIndex() : RaftLog.INVALID_LOG_INDEX;
+      this.requestPreviousIndex = request.hasPreviousLog()
+          ? request.getPreviousLog().getIndex() : RaftLog.INVALID_LOG_INDEX;
+      this.requestHeartbeat = request.getEntriesCount() == 0;
+    }
+  }
+
   /** Send an appendEntries RPC; retry indefinitely. */
-  private AppendEntriesReplyProto sendAppendEntriesWithRetries(AtomicLong requestFirstIndex)
+  private AppendEntriesResult sendAppendEntriesWithRetries(AtomicLong requestFirstIndex)
       throws InterruptedException, InterruptedIOException, RaftLogIOException {
     int retry = 0;
 
@@ -86,7 +102,7 @@ class LogAppenderDefault extends LogAppenderBase {
         getFollower().updateLastRespondedAppendEntriesSendTime(sendTime);
 
         getLeaderState().onFollowerCommitIndex(getFollower(), reply.getFollowerCommit());
-        return reply;
+        return new AppendEntriesResult(reply, proto);
       } catch (InterruptedIOException | RaftLogIOException e) {
         throw e;
       } catch (IOException ioe) {
@@ -160,9 +176,9 @@ class LogAppenderDefault extends LogAppenderBase {
           // otherwise if r is null, retry the snapshot installation
         } else {
           final AtomicLong requestFirstIndex = new AtomicLong(RaftLog.INVALID_LOG_INDEX);
-          final AppendEntriesReplyProto r = sendAppendEntriesWithRetries(requestFirstIndex);
+          final AppendEntriesResult r = sendAppendEntriesWithRetries(requestFirstIndex);
           if (r != null) {
-            handleReply(r, requestFirstIndex.get());
+            handleReply(r.reply, r.requestFirstIndex, r.requestPreviousIndex, r.requestHeartbeat);
           }
         }
       }
@@ -173,13 +189,15 @@ class LogAppenderDefault extends LogAppenderBase {
     }
   }
 
-  private void handleReply(AppendEntriesReplyProto reply, long requestFirstIndex)
+  void handleReply(AppendEntriesReplyProto reply, long requestFirstIndex,
+      long requestPreviousIndex, boolean requestHeartbeat)
       throws IllegalArgumentException {
     if (reply != null) {
       switch (reply.getResult()) {
         case SUCCESS:
           final long oldNextIndex = getFollower().getNextIndex();
-          final long nextIndex = reply.getNextIndex();
+          final long nextIndex = requestHeartbeat
+              ? Math.max(oldNextIndex, requestPreviousIndex + 1) : reply.getNextIndex();
           if (nextIndex < oldNextIndex) {
             throw new IllegalStateException("nextIndex=" + nextIndex
                 + " < oldNextIndex=" + oldNextIndex

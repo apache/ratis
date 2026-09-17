@@ -221,6 +221,10 @@ public final class ServerImplUtils {
     return b.build();
   }
 
+  public static RaftConfiguration newRaftConfiguration(List<RaftPeer> conf, List<RaftPeer> listener) {
+    return RaftConfigurationImpl.newBuilder().setConf(conf, listener).build();
+  }
+
   static long effectiveCommitIndex(long leaderCommitIndex, TermIndex followerPrevious, int numAppendEntries) {
     final long previous = followerPrevious != null? followerPrevious.getIndex() : RaftLog.LEAST_VALID_LOG_INDEX;
     return Math.min(leaderCommitIndex, previous + numAppendEntries);

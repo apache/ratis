@@ -56,7 +56,7 @@ public class Server extends SubCommandBase {
   @Override
   public void run() throws Exception {
     RaftPeerId peerId = RaftPeerId.valueOf(id);
-    RaftProperties properties = new RaftProperties();
+    RaftProperties properties = newRaftProperties();
 
     final int port = NetUtils.createSocketAddr(getPeer(peerId).getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);

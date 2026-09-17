@@ -150,13 +150,16 @@ public abstract class ElectionCommandIntegrationTest <CLUSTER extends MiniRaftCl
   void runTestElectionStepDownCommand(MiniRaftCluster cluster) throws Exception {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     String sb = getClusterAddress(cluster);
-    RaftServer.Division newLeader = cluster.getFollowers().get(0);
     final StringPrintStream out = new StringPrintStream();
     RatisShell shell = new RatisShell(out.getPrintStream());
-    Assertions.assertNotEquals(cluster.getLeader().getId(), newLeader.getId());
     Assertions.assertEquals(2, cluster.getFollowers().size());
-    int ret = shell.run("election", "stepDown", "-peers", sb.toString());
+    int ret = shell.run("election", "pause", "-peers", sb, "-address",
+        leader.getPeer().getAddress());
     Assertions.assertEquals(0, ret);
-    Assertions.assertEquals(3, cluster.getFollowers().size());
+
+    ret = shell.run("election", "stepDown", "-peers", sb);
+    Assertions.assertEquals(0, ret);
+    JavaUtils.attempt(() -> Assertions.assertNotEquals(leader.getId(), RaftTestUtil.waitForLeader(cluster).getId()),
+        10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testElectionStepDownCommand", LOG);
   }
 }

@@ -21,6 +21,7 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.server.GrpcServices;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.thirdparty.io.grpc.ServerCredentials;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -50,6 +51,15 @@ public interface GrpcConfigKeys {
   }
 
   String PREFIX = "raft.grpc";
+
+  String USE_EPOLL_KEY = PREFIX + ".use-epoll";
+  boolean USE_EPOLL_DEFAULT = true;
+  static boolean useEpoll(RaftProperties properties) {
+    return getBoolean(properties::getBoolean, USE_EPOLL_KEY, USE_EPOLL_DEFAULT, getDefaultLog());
+  }
+  static void setUseEpoll(RaftProperties properties, boolean useEpoll) {
+    setBoolean(properties::setBoolean, USE_EPOLL_KEY, useEpoll);
+  }
 
   interface TLS {
     String PREFIX = GrpcConfigKeys.PREFIX + ".tls";
@@ -154,6 +164,16 @@ public interface GrpcConfigKeys {
     }
     static void setTlsConf(Parameters parameters, GrpcTlsConfig conf) {
       parameters.put(TLS_CONF_PARAMETER, conf, TLS_CONF_CLASS);
+    }
+
+    String WORKER_GROUP_SIZE_KEY = PREFIX + ".worker-group.size";
+    int WORKER_GROUP_SIZE_DEFAULT = 0;
+    static int workerGroupSize(RaftProperties properties) {
+      return getInt(properties::getInt, WORKER_GROUP_SIZE_KEY,
+          WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
+    }
+    static void setWorkerGroupSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, WORKER_GROUP_SIZE_KEY, size);
     }
   }
 
@@ -274,6 +294,28 @@ public interface GrpcConfigKeys {
       parameters.put(SERVICES_CUSTOMIZER_PARAMETER, customizer, SERVICES_CUSTOMIZER_CLASS);
     }
 
+    String CREDENTIALS_PARAMETER = PREFIX + ".credentials";
+    Class<ServerCredentials> CREDENTIALS_CLASS = ServerCredentials.class;
+    static ServerCredentials credentials(Parameters parameters) {
+      return parameters == null ? null
+          : parameters.get(CREDENTIALS_PARAMETER, CREDENTIALS_CLASS);
+    }
+    static void setCredentials(Parameters parameters, ServerCredentials credentials) {
+      parameters.put(CREDENTIALS_PARAMETER, credentials, CREDENTIALS_CLASS);
+    }
+
+    String LOG_APPENDER_LISTENER_FACTORY_PARAMETER = PREFIX + ".log.appender.listener.factory";
+    Class<GrpcLogAppenderListener.Factory> LOG_APPENDER_LISTENER_FACTORY_CLASS = GrpcLogAppenderListener.Factory.class;
+    static GrpcLogAppenderListener.Factory logAppenderListenerFactory(Parameters parameters) {
+      return parameters == null ? null : parameters.get(
+          LOG_APPENDER_LISTENER_FACTORY_PARAMETER, LOG_APPENDER_LISTENER_FACTORY_CLASS);
+    }
+
+    /** Sets an optional factory for observing the lifecycle of each peer log appender. */
+    static void setLogAppenderListenerFactory(Parameters parameters, GrpcLogAppenderListener.Factory factory) {
+      parameters.put(LOG_APPENDER_LISTENER_FACTORY_PARAMETER, factory, LOG_APPENDER_LISTENER_FACTORY_CLASS);
+    }
+
     String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
     Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
     static GrpcTlsConfig tlsConf(Parameters parameters) {
@@ -290,6 +332,26 @@ public interface GrpcConfigKeys {
     }
     static void setStubPoolSize(RaftProperties properties, int size) {
       setInt(properties::setInt, STUB_POOL_SIZE_KEY, size);
+    }
+
+    String BOSS_GROUP_SIZE_KEY = PREFIX + ".boss-group.size";
+    int BOSS_GROUP_SIZE_DEFAULT = 0;
+    static int bossGroupSize(RaftProperties properties) {
+      return getInt(properties::getInt, BOSS_GROUP_SIZE_KEY,
+          BOSS_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
+    }
+    static void setBossGroupSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, BOSS_GROUP_SIZE_KEY, size);
+    }
+
+    String WORKER_GROUP_SIZE_KEY = PREFIX + ".worker-group.size";
+    int WORKER_GROUP_SIZE_DEFAULT = 0;
+    static int workerGroupSize(RaftProperties properties) {
+      return getInt(properties::getInt, WORKER_GROUP_SIZE_KEY,
+          WORKER_GROUP_SIZE_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
+    }
+    static void setWorkerGroupSize(RaftProperties properties, int size) {
+      setInt(properties::setInt, WORKER_GROUP_SIZE_KEY, size);
     }
   }
 

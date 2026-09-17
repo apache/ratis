@@ -17,20 +17,14 @@
  */
 package org.apache.ratis.trace;
 
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanKind;
-import io.opentelemetry.context.Context;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
-import org.apache.ratis.proto.RaftProtos.SpanContextProto;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.function.CheckedSupplier;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-/** Server-side OpenTelemetry helpers. */
+/** Server-side tracing helpers. */
 public final class TraceServer {
   private TraceServer() {
   }
@@ -41,25 +35,7 @@ public final class TraceServer {
   public static <T, THROWABLE extends Throwable> CompletableFuture<T> traceAsyncMethod(
       CheckedSupplier<CompletableFuture<T>, THROWABLE> action,
       RaftClientRequest request, String memberId, String spanName) throws THROWABLE {
-    if (!TraceUtils.isEnabled()) {
-      return action.get();
-    }
-    return TraceUtils.traceAsyncMethod(action,
-        () -> createServerSpanFromClientRequest(request, memberId, spanName));
-  }
-
-  private static Span createServerSpanFromClientRequest(RaftClientRequest request, String memberId,
-      String spanName) {
-    final Context remoteContext = TraceUtils.extractContextFromProto(request.getSpanContext());
-    final Span span = TraceUtils.getGlobalTracer()
-        .spanBuilder(spanName)
-        .setParent(remoteContext)
-        .setSpanKind(SpanKind.SERVER)
-        .startSpan();
-    span.setAttribute(RatisAttributes.CLIENT_ID, String.valueOf(request.getClientId()));
-    span.setAttribute(RatisAttributes.CALL_ID, String.valueOf(request.getCallId()));
-    span.setAttribute(RatisAttributes.MEMBER_ID, memberId);
-    return span;
+    return TraceUtils.getProvider().traceServerRequest(action, request, memberId, spanName);
   }
 
   /**
@@ -69,26 +45,6 @@ public final class TraceServer {
   public static <T> CompletableFuture<T> traceAppendEntriesAsync(
       CheckedSupplier<CompletableFuture<T>, IOException> action,
       AppendEntriesRequestProto request, String memberId) throws IOException {
-    if (!TraceUtils.isEnabled()) {
-      return action.get();
-    }
-    final RaftRpcRequestProto rpc = request.getServerRequest();
-    final SpanContextProto spanContext = rpc.getSpanContext();
-    // If the leader sent no parent span context, still trace as a root span
-    // rather than skipping tracing entirely.
-    final Context remoteContext = (spanContext == null || spanContext.getContextMap().isEmpty())
-        ? Context.root()
-        : TraceUtils.extractContextFromProto(spanContext);
-    return TraceUtils.traceAsyncMethod(action, () -> {
-      final Span span = TraceUtils.getGlobalTracer()
-          .spanBuilder(SpanNames.APPEND_ENTRIES_ASYNC)
-          .setParent(remoteContext)
-          .setSpanKind(SpanKind.INTERNAL)
-          .startSpan();
-      span.setAttribute(RatisAttributes.MEMBER_ID, memberId);
-      span.setAttribute(RatisAttributes.PEER_ID, String.valueOf(RaftPeerId.valueOf(rpc.getRequestorId())));
-      span.setAttribute(RatisAttributes.APPEND_ENTRIES_COUNT, (long) request.getEntriesCount());
-      return span;
-    });
+    return TraceUtils.getProvider().traceAppendEntries(action, request, memberId);
   }
 }

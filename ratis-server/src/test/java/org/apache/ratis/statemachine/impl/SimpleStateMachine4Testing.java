@@ -268,14 +268,16 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     // TODO: snapshot should be written to a tmp file, then renamed
     final File snapshotFile = storage.getSnapshotFile(termIndex.getTerm(), endIndex);
     LOG.debug("Taking a snapshot with {}, file:{}", termIndex, snapshotFile);
+    final LogEntryProto[] entries;
+    synchronized (indexMap) {
+      entries = indexMap.values().stream()
+          .filter(entry -> entry.getIndex() <= endIndex)
+          .toArray(LogEntryProto[]::new);
+    }
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(snapshotFile, false,
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
-      for (final LogEntryProto entry : indexMap.values()) {
-        if (entry.getIndex() > endIndex) {
-          break;
-        } else {
-          out.write(entry);
-        }
+      for (final LogEntryProto entry : entries) {
+        out.write(entry);
       }
       out.flush();
     } catch (IOException e) {

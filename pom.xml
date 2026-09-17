@@ -18,7 +18,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>38</version>
+    <version>39</version>
     <relativePath /> <!-- resolve from repository -->
   </parent>
 
@@ -64,14 +64,16 @@
     <module>ratis-grpc</module>
     <module>ratis-netty</module>
 
-    <module>ratis-test</module>
-
-    <module>ratis-examples</module>
     <module>ratis-metrics-api</module>
     <module>ratis-metrics-default</module>
     <module>ratis-metrics-dropwizard3</module>
+    <module>ratis-trace-otel</module>
+
     <module>ratis-tools</module>
     <module>ratis-shell</module>
+    <module>ratis-examples</module>
+    <module>ratis-test</module>
+
     <module>ratis-assembly</module>
     <module>ratis-bom</module>
   </modules>
@@ -147,20 +149,20 @@
     <license.bundles.dependencies>false</license.bundles.dependencies>
 
     <!-- Maven plugin versions -->
-    <maven-bundle-plugin.version>6.0.2</maven-bundle-plugin.version>
+    <maven-bundle-plugin.version>6.1.2</maven-bundle-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
     <hadoop-maven-plugins.version>3.4.3</hadoop-maven-plugins.version>
-    <sonar-maven-plugin.version>5.6.0.6792</sonar-maven-plugin.version>
+    <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
 
     <!-- org.codehaus.mojo -->
     <build-helper-maven-plugin.version>3.6.1</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>3.6.3</exec-maven-plugin.version>
     <extra-enforcer-rules.version>1.12.0</extra-enforcer-rules.version>
-    <restrict-imports-enforcer-rule.version>3.0.0</restrict-imports-enforcer-rule.version>
+    <restrict-imports-enforcer-rule.version>3.0.1</restrict-imports-enforcer-rule.version>
     <license-maven-plugin.version>2.7.1</license-maven-plugin.version>
 
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
-    <cyclonedx.version>2.9.1</cyclonedx.version>
+    <cyclonedx.version>2.9.3</cyclonedx.version>
 
     <spotbugs.version>4.8.6</spotbugs.version>
     <spotbugs-plugin.version>4.8.6.8</spotbugs-plugin.version>
@@ -175,26 +177,33 @@
     <maven.compiler.release>${javaVersion}</maven.compiler.release>
 
     <!-- Contains all shaded thirdparty dependencies; make sure to also update in ratis-bom/pom.xml -->
-    <ratis.thirdparty.version>1.0.11</ratis.thirdparty.version>
+    <ratis.thirdparty.version>1.1.0</ratis.thirdparty.version>
 
     <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
-    <shaded.protobuf.version>3.25.8</shaded.protobuf.version>
-    <shaded.grpc.version>1.77.1</shaded.grpc.version>
+    <shaded.protobuf.version>3.25.9</shaded.protobuf.version>
+    <shaded.grpc.version>1.82.1</shaded.grpc.version>
 
     <!-- OpenTelemetry versions -->
-    <opentelemetry.version>1.62.0</opentelemetry.version>
-    <opentelemetry-semconv.version>1.41.1</opentelemetry-semconv.version>
+    <opentelemetry.version>1.65.0</opentelemetry.version>
+    <opentelemetry-javaagent.version>2.31.0</opentelemetry-javaagent.version>
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
     <test.exclude.pattern>_</test.exclude.pattern>
     <!-- number of threads/forks to use when running tests in parallel, see parallel-tests profile -->
     <testsThreadCount>4</testsThreadCount>
 
-    <slf4j.version>2.0.18</slf4j.version>
+    <slf4j.version>2.0.19</slf4j.version>
     <junit-bom.version>5.14.4</junit-bom.version>
     <mockito.version>4.11.0</mockito.version>
-    <jacoco.version>0.8.14</jacoco.version>
+    <byte-buddy.version>1.18.13</byte-buddy.version>
+    <jacoco.version>0.8.15</jacoco.version>
     <flaky-test-groups>flaky | org.apache.ratis.test.tag.FlakyTest</flaky-test-groups>
+
+    <extraJavaTestArgs>
+      -XX:+IgnoreUnrecognizedVMOptions
+      --enable-native-access=ALL-UNNAMED
+      --sun-misc-unsafe-memory-access=allow
+    </extraJavaTestArgs>
   </properties>
 
   <dependencyManagement>
@@ -271,6 +280,20 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
+
+      <dependency>
+        <artifactId>ratis-trace-otel</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-trace-otel</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
       <dependency>
         <artifactId>ratis-tools</artifactId>
         <groupId>org.apache.ratis</groupId>
@@ -387,35 +410,17 @@
         <artifactId>mockito-core</artifactId>
         <version>${mockito.version}</version>
       </dependency>
-
-      <!-- OpenTelemetry dependencies -->
       <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-api</artifactId>
-        <version>${opentelemetry.version}</version>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy</artifactId>
+        <version>${byte-buddy.version}</version>
       </dependency>
       <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-sdk</artifactId>
-        <version>${opentelemetry.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-sdk-testing</artifactId>
-        <version>${opentelemetry.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.opentelemetry.semconv</groupId>
-        <artifactId>opentelemetry-semconv</artifactId>
-        <version>${opentelemetry-semconv.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-context</artifactId>
-        <version>${opentelemetry.version}</version>
+      <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy-agent</artifactId>
+        <version>${byte-buddy.version}</version>
       </dependency>
     </dependencies>
-
   </dependencyManagement>
 
   <build>
@@ -539,6 +544,11 @@
             <compilerArgs>
               <arg>-Xlint:all,-options,-path</arg>
             </compilerArgs>
+            <!-- hopefully can be removed after upgrade to maven-compiler-plugin 4.0 or later,
+                 if empty annotations/ dir is fixed by: https://github.com/apache/maven-compiler-plugin/commit/d958a62 -->
+            <generatedSourcesDirectory>${project.build.directory}/generated-sources</generatedSourcesDirectory>
+            <!-- no annotation processing -->
+            <proc>none</proc>
           </configuration>
         </plugin>
 
@@ -577,7 +587,7 @@
             <enableProcessChecker>all</enableProcessChecker>
             <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
             <!-- @argLine is filled by jacoco maven plugin. @{} means late evaluation -->
-            <argLine>-Xmx2g -XX:+HeapDumpOnOutOfMemoryError @{argLine}</argLine>
+            <argLine>-Xmx2g -XX:+HeapDumpOnOutOfMemoryError ${extraJavaTestArgs} @{argLine}</argLine>
             <systemPropertyVariables>
               <ratis.log.dir>${project.build.directory}/log</ratis.log.dir>
               <ratis.tmp.dir>${project.build.directory}/tmp</ratis.tmp.dir>
@@ -703,6 +713,13 @@
         </configuration>
       </plugin>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <configuration>
+          <propertiesEncoding>ISO-8859-1</propertiesEncoding>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
         <executions>
@@ -749,7 +766,7 @@
       <plugin>
         <groupId>org.owasp</groupId>
         <artifactId>dependency-check-maven</artifactId>
-        <version>12.2.2</version>
+        <version>13.0.0</version>
       </plugin>
     </plugins>
     <resources>

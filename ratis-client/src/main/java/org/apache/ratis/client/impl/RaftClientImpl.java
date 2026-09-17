@@ -292,6 +292,9 @@ public final class RaftClientImpl implements RaftClient {
       b.setLeaderId(getLeaderId())
        .setRepliedCallIds(repliedCallIds.get(callId));
     }
+    if (TraceUtils.isEnabled()) {
+      b.setSpanContext(TraceUtils.injectContextToProto());
+    }
     return b.setClientId(clientId)
         .setGroupId(groupId)
         .setCallId(callId)

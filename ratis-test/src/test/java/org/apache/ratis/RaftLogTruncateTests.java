@@ -142,7 +142,7 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
       for (RaftPeer peer : cluster.getGroup().getPeers()) {
         final RaftServer.Division division = cluster.getDivision(peer.getId());
         assertLogEntries(division, oldLeaderTerm, firstBatch);
-        assertEmptyTransactionContextMap(division);
+        waitForEmptyTransactionContextMap(division);
       }
 
       // kill a majority of followers
@@ -221,15 +221,12 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
     for (RaftPeer peer : cluster.getGroup().getPeers()) {
       final RaftServer.Division division = cluster.getDivision(peer.getId());
       assertLogEntries(division, oldLeaderTerm, expectedMessages);
-      final String name = "assertEmptyTransactionContextMap:" + division.getId();
-      JavaUtils.attempt(() -> assertEmptyTransactionContextMap(division),
-          10, HUNDRED_MILLIS, name, LOG);
-
-  }
+      waitForEmptyTransactionContextMap(division);
+    }
 
     if (!exceptions.isEmpty()) {
       LOG.info("{} exceptions", exceptions.size());
-      for(int i = 0 ; i < exceptions.size(); i++) {
+      for (int i = 0; i < exceptions.size(); i++) {
         LOG.info("exception {})", i, exceptions.get(i));
       }
       Assertions.fail();
@@ -239,6 +236,11 @@ public abstract class RaftLogTruncateTests<CLUSTER extends MiniRaftCluster> exte
   static void assertEmptyTransactionContextMap(RaftServer.Division d) {
     final Map<TermIndex, MemoizedSupplier<TransactionContext>> map = RaftServerTestUtil.getTransactionContextMap(d);
     Assertions.assertTrue(map.isEmpty(), () -> d.getId() + " TransactionContextMap is non-empty: " + map);
+  }
+
+  void waitForEmptyTransactionContextMap(RaftServer.Division d) throws InterruptedException {
+    final String name = "assertEmptyTransactionContextMap:" + d.getId();
+    JavaUtils.attempt(() -> assertEmptyTransactionContextMap(d), 10, HUNDRED_MILLIS, name, LOG);
   }
 
   static void assertEntriesInTransactionContextMap(RaftServer.Division division,

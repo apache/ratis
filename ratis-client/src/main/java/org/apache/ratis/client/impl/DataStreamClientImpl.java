@@ -23,6 +23,7 @@ import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamOutputRpc;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.api.DataStreamInput;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -34,16 +35,16 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.rpc.CallId;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.util.IOUtils;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
@@ -57,7 +58,6 @@ import java.nio.channels.WritableByteChannel;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -187,6 +187,16 @@ public class DataStreamClientImpl implements DataStreamClient {
       return writeAsyncImpl(src, src.getCount(), Arrays.asList(options));
     }
 
+    @Override
+    public CompletableFuture<DataStreamReply> commandAsync(ByteBuffer src) {
+      if (isClosed()) {
+        return JavaUtils.completeExceptionally(new AlreadyClosedException(
+            clientId + ": stream already closed, request=" + header));
+      }
+      return combineHeader(send(Type.STREAM_COMMAND, src, src.remaining(),
+          Collections.singleton(StandardWriteOption.FLUSH)));
+    }
+
     boolean isClosed() {
       return closeFuture != null;
     }
@@ -260,18 +270,26 @@ public class DataStreamClientImpl implements DataStreamClient {
           () -> "Primary peer mismatched: the routing table has " + routingTable.getPrimary()
               + " but the client has " + dataStreamServer.getId());
     }
-    final Message message =
-        Optional.ofNullable(headerMessage).map(ByteString::copyFrom).map(Message::valueOf).orElse(null);
-    RaftClientRequest request = RaftClientRequest.newBuilder()
+    return new DataStreamOutputImpl(newBuilder(headerMessage)
+        .setType(RaftClientRequest.dataStreamRequestType())
+        .setRoutingTable(routingTable)
+        .build());
+  }
+
+  @Override
+  public DataStreamInput streamReadOnly(ByteBuffer headerMessage) {
+    return new DataStreamInputImpl(dataStreamClientRpc,
+        newBuilder(headerMessage).setType(RaftClientRequest.readRequestType()).build());
+  }
+
+  private RaftClientRequest.Builder newBuilder(ByteBuffer headerMessage) {
+    final Message message = headerMessage == null ? null : Message.valueOf(headerMessage);
+    return RaftClientRequest.newBuilder()
         .setClientId(clientId)
         .setServerId(dataStreamServer.getId())
         .setGroupId(groupId)
         .setCallId(CallId.getAndIncrement())
-        .setMessage(message)
-        .setType(RaftClientRequest.dataStreamRequestType())
-        .setRoutingTable(routingTable)
-        .build();
-    return new DataStreamOutputImpl(request);
+        .setMessage(message);
   }
 
   @Override

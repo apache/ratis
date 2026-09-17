@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.netty;
+package org.apache.ratis.util;
 
 import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.security.TlsConf.CertificatesConf;
@@ -36,13 +36,18 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketCh
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
-import org.apache.ratis.util.ConcurrentUtils;
-import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
+import org.apache.ratis.thirdparty.io.netty.util.concurrent.Future;
+import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.TrustManager;
+import java.security.Provider;
+import java.security.Security;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -79,6 +84,39 @@ public interface NettyUtils {
       }
     }
     return new NioEventLoopGroup(size, ConcurrentUtils.newThreadFactory(name + "-"));
+  }
+
+  static void shutdownGracefully(EventLoopGroup... groups) {
+    shutdownGracefully(CLOSE_TIMEOUT, groups);
+  }
+
+  static void shutdownGracefully(TimeDuration awaitTime, EventLoopGroup... groups) {
+    if (groups == null || groups.length == 0) {
+      return;
+    }
+
+    final List<EventLoopGroup> nonNullGroups = new ArrayList<>(groups.length);
+    final List<Future<?>> futures = new ArrayList<>(groups.length);
+    for (EventLoopGroup group : groups) {
+      if (group != null) {
+        nonNullGroups.add(group);
+        futures.add(group.shutdownGracefully());
+      }
+    }
+
+    for (int i = 0; i < futures.size(); i++) {
+      final EventLoopGroup group = nonNullGroups.get(i);
+      try {
+        if (!futures.get(i).await(awaitTime.getDuration(), awaitTime.getUnit())) {
+          LOG.warn("Failed to shut down EventLoopGroup {} in {}", group, awaitTime);
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        LOG.warn("Interrupted while shutting down EventLoopGroup {}", group, e);
+      } catch (Exception e) {
+        LOG.warn("Failed to shut down EventLoopGroup {} in {}", group, awaitTime, e);
+      }
+    }
   }
 
   static void setTrustManager(SslContextBuilder b, TrustManagerConf trustManagerConfig) {
@@ -137,7 +175,7 @@ public interface NettyUtils {
     if (tlsConf.isMutualTls()) {
       setTrustManager(b, tlsConf.getTrustManager());
     }
-    return b;
+    return configureSslContextBuilder(b, tlsConf);
   }
 
   static SslContext buildSslContextForServer(TlsConf tlsConf) {
@@ -150,7 +188,50 @@ public interface NettyUtils {
     if (tlsConf.isMutualTls()) {
       setKeyManager(b, tlsConf.getKeyManager());
     }
+    return configureSslContextBuilder(b, tlsConf);
+  }
+
+  /**
+   * Apply the {@link SslProvider}, JSSE provider, enabled TLS protocols and cipher suites from the given
+   * {@link TlsConf} to the builder, so that the Netty DataStream transport honours the same
+   * configuration instead of falling back on the provider defaults.
+   *
+   * <p>The cipher suite filter is supplied by {@link TlsConf#getCipherSuiteFilter()}.
+   */
+  static SslContextBuilder configureSslContextBuilder(SslContextBuilder b, TlsConf tlsConf) {
+    final SslProvider sslProvider = tlsConf.getSslProvider();
+    if (sslProvider != null) {
+      b.sslProvider(sslProvider);
+    }
+    final Provider jsseProvider = getJsseProvider(tlsConf);
+    if (jsseProvider != null) {
+      b.sslProvider(SslProvider.JDK).sslContextProvider(jsseProvider);
+    }
+    final List<String> protocols = tlsConf.getProtocols();
+    if (protocols != null && !protocols.isEmpty()) {
+      b.protocols(protocols);
+    }
+    final List<String> cipherSuites = tlsConf.getCipherSuites();
+    if (cipherSuites != null && !cipherSuites.isEmpty()) {
+      b.ciphers(cipherSuites, tlsConf.getCipherSuiteFilter());
+    }
     return b;
+  }
+
+  /**
+   * @return the named JSSE {@link Provider} from {@link TlsConf#getJsseProviderName()}, or null when
+   *     unset; throws {@link IllegalArgumentException} when the named provider is not registered.
+   */
+  static Provider getJsseProvider(TlsConf tlsConf) {
+    final String providerName = tlsConf.getJsseProviderName();
+    if (providerName == null || providerName.trim().isEmpty()) {
+      return null;
+    }
+    final Provider namedProvider = Security.getProvider(providerName.trim());
+    if (namedProvider == null) {
+      throw new IllegalArgumentException("JSSE provider not found: " + providerName);
+    }
+    return namedProvider;
   }
 
   static SslContext buildSslContextForClient(TlsConf tlsConf) {
@@ -194,6 +275,12 @@ public interface NettyUtils {
     }
     if (!completed) {
       LOG.warn("closeChannel {} is not yet completed in {}", name, CLOSE_TIMEOUT);
+    }
+  }
+
+  static void cancel(ScheduledFuture<?> future) {
+    if (future != null) {
+      future.cancel(true);
     }
   }
 }

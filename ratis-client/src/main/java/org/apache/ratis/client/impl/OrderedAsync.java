@@ -114,7 +114,7 @@ public final class OrderedAsync {
 
     @Override
     public String toString() {
-      return "[cid=" + callId + ", seq=" + getSeqNum() + "]";
+      return "[cid=" + callId + ", seq=" + getSeqNum() + (isFirst? "(1st)": "") + "]";
     }
   }
 
@@ -201,7 +201,8 @@ public final class OrderedAsync {
     }
 
     if (getSlidingWindow(request).isFirst(pending.getSeqNum())) {
-      pending.setFirstRequest();
+      Preconditions.assertTrue(request.getSlidingWindowEntry().getIsFirst(),
+          () -> "The first request is not marked as first: " + request);
     }
     LOG.debug("{}: send* {}", client.getId(), request);
     client.getClientRpc().sendRequestAsync(request).thenAccept(reply -> {

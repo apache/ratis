@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.DataStreamPacket;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.thirdparty.io.netty.util.concurrent.ScheduledFuture;
 import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,8 +60,15 @@ public class NettyClientReplies {
 
     ReplyEntry submitRequest(RequestEntry requestEntry, boolean isClose, CompletableFuture<DataStreamReply> f) {
       LOG.debug("put {} to the map for {}", requestEntry, clientInvocationId);
-      // ConcurrentHashMap.computeIfAbsent javadoc: the function is applied at most once per key.
-      return map.computeIfAbsent(requestEntry, r -> new ReplyEntry(isClose, f));
+      final MemoizedSupplier<ReplyEntry> supplier = MemoizedSupplier.valueOf(() -> new ReplyEntry(isClose, f));
+      final ReplyEntry reply = map.computeIfAbsent(requestEntry, r -> supplier.get());
+      if (requestEntry.type == Type.STREAM_COMMAND && !supplier.isInitialized()) {
+        final IllegalStateException exception = new IllegalStateException(
+            "STREAM_COMMAND already exist: " + requestEntry + " for " + clientInvocationId);
+        f.completeExceptionally(exception);
+        return null;
+      }
+      return reply;
     }
 
     void receiveReply(DataStreamReply reply) {
@@ -162,19 +170,13 @@ public class NettyClientReplies {
     }
 
     synchronized void complete(DataStreamReply reply) {
-      cancel(timeoutFuture);
+      NettyUtils.cancel(timeoutFuture);
       replyFuture.complete(reply);
     }
 
     synchronized void completeExceptionally(Throwable t) {
-      cancel(timeoutFuture);
+      NettyUtils.cancel(timeoutFuture);
       replyFuture.completeExceptionally(t);
-    }
-
-    static void cancel(ScheduledFuture<?> future) {
-      if (future != null) {
-        future.cancel(true);
-      }
     }
 
     synchronized void scheduleTimeout(Supplier<ScheduledFuture<?>> scheduleMethod) {

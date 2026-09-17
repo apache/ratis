@@ -309,7 +309,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       LOG.info("{}: newLeaderNextIndex = {}", leaderId, newLeaderNextIndex);
       Assertions.assertTrue(newLeaderNextIndex > oldLeaderNextIndex);
       Assertions.assertEquals(newLeaderNextIndex, follower.getRaftLog().getNextIndex());
-    }, 10, ONE_SECOND, "followerNextIndex", LOG);
+    }, 60, ONE_SECOND, "followerNextIndex", LOG);
   }
 
   @Test

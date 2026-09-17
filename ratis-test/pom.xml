@@ -24,7 +24,7 @@
   <name>Apache Ratis Test</name>
 
   <properties>
-    <bouncycastle.version>1.84</bouncycastle.version>
+    <bouncycastle.version>1.85</bouncycastle.version>
   </properties>
 
   <dependencies>
@@ -62,6 +62,18 @@
       <artifactId>ratis-metrics-default</artifactId>
       <groupId>org.apache.ratis</groupId>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <artifactId>ratis-trace-otel</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-trace-otel</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <scope>test</scope>
+      <type>test-jar</type>
     </dependency>
 
     <dependency>
@@ -155,6 +167,12 @@
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk-testing</artifactId>
+      <scope>test</scope>
+      <version>${opentelemetry.version}</version>
     </dependency>
   </dependencies>
 </project>

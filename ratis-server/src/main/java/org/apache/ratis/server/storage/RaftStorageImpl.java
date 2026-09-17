@@ -21,6 +21,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
@@ -141,16 +143,15 @@ public class RaftStorageImpl implements RaftStorage {
     return metaFile.get();
   }
 
-  public void writeRaftConfiguration(LogEntryProto conf) {
+  public void writeRaftConfiguration(LogEntryProto conf) throws IOException {
     File confFile = storageDir.getMetaConfFile();
     try (OutputStream fio = new AtomicFileOutputStream(confFile)) {
       conf.writeTo(fio);
-    } catch (Exception e) {
-      LOG.error("Failed writing configuration to file:" + confFile, e);
     }
+    deleteBootstrapConfiguration();
   }
 
-  public RaftConfiguration readRaftConfiguration() {
+  public RaftConfiguration readRaftConfiguration() throws IOException {
     File confFile = storageDir.getMetaConfFile();
     if (!confFile.exists()) {
       return null;
@@ -158,11 +159,48 @@ public class RaftStorageImpl implements RaftStorage {
       try (InputStream fio = FileUtils.newInputStream(confFile)) {
         LogEntryProto confProto = LogEntryProto.newBuilder().mergeFrom(fio).build();
         return LogProtoUtils.toRaftConfiguration(confProto);
-      } catch (Exception e) {
-        LOG.error("Failed reading configuration from file:" + confFile, e);
-        return null;
       }
     }
+  }
+
+  public void writeBootstrapConfiguration(RaftConfiguration conf) throws IOException {
+    if (conf.getCurrentPeers().isEmpty()
+        && conf.getCurrentPeers(RaftPeerRole.LISTENER).isEmpty()) {
+      throw new IOException("Refusing to persist an empty bootstrap configuration");
+    }
+    if (!conf.getPreviousPeers().isEmpty()
+        || !conf.getPreviousPeers(RaftPeerRole.LISTENER).isEmpty()) {
+      throw new IOException("Refusing to persist a transitional bootstrap configuration: " + conf);
+    }
+    final File confFile = storageDir.getBootstrapConfFile();
+    try (OutputStream out = new AtomicFileOutputStream(confFile)) {
+      LogProtoUtils.toRaftConfigurationProtoBuilder(conf).build().writeTo(out);
+    }
+  }
+
+  public RaftConfiguration readBootstrapConfiguration() throws IOException {
+    final File confFile = storageDir.getBootstrapConfFile();
+    if (!confFile.exists()) {
+      return null;
+    }
+    try (InputStream in = FileUtils.newInputStream(confFile)) {
+      final RaftConfigurationProto proto = RaftConfigurationProto.newBuilder().mergeFrom(in).build();
+      if (proto.getPeersCount() == 0 && proto.getListenersCount() == 0) {
+        throw new IOException("Invalid empty bootstrap configuration in " + confFile);
+      }
+      if (proto.getOldPeersCount() != 0 || proto.getOldListenersCount() != 0) {
+        throw new IOException("Invalid transitional bootstrap configuration in " + confFile);
+      }
+      try {
+        return LogProtoUtils.toRaftConfiguration(proto);
+      } catch (RuntimeException e) {
+        throw new IOException("Invalid bootstrap configuration in " + confFile, e);
+      }
+    }
+  }
+
+  public void deleteBootstrapConfiguration() throws IOException {
+    FileUtils.deleteIfExists(storageDir.getBootstrapConfFile());
   }
 
   @Override

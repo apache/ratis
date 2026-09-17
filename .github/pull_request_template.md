@@ -13,4 +13,3 @@ Please replace this section with the link to the Apache JIRA)
 ## How was this patch tested?
 
 (Please explain how this patch was tested. Ex: unit tests, manual tests)
-(If this patch involves UI changes, please attach a screen-shot; otherwise, remove this)

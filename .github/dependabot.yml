@@ -33,6 +33,8 @@ updates:
     cooldown:
       default-days: 7
     ignore:
+      # ratis-thirdparty have to be updated together with gRPC and protobuf
+      - dependency-name: "org.apache.ratis:ratis-thirdparty-misc"
       # requires Java 11
       - dependency-name: "com.github.spotbugs:spotbugs"
         versions: [">=4.9.0"]

@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -133,7 +134,7 @@ final class FileStoreWriter implements Closeable {
     return this;
   }
 
-  public FileStoreWriter streamWriteAndVerify(RoutingTable routingTable) {
+  public FileStoreWriter streamWrite(RoutingTable routingTable) {
     final int size = fileSize.getSizeInt();
     final DataStreamOutput dataStreamOutput = client.getStreamOutput(fileName, size, routingTable);
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
@@ -156,8 +157,6 @@ final class FileStoreWriter implements Closeable {
     DataStreamReply reply = dataStreamOutput.closeAsync().join();
     Assertions.assertTrue(reply.isSuccess());
 
-    // TODO: handle when any of the writeAsync has failed.
-    // check writeAsync requests
     for (int i = 0; i < futures.size(); i++) {
       reply = futures.get(i).join();
       Assertions.assertTrue(reply.isSuccess());
@@ -167,6 +166,37 @@ final class FileStoreWriter implements Closeable {
 
     return this;
   }
+
+  public FileStoreWriter streamWriteAndVerify(RoutingTable routingTable) {
+    return streamWrite(routingTable);
+  }
+
+  FileStoreWriter streamRead() throws IOException {
+    final long expected = fileSize.getSizeInt();
+    final long bytesRead = client.streamRead(fileName, 0, expected, DISCARD);
+    Assertions.assertEquals(expected, bytesRead,
+        () -> "stream read " + fileName + ": expected " + expected + " bytes");
+    LOG.info("Stream read successful: {} bytes from {}", bytesRead, fileName);
+    return this;
+  }
+
+  private static final WritableByteChannel DISCARD = new WritableByteChannel() {
+    @Override
+    public int write(ByteBuffer src) {
+      final int n = src.remaining();
+      src.position(src.limit());
+      return n;
+    }
+
+    @Override
+    public boolean isOpen() {
+      return true;
+    }
+
+    @Override
+    public void close() {
+    }
+  };
 
   CompletableFuture<FileStoreWriter> writeAsync(boolean sync) {
     Objects.requireNonNull(asyncExecutor, "asyncExecutor == null");

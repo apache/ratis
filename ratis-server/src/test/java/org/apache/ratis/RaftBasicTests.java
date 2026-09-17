@@ -17,7 +17,6 @@
  */
 package org.apache.ratis;
 
-import org.apache.ratis.test.tag.Flaky;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Gauge;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
@@ -51,6 +50,7 @@ import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -71,6 +71,7 @@ import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHIN
 import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS_DESC;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_APPLIED_INDEX_GAUGE;
 import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_APPLY_COMPLETED_GAUGE;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -114,6 +115,41 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     return future;
   }
 
+  private static List<LogEntryProto> findLogEntriesContaining(
+      RaftLog log, long expectedTerm, SimpleMessage[] expectedMessages) {
+    final List<LogEntryProto> entries = RaftTestUtil.getStateMachineLogEntries(log, s -> {});
+    final List<LogEntryProto> matched = new ArrayList<>(expectedMessages.length);
+    int e = 0;
+    for (SimpleMessage expected : expectedMessages) {
+      boolean found = false;
+      for (; e < entries.size(); e++) {
+        final LogEntryProto entry = entries.get(e);
+        if (entry.getTerm() >= expectedTerm
+            && expected.getContent().equals(entry.getStateMachineLogEntry().getLogData())) {
+          matched.add(entry);
+          e++;
+          found = true;
+          break;
+        }
+      }
+      Assertions.assertTrue(found, () -> "Failed to find " + expected + " in entries " + entries);
+    }
+    return matched;
+  }
+
+  private static void assertLogEntriesContaining(
+      RaftServer.Division server, long expectedTerm, SimpleMessage[] expectedMessages, int numAttempts, Logger log)
+      throws Exception {
+    final String name = server.getId() + " assertLogEntriesContaining";
+    JavaUtils.attempt(() -> {
+          RaftTestUtil.assertLogEntries(
+              findLogEntriesContaining(server.getRaftLog(), expectedTerm, expectedMessages),
+              expectedTerm, expectedMessages);
+          return null;
+        },
+        numAttempts, TimeDuration.ONE_SECOND, () -> name, log);
+  }
+
   static void runTestBasicAppendEntries(
       boolean async, boolean killLeader, int numMessages, MiniRaftCluster cluster, Logger log)
       throws Exception {
@@ -140,38 +176,36 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final SimpleMessage[] messages = SimpleMessage.create(numMessages);
 
     try (final RaftClient client = cluster.createClient()) {
-      final AtomicInteger asyncReplyCount = new AtomicInteger();
-      final CompletableFuture<Void> f = new CompletableFuture<>();
+      final List<CompletableFuture<RaftClientReply>> asyncReplies = new ArrayList<>();
 
       for (SimpleMessage message : messages) {
         if (async) {
-          client.async().send(message).thenAcceptAsync(reply -> {
-            if (!reply.isSuccess()) {
-              f.completeExceptionally(
-                  new AssertionError("Failed with reply " + reply));
-            } else if (asyncReplyCount.incrementAndGet() == messages.length) {
-              f.complete(null);
-            }
-          });
+          asyncReplies.add(client.async().send(message));
         } else {
           final RaftClientReply reply = client.io().send(message);
           Assertions.assertTrue(reply.isSuccess());
         }
       }
       if (async) {
-        f.join();
-        Assertions.assertEquals(messages.length, asyncReplyCount.get());
+        asyncReplies.forEach(f -> {
+          final RaftClientReply reply = f.join();
+          Assertions.assertTrue(reply.isSuccess(), () -> "Failed with reply " + reply);
+        });
       }
     }
     Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
-    log.info(cluster.printAllLogs());
     killAndRestartFollower.join();
     killAndRestartLeader.join();
+    log.info(cluster.printAllLogs());
 
 
     final List<RaftServer.Division> divisions = cluster.getServerAliveStream().collect(Collectors.toList());
     for(RaftServer.Division impl: divisions) {
-      RaftTestUtil.assertLogEntries(impl, term, messages, 50, log);
+      if (killLeader) {
+        assertLogEntriesContaining(impl, term, messages, 50, log);
+      } else {
+        RaftTestUtil.assertLogEntries(impl, term, messages, 50, log);
+      }
     }
   }
 
@@ -456,7 +490,6 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  @Flaky("RATIS-2262")
   @Test
   public void testStateMachineMetrics() throws Exception {
     runWithNewCluster(NUM_SERVERS, cluster -> runTestStateMachineMetrics(false, cluster));
@@ -465,30 +498,36 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   static void runTestStateMachineMetrics(boolean async, MiniRaftCluster cluster) throws Exception {
     RaftServer.Division leader = waitForLeader(cluster);
     try (final RaftClient client = cluster.createClient(leader.getId())) {
-      Gauge appliedIndexGauge = getStatemachineGaugeWithName(leader,
+      Gauge<?> appliedIndexGauge = getStatemachineGaugeWithName(leader,
           STATEMACHINE_APPLIED_INDEX_GAUGE);
-      Gauge smAppliedIndexGauge = getStatemachineGaugeWithName(leader,
+      Gauge<?> smAppliedIndexGauge = getStatemachineGaugeWithName(leader,
           STATEMACHINE_APPLY_COMPLETED_GAUGE);
 
       long appliedIndexBefore = (Long) appliedIndexGauge.getValue();
       long smAppliedIndexBefore = (Long) smAppliedIndexGauge.getValue();
       checkFollowerCommitLagsLeader(cluster);
 
-      if (async) {
-        CompletableFuture<RaftClientReply> replyFuture = client.async().send(new SimpleMessage("abc"));
-        replyFuture.get();
-      } else {
-        client.io().send(new SimpleMessage("abc"));
-      }
+      final RaftClientReply reply = async
+          ? client.async().send(new SimpleMessage("abc")).get(10, TimeUnit.SECONDS)
+          : client.io().send(new SimpleMessage("abc"));
+      RaftTestUtil.assertSuccessReply(reply);
 
-      long appliedIndexAfter = (Long) appliedIndexGauge.getValue();
-      long smAppliedIndexAfter = (Long) smAppliedIndexGauge.getValue();
+      final long expectedIndex = reply.getLogIndex();
+      assertTrue(expectedIndex > appliedIndexBefore,
+          () -> "expectedIndex=" + expectedIndex + " <= appliedIndexBefore=" + appliedIndexBefore);
+      assertTrue(expectedIndex > smAppliedIndexBefore,
+          () -> "expectedIndex=" + expectedIndex + " <= applyCompletedIndexBefore=" + smAppliedIndexBefore);
+
+      JavaUtils.attempt(() -> {
+        final long appliedIndex = (Long) appliedIndexGauge.getValue();
+        final long applyCompletedIndex = (Long) smAppliedIndexGauge.getValue();
+        assertTrue(appliedIndex >= expectedIndex,
+            () -> "appliedIndex=" + appliedIndex + " < expectedIndex=" + expectedIndex);
+        assertTrue(applyCompletedIndex >= expectedIndex,
+            () -> "applyCompletedIndex=" + applyCompletedIndex + " < expectedIndex=" + expectedIndex);
+      }, 10, HUNDRED_MILLIS, "state machine metrics reach index " + expectedIndex, RaftServer.Division.LOG);
+
       checkFollowerCommitLagsLeader(cluster);
-
-      Assertions.assertTrue(appliedIndexAfter > appliedIndexBefore,
-          "StateMachine Applied Index not incremented");
-      Assertions.assertTrue(smAppliedIndexAfter > smAppliedIndexBefore,
-          "StateMachine Apply completed Index not incremented");
     }
   }
 
@@ -496,21 +535,21 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final List<RaftServer.Division> followers = cluster.getFollowers();
     final RaftGroupMemberId leader = cluster.getLeader().getMemberId();
 
-    Gauge leaderCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, leader.getPeerId());
+    Gauge<?> leaderCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, leader.getPeerId());
 
     for (RaftServer.Division f : followers) {
       final RaftGroupMemberId follower = f.getMemberId();
-      Gauge followerCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, follower.getPeerId());
+      Gauge<?> followerCommitGauge = ServerMetricsTestUtils.getPeerCommitIndexGauge(leader, follower.getPeerId());
       Assertions.assertTrue((Long)leaderCommitGauge.getValue() >=
           (Long)followerCommitGauge.getValue());
-      Gauge followerMetric = ServerMetricsTestUtils.getPeerCommitIndexGauge(follower, follower.getPeerId());
+      Gauge<?> followerMetric = ServerMetricsTestUtils.getPeerCommitIndexGauge(follower, follower.getPeerId());
       System.out.println(followerCommitGauge.getValue());
       System.out.println(followerMetric.getValue());
       Assertions.assertTrue((Long)followerCommitGauge.getValue()  <= (Long)followerMetric.getValue());
     }
   }
 
-  private static Gauge getStatemachineGaugeWithName(RaftServer.Division server, String gaugeName) {
+  private static Gauge<?> getStatemachineGaugeWithName(RaftServer.Division server, String gaugeName) {
 
     MetricRegistryInfo info = new MetricRegistryInfo(server.getMemberId().toString(),
         RATIS_APPLICATION_NAME_METRICS,

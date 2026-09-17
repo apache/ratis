@@ -13,28 +13,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: zizmor
+name: "ASF Allowlist Check"
 
 on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
   push:
     branches-ignore:
       - 'dependabot/**'
     tags:
       - '**'
-  pull_request:
+    paths:
+      - ".github/workflows/**"
 
-permissions: { }
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || case(github.repository_owner == 'apache', github.sha, github.ref_name) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.repository_owner != 'apache' }}
 
 jobs:
-  zizmor:
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
+  asf-allowlist-check:
+    runs-on: ubuntu-slim
     steps:
-    - name: Checkout project
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      with:
-        persist-credentials: false
-
-    - name: Run zizmor
-      uses: zizmorcore/zizmor-action@b1d7e1fb5de872772f31590499237e7cce841e8e # v0.5.3
+      - name: Checkout project
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check actions
+        uses: apache/infrastructure-actions/allowlist-check@61dcea11f19e2bbe1263f14d72235e8da17d3ad0 # allowlist-check/v1.0.0
+        with:
+          scan-glob: ".github/workflows/*.y*ml"

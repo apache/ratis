@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.api.DataStreamApi;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -66,7 +67,7 @@ public interface StateMachine extends Closeable {
    * For data intensive applications, it can be more efficient to implement this API
    * in order to support zero buffer coping and a light-weighted raft log.
    */
-  interface DataApi {
+  interface DataApi extends DataStreamApi {
     /** A noop implementation of {@link DataApi}. */
     DataApi DEFAULT = new DataApi() {};
 
@@ -114,6 +115,20 @@ public interface StateMachine extends Closeable {
      */
     default CompletableFuture<DataStream> stream(RaftClientRequest request) {
       return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Similar to {@link #query(Message)} except that
+     * {@link #query(Message)} returns the result in a future
+     * while this method sends the result using the given stream.
+     *
+     * @param request the client request
+     * @param stream the output stream to send the results
+     * @return the number of bytes transferred
+     */
+    @Override
+    default long transferTo(Message request, WritableByteChannel stream) throws IOException {
+      return 0;
     }
 
     /**
@@ -215,7 +230,7 @@ public interface StateMachine extends Closeable {
 
     /**
      * Notify the {@link StateMachine} that the server for this division has been shut down.
-     * @Deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean)} instead
+     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean)} instead
      */
     @Deprecated
     default void notifyServerShutdown(RoleInfoProto roleInfo) {
@@ -370,6 +385,19 @@ public interface StateMachine extends Closeable {
     default Executor getExecutor() {
       return null;
     }
+
+    /**
+     * Handle a command received in the middle of a data stream.
+     * The {@code streamOffset} indicates the current byte offset in the stream
+     * (i.e. the total number of data bytes received so far).
+     *
+     * @param command the command payload
+     * @param streamOffset the current stream byte offset
+     * @return a future for the command task
+     */
+    default CompletableFuture<ByteBuffer> onCommand(ByteBuffer command, long streamOffset) {
+      return CompletableFuture.completedFuture(null);
+    }
   }
 
   /**
@@ -492,7 +520,7 @@ public interface StateMachine extends Closeable {
   CompletableFuture<Message> query(Message request);
 
   /**
-   * Query the state machine, provided minIndex <= commit index.
+   * Query the state machine, provided minIndex &lt;= commit index.
    * The request must be read-only.
    * Since the commit index of this server may lag behind the Raft service,
    * the returned result may possibly be stale.
@@ -500,7 +528,7 @@ public interface StateMachine extends Closeable {
    * When minIndex > {@link #getLastAppliedTermIndex()},
    * the state machine may choose to either
    * (1) return exceptionally, or
-   * (2) wait until minIndex <= {@link #getLastAppliedTermIndex()} before running the query.
+   * (2) wait until minIndex &lt;= {@link #getLastAppliedTermIndex()} before running the query.
    */
   CompletableFuture<Message> queryStale(Message request, long minIndex);
 

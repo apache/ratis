@@ -69,9 +69,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.event.Level;
 import javax.net.ssl.KeyManager;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.nio.channels.OverlappingFileLockException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -80,9 +84,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -356,16 +362,17 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // Block stateMachine flush data, so that 2nd request will not be
     // completed, and so it will not be removed from pending request map.
     List<RaftClient> clients = new ArrayList<>();
+    final List<CompletableFuture<RaftClientReply>> replies = new ArrayList<>();
 
     try {
       RaftClient client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
       clients.add(client);
-      client.async().send(new SimpleMessage("2nd Message"));
+      replies.add(client.async().send(new SimpleMessage("2nd Message")));
 
       for (int i = 0; i < 10; i++) {
         client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
         clients.add(client);
-        client.async().send(new SimpleMessage("message " + i));
+        replies.add(client.async().send(new SimpleMessage("message " + i)));
       }
 
       // Because we have passed 11 requests, and the element queue size is 10.
@@ -373,6 +380,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
           .getNumRequestQueueLimitHits().getCount() == 1, 300, 5000);
 
       stateMachine.unblockFlushStateMachineData();
+      RaftTestUtil.waitFor(() -> replies.stream().allMatch(CompletableFuture::isDone), 300, 5000);
 
       // Send a message with 1025kb , our byte size limit is 1024kb (1mb) , so it should fail
       // and byte size counter limit will be hit.
@@ -493,6 +501,72 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       RaftServerConfigKeys.Write.setByteLimit(p, RaftServerConfigKeys.Write.BYTE_LIMIT_DEFAULT);
       if (cluster != null) {
         cluster.shutdown();
+      }
+    }
+  }
+
+  @Test
+  @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  public void testTlsHandshakeFailureListener() throws Exception {
+    final KeyManager serverKeyManager =
+        SecurityTestUtils.getKeyManager(SecurityTestUtils::getServerKeyStore);
+    final TrustManager serverTrustManager =
+        SecurityTestUtils.getTrustManager(SecurityTestUtils::getTrustStore);
+    final KeyManager clientKeyManager =
+        SecurityTestUtils.getKeyManager(SecurityTestUtils::getClientKeyStore);
+    final TrustManager clientTrustManager =
+        SecurityTestUtils.getTrustManager(SecurityTestUtils::getTrustStore);
+
+    final Parameters parameters = new Parameters();
+    final GrpcTlsConfig serverConfig =
+        new GrpcTlsConfig(serverKeyManager, serverTrustManager, true);
+    GrpcConfigKeys.Server.setTlsConf(parameters, serverConfig);
+    final GrpcTlsConfig clientConfig =
+        new GrpcTlsConfig(clientKeyManager, clientTrustManager, true);
+    GrpcConfigKeys.Admin.setTlsConf(parameters, clientConfig);
+    GrpcConfigKeys.Client.setTlsConf(parameters, clientConfig);
+
+    final AtomicInteger failureCount = new AtomicInteger();
+    final AtomicReference<TlsHandshakeFailureServerCredentials.Event> failure =
+        new AtomicReference<>();
+    final CountDownLatch failureReported = new CountDownLatch(1);
+    GrpcConfigKeys.Server.setCredentials(parameters,
+        TlsHandshakeFailureServerCredentials.create(serverConfig, event -> {
+          failureCount.incrementAndGet();
+          failure.set(event);
+          failureReported.countDown();
+        }));
+
+    final String[] ids = MiniRaftCluster.generateIds(1, 1);
+    try (MiniRaftClusterWithGrpc cluster =
+        new MiniRaftClusterWithGrpc(ids, new String[0], getProperties(), parameters)) {
+      cluster.start();
+      final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        Assertions.assertTrue(client.io().send(new SimpleMessage("valid TLS request")).isSuccess());
+      }
+      Assertions.assertEquals(0, failureCount.get());
+
+      final InetSocketAddress serverAddress =
+          RaftServerTestUtil.getServerRpc(leader).getInetSocketAddress();
+      try (Socket socket = new Socket(serverAddress.getHostString(), serverAddress.getPort())) {
+        socket.getOutputStream().write("not a TLS client".getBytes(StandardCharsets.US_ASCII));
+        socket.getOutputStream().flush();
+
+        Assertions.assertTrue(failureReported.await(10, TimeUnit.SECONDS));
+        final TlsHandshakeFailureServerCredentials.Event event = failure.get();
+        Assertions.assertNotNull(event);
+        Assertions.assertTrue(event.isInbound());
+        Assertions.assertEquals(serverAddress.getPort(),
+            ((InetSocketAddress) event.getLocalAddress()).getPort());
+        Assertions.assertEquals(socket.getLocalPort(),
+            ((InetSocketAddress) event.getRemoteAddress()).getPort());
+        Throwable cause = event.getCause();
+        while (cause != null && !(cause instanceof SSLException)) {
+          cause = cause.getCause();
+        }
+        Assertions.assertNotNull(cause);
+        Assertions.assertEquals(1, failureCount.get());
       }
     }
   }

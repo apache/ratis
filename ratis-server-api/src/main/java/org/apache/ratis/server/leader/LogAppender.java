@@ -213,9 +213,16 @@ public interface LogAppender {
       // leader does not have follower's next log
       return true;
     }
-    // leader does not have the previous log for appendEntries
+    // Leader does not have the previous log for appendEntries.
+    // However, when the follower's snapshot already covers the previous log entry
+    // (i.e. followerNextIndex == follower.getSnapshotIndex() + 1, typically after the follower
+    // replied ALREADY_INSTALLED), appendEntries can be sent without the previous entry;
+    // see the corresponding condition in LogAppenderBase.newAppendEntriesRequest.
+    // Without this exemption, the leader would keep sending InstallSnapshot notifications
+    // and never append, so such a follower could never catch up.
     return followerNextIndex == leaderStartIndex &&
         followerNextIndex > RaftLog.LEAST_VALID_LOG_INDEX &&
+        followerNextIndex != follower.getSnapshotIndex() + 1 &&
         getPrevious(followerNextIndex) == null;
   }
 

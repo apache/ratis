@@ -262,6 +262,8 @@ class RaftServerImpl implements RaftServer.Division,
   private final ExecutorService clientExecutor;
   private final ThreadGroup threadGroup;
 
+  private final CompletableFuture<RaftClientReply> dummySuccessReply;
+
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -305,6 +307,13 @@ class RaftServerImpl implements RaftServer.Division,
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
         id + "-client");
     this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
+
+    this.dummySuccessReply = CompletableFuture.completedFuture(RaftClientReply.newBuilder()
+        .setClientId(ClientId.emptyClientId())
+        .setServerId(id)
+        .setGroupId(group.getGroupId())
+        .setSuccess()
+        .build());
   }
 
   private long getCommitIndex(RaftPeerId id) {
@@ -1188,11 +1197,12 @@ class RaftServerImpl implements RaftServer.Division,
     if (request.getType().getRead().getPreferNonLinearizable()
         || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
       final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
-       if (reply != null) {
-         return reply;
-       }
-       return queryStateMachine(request);
-    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE){
+      if (reply != null) {
+        return reply;
+      }
+      return isDummyRead(request) ? CompletableFuture.completedFuture(newSuccessReply(request))
+          : queryStateMachine(request);
+    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
       final LeaderStateImpl leader = role.getLeaderState().orElse(null);
       final CompletableFuture<Long> replyFuture;
       if (leader != null) {
@@ -1204,12 +1214,17 @@ class RaftServerImpl implements RaftServer.Division,
       return replyFuture
           .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
               () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
-          .thenCompose(readIndex -> queryStateMachine(request))
+          .thenCompose(readIndex -> isDummyRead(request)
+              ? CompletableFuture.completedFuture(newSuccessReply(request)) : queryStateMachine(request))
           .exceptionally(e -> readException2Reply(request, e));
     } else {
       throw new IllegalStateException("Unexpected read option: " + readOption);
     }
   }
+  private static boolean isDummyRead(RaftClientRequest request) {
+    return request.getMessage() != null && OrderedAsync.DUMMY.getContent().equals(request.getMessage().getContent());
+  }
+
   private RaftClientReply readException2Reply(RaftClientRequest request, Throwable e) {
     e = JavaUtils.unwrapCompletionException(e);
     if (e instanceof StateMachineException ) {
@@ -1251,6 +1266,9 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   CompletableFuture<RaftClientReply> queryStateMachine(RaftClientRequest request) {
+    if (request.getType().getRead().getDummy()) {
+      return dummySuccessReply;
+    }
     return processQueryFuture(stateMachine.query(request.getMessage()), request);
   }
 
@@ -1987,7 +2005,11 @@ class RaftServerImpl implements RaftServer.Division,
     case CONFIGURATIONENTRY:
       // the reply should have already been set. only need to record
       // the new conf in the metadata file and notify the StateMachine.
-      state.writeRaftConfiguration(next);
+      try {
+        state.writeRaftConfiguration(next);
+      } catch (IOException e) {
+        throw new RaftLogIOException(e);
+      }
       stateMachine.event().notifyConfigurationChanged(next.getTerm(), next.getIndex(),
           next.getConfigurationEntry());
       role.getLeaderState().ifPresent(leader -> leader.checkReady(next));

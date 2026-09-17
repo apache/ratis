@@ -239,7 +239,7 @@ public interface ProtoUtils {
     if (proto == null) {
       return null;
     }
-    return proto.getSeqNum() + (proto.getIsFirst()? "*": "");
+    return proto.getSeqNum() + (proto.getIsFirst()? "(1st)": "");
   }
 
   static String toString(RaftRpcRequestProto proto) {

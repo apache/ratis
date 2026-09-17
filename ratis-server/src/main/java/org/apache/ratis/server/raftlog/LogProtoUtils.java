@@ -240,4 +240,11 @@ public final class LogProtoUtils {
     final List<RaftPeer> oldListener = ProtoUtils.toRaftPeers(proto.getOldListenersList());
     return ServerImplUtils.newRaftConfiguration(conf, listener, entry.getIndex(), oldConf, oldListener);
   }
+
+  /** Convert a bootstrap configuration, which has no corresponding log entry. */
+  public static RaftConfiguration toRaftConfiguration(RaftConfigurationProto proto) {
+    final List<RaftPeer> conf = ProtoUtils.toRaftPeers(proto.getPeersList());
+    final List<RaftPeer> listener = ProtoUtils.toRaftPeers(proto.getListenersList());
+    return ServerImplUtils.newRaftConfiguration(conf, listener);
+  }
 }

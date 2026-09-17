@@ -18,11 +18,13 @@
 package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.AbstractStub;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
+import org.apache.ratis.thirdparty.io.netty.channel.EventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.WriteBufferWaterMark;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.MemoizedSupplier;
@@ -41,7 +43,7 @@ import java.util.function.Function;
 final class GrpcStubPool<S extends AbstractStub<S>> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcStubPool.class);
 
-  static ManagedChannel buildManagedChannel(String address, SslContext sslContext) {
+  static ManagedChannel buildManagedChannel(String address, SslContext sslContext, EventLoopGroup eventLoopGroup) {
     NettyChannelBuilder channelBuilder = NettyChannelBuilder.forTarget(address)
         .keepAliveTime(10, TimeUnit.MINUTES)
         .keepAliveWithoutCalls(false)
@@ -53,6 +55,10 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
+    if (eventLoopGroup != null) {
+      channelBuilder.channelType(NettyUtils.getSocketChannelClass(eventLoopGroup))
+          .eventLoopGroup(eventLoopGroup);
+    }
     ManagedChannel ch = channelBuilder.build();
     ch.getState(true);
     return ch;
@@ -63,8 +69,9 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     private final S stub;
     private final Semaphore permits;
 
-    Stub(String address, SslContext sslContext, Function<ManagedChannel, S> stubFactory, int maxInflight) {
-      this.ch = buildManagedChannel(address, sslContext);
+    Stub(String address, SslContext sslContext, Function<ManagedChannel, S> stubFactory, int maxInflight,
+        EventLoopGroup eventLoopGroup) {
+      this.ch = buildManagedChannel(address, sslContext, eventLoopGroup);
       this.stub = stubFactory.apply(ch);
       this.permits = new Semaphore(maxInflight);
     }
@@ -85,11 +92,12 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
   private final List<MemoizedSupplier<Stub<S>>> pool;
 
   GrpcStubPool(int connections, String address, SslContext sslContext, Function<ManagedChannel, S> stubFactory,
-               int maxInflightPerConn) {
+               int maxInflightPerConn, EventLoopGroup eventLoopGroup) {
     Preconditions.assertTrue(connections > 1, "connections must be > 1");
     final List<MemoizedSupplier<Stub<S>>> tmpPool = new ArrayList<>(connections);
     for (int i = 0; i < connections; i++) {
-      tmpPool.add(MemoizedSupplier.valueOf(() -> new Stub<>(address, sslContext, stubFactory, maxInflightPerConn)));
+      tmpPool.add(MemoizedSupplier.valueOf(
+          () -> new Stub<>(address, sslContext, stubFactory, maxInflightPerConn, eventLoopGroup)));
     }
     this.pool = Collections.unmodifiableList(tmpPool);
   }

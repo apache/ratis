@@ -19,7 +19,7 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.netty.NettyConfigKeys;
-import org.apache.ratis.netty.NettyUtils;
+import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.security.SecurityTestUtils;
 import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.util.JavaUtils;

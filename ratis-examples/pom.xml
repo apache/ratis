@@ -116,7 +116,10 @@
       <artifactId>slf4j-reload4j</artifactId>
       <scope>runtime</scope>
     </dependency>
-
+    <dependency>
+      <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-trace-otel</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-engine</artifactId>
