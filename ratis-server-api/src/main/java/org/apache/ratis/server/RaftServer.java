@@ -106,6 +106,10 @@ public interface RaftServer extends Closeable, RpcType.Get,
      * <p>The suggested leader and peers are best-effort hints.  The suggested
      * leader is null if this division is not running or if its current leader
      * ID is unknown or is the ID of this division.</p>
+     *
+     * <p>This method always creates a {@link NotLeaderException}; it does not
+     * check whether this division is the leader or ready to serve requests.
+     * Use {@link #checkLeaderReady()} when an admission check is required.</p>
      */
     default NotLeaderException newNotLeaderException() {
       if (!getInfo().getLifeCycleState().isRunning()) {
