@@ -639,7 +639,7 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
   }
 
-  private class InstallSnapshotResponseHandler implements StreamObserver<InstallSnapshotReplyProto> {
+  class InstallSnapshotResponseHandler implements StreamObserver<InstallSnapshotReplyProto> {
     private final String name;
     private final Queue<Integer> pending = new LinkedList<>();
     private final CompletableFuture<Void> done = new CompletableFuture<>();
@@ -788,6 +788,9 @@ public class GrpcLogAppender extends LogAppenderBase {
         case SNAPSHOT_EXPIRED:
           LOG.warn("{}: Follower failed since the request expired, {}",
               name, ServerStringUtils.toInstallSnapshotReplyString(reply));
+          getFollower().setAttemptedToInstallSnapshot();
+          removePending(reply);
+          break;
         default:
           break;
       }

@@ -27,6 +27,9 @@ import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
@@ -224,6 +227,25 @@ public class TestGrpcLogAppenderCallbacks {
     verify(listener, never()).onResetClient(anyString(), any());
     appender.timeoutAppendRequest(1, false);
     verify(appendEntries, never()).onTimeout(1);
+  }
+
+  @Test
+  public void testInstallSnapshotExpiredRemovesPending() {
+    final GrpcLogAppender.InstallSnapshotResponseHandler handler =
+        appender.new InstallSnapshotResponseHandler();
+    final int requestIndex = 1;
+    handler.addPending(InstallSnapshotRequestProto.newBuilder()
+        .setSnapshotChunk(InstallSnapshotRequestProto.SnapshotChunkProto.newBuilder()
+            .setRequestIndex(requestIndex))
+        .build());
+    Assertions.assertFalse(handler.hasAllResponse());
+    final InstallSnapshotReplyProto reply = InstallSnapshotReplyProto.newBuilder()
+        .setResult(InstallSnapshotResult.SNAPSHOT_EXPIRED)
+        .setRequestIndex(requestIndex)
+        .build();
+    handler.onNext(reply);
+    Assertions.assertTrue(handler.hasAllResponse());
+    verify(follower).setAttemptedToInstallSnapshot();
   }
 
   @Test
