@@ -40,6 +40,7 @@ import org.apache.ratis.thirdparty.io.netty.handler.ssl.IdentityCipherSuiteFilte
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.NettyUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 
@@ -80,7 +80,7 @@ public class TestTlsConfWithNetty {
   }
 
   static int randomPort() {
-    final int port = 50000 + ThreadLocalRandom.current().nextInt(10000);
+    final int port = NetUtils.getFreePort();
     LOG.info("randomPort: {}", port);
     return port;
   }
