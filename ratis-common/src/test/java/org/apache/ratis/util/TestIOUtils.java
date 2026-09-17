@@ -32,9 +32,11 @@ import java.math.BigDecimal;
 import java.net.URL;
 import java.rmi.server.RemoteObject;
 import java.rmi.server.RemoteObjectInvocationHandler;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.PriorityQueue;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -68,7 +70,14 @@ public class TestIOUtils extends BaseTest {
   @Test
   public void testAllowedList() throws Exception {
     // BigDecimal is in java.math which is in neither the allow-list nor the disallow-list
-    assertDisallowed(new BigDecimal("3.14"), false);
+    final BigDecimal pi = new BigDecimal("3.14");
+    assertDisallowed(pi, false);
+
+    // Hide it inside a list
+    final List<Object> list = new ArrayList<>();
+    list.add("testing");
+    list.add(pi);
+    assertDisallowed(list, false);
   }
 
   /**
@@ -126,6 +135,7 @@ public class TestIOUtils extends BaseTest {
     try (ObjectOutputStream oout = new ObjectOutputStream(bout)) {
       oout.writeObject(object);
     } catch (NotSerializableException e) {
+      // nothing to test since it is not serializable
       return;
     }
 
