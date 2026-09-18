@@ -35,6 +35,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MD5FileUtil;
 
@@ -42,6 +43,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.HashMap;
@@ -129,8 +131,8 @@ public class ArithmeticStateMachine extends BaseStateMachine {
 
     final TermIndex last = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotFile);
     try(AutoCloseableLock writeLock = writeLock();
-        ObjectInputStream in = new ObjectInputStream(new BufferedInputStream(
-            FileUtils.newInputStream(snapshotFile)))) {
+        InputStream fileIn = FileUtils.newInputStream(snapshotFile);
+        ObjectInputStream in = IOUtils.newObjectInputStream(new BufferedInputStream(fileIn))) {
       reset();
       setLastAppliedTermIndex(last);
       variables.putAll(JavaUtils.cast(in.readObject()));

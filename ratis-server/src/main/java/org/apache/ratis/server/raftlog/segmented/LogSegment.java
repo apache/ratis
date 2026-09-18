@@ -492,7 +492,7 @@ public final class LogSegment {
     long previousSize = 0;
     if (previous != null) {
       // Different threads maybe load LogSegment file into cache at the same time, so duplicate maybe happen
-      previousSize = getEntrySize(value, Op.REMOVE_CACHE);
+      previousSize = getEntrySize(previous, Op.REMOVE_CACHE);
     }
     totalCacheSize.getAndAdd(getEntrySize(value, op) - previousSize);
   }

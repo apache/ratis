@@ -368,6 +368,31 @@ public class TestLogSegment extends BaseTest {
   }
 
   @Test
+  public void testPutEntryCacheDuplicateKeyUpdatesTotalCacheSize() {
+    LogSegment segment = LogSegment.newOpenSegment(null, 1000, MAX_OP_SIZE, null);
+    TermIndex key = TermIndex.valueOf(1, 1000);
+
+    LogEntryProto small = LogProtoUtils.toLogEntryProto(
+        new SimpleOperation("short").getLogEntryContent(), 1, 1000);
+    LogEntryProto large = LogProtoUtils.toLogEntryProto(
+        new SimpleOperation("a much longer message for duplicate cache entry").getLogEntryContent(),
+        1, 1000);
+
+    final long smallSize = getEntrySize(small, LogSegment.Op.LOAD_SEGMENT_FILE);
+    final long largeSize = getEntrySize(large, LogSegment.Op.LOAD_SEGMENT_FILE);
+    Assertions.assertNotEquals(smallSize, largeSize);
+
+    segment.putEntryCache(key, small, LogSegment.Op.LOAD_SEGMENT_FILE);
+    Assertions.assertEquals(smallSize, segment.getTotalCacheSize());
+
+    segment.putEntryCache(key, large, LogSegment.Op.LOAD_SEGMENT_FILE);
+    Assertions.assertEquals(largeSize, segment.getTotalCacheSize());
+
+    segment.putEntryCache(key, small, LogSegment.Op.LOAD_SEGMENT_FILE);
+    Assertions.assertEquals(smallSize, segment.getTotalCacheSize());
+  }
+
+  @Test
   public void testZeroSizeInProgressFile() throws Exception {
     final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final File file = ZERO_START_NULL_END.getFile(storage);

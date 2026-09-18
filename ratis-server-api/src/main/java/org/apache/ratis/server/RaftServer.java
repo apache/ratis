@@ -41,6 +41,9 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
+import org.apache.ratis.protocol.exceptions.NotLeaderException;
+import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.metrics.RaftServerMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
@@ -85,6 +88,46 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the information about this division. */
     DivisionInfo getInfo();
+
+    /**
+     * Check whether this division is the leader and ready.
+     *
+     * @return null if this division is the leader and ready; otherwise,
+     *         return a {@link NotLeaderException} or a
+     *         {@link LeaderNotReadyException}.
+     */
+    default RaftException checkLeaderReady() {
+      if (!getInfo().isLeader()) {
+        return newNotLeaderException();
+      }
+      return getInfo().isLeaderReady() ? null
+          : new LeaderNotReadyException(getMemberId());
+    }
+
+    /**
+     * Create a {@link NotLeaderException} using the current division state.
+     *
+     * <p>The suggested leader and peers are best-effort hints.  The suggested
+     * leader is null if this division is not running or if its current leader
+     * ID is unknown or is the ID of this division.</p>
+     *
+     * <p>This method always creates a {@link NotLeaderException}; it does not
+     * check whether this division is the leader or ready to serve requests.
+     * Use {@link #checkLeaderReady()} when an admission check is required.</p>
+     */
+    default NotLeaderException newNotLeaderException() {
+      if (!getInfo().getLifeCycleState().isRunning()) {
+        return new NotLeaderException(getMemberId(), null, null);
+      }
+      RaftPeerId leaderId = getInfo().getLeaderId();
+      if (leaderId == null || leaderId.equals(getId())) {
+        // No idea about who is the current leader. Or the peer is the current
+        // leader, but it is about to step down. set the suggested leader as null.
+        leaderId = null;
+      }
+      final RaftConfiguration conf = getRaftConf();
+      return new NotLeaderException(getMemberId(), conf.getPeer(leaderId), conf.getAllPeers());
+    }
 
     /** @return the {@link RaftGroup} for this division. */
     default RaftGroup getGroup() {

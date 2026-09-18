@@ -34,6 +34,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MD5FileUtil;
 import org.apache.ratis.util.TimeDuration;
@@ -42,6 +43,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
@@ -216,7 +218,8 @@ public class CounterStateMachine extends BaseStateMachine {
 
     //read the counter value from the snapshot file
     final int counterValue;
-    try (ObjectInputStream in = new ObjectInputStream(new BufferedInputStream(Files.newInputStream(snapshotPath)))) {
+    try(InputStream fileIn = Files.newInputStream(snapshotPath);
+        ObjectInputStream in = IOUtils.newObjectInputStream(new BufferedInputStream(fileIn))) {
       counterValue = in.readInt();
     }
 

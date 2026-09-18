@@ -464,7 +464,7 @@ class LeaderStateImpl implements LeaderState {
     }
     // do not interrupt event processor since it may be in the middle of logSync
     final CompletableFuture<Void> f = senders.stopAll();
-    final NotLeaderException nle = server.generateNotLeaderException();
+    final NotLeaderException nle = server.newNotLeaderException();
     final Collection<CommitInfoProto> commitInfos = server.getCommitInfos();
     try {
       final Collection<TransactionContext> transactions = pendingRequests.sendNotLeaderResponses(nle, commitInfos);

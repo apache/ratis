@@ -783,7 +783,7 @@ class RaftServerImpl implements RaftServer.Division,
   private CompletableFuture<RaftClientReply> checkLeaderState(
       RaftClientRequest request, CacheEntry entry, TransactionContextImpl context) {
     if (!getInfo().isLeader()) {
-      NotLeaderException exception = generateNotLeaderException();
+      NotLeaderException exception = newNotLeaderException();
       final RaftClientReply reply = newExceptionReply(request, exception);
       return failWithReply(reply, entry, context);
     }
@@ -804,21 +804,6 @@ class RaftServerImpl implements RaftServer.Division,
     }
 
     return null;
-  }
-
-  NotLeaderException generateNotLeaderException() {
-    if (!lifeCycle.getCurrentState().isRunning()) {
-      return new NotLeaderException(getMemberId(), null, null);
-    }
-    RaftPeerId leaderId = state.getLeaderId();
-    if (leaderId == null || leaderId.equals(getId())) {
-      // No idea about who is the current leader. Or the peer is the current
-      // leader, but it is about to step down. set the suggested leader as null.
-      leaderId = null;
-    }
-    final RaftConfigurationImpl conf = getRaftConf();
-    Collection<RaftPeer> peers = conf.getAllPeers();
-    return new NotLeaderException(getMemberId(), conf.getPeer(leaderId), peers);
   }
 
   void assertLifeCycleState(Set<LifeCycle.State> expected) throws ServerNotReadyException {
@@ -876,7 +861,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final LeaderStateImpl unsyncedLeaderState = role.getLeaderState().orElse(null);
     if (unsyncedLeaderState == null) {
-      final NotLeaderException nle = generateNotLeaderException();
+      final NotLeaderException nle = newNotLeaderException();
       final RaftClientReply reply = newExceptionReply(request, nle);
       return failWithReply(reply, cacheEntry, context);
     }
@@ -1082,7 +1067,7 @@ class RaftServerImpl implements RaftServer.Division,
     return role.getLeaderState()
         .map(ls -> ls.addWatchRequest(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
-            newExceptionReply(request, generateNotLeaderException())));
+            newExceptionReply(request, newNotLeaderException())));
   }
 
   private CompletableFuture<RaftClientReply> staleReadAsync(RaftClientRequest request) {
@@ -1263,7 +1248,7 @@ class RaftServerImpl implements RaftServer.Division,
     return role.getLeaderState()
         .map(ls -> ls.streamAsync(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
-            newExceptionReply(request, generateNotLeaderException())));
+            newExceptionReply(request, newNotLeaderException())));
   }
 
   private CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
@@ -1449,7 +1434,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     return role.getLeaderState().map(leader -> leader.submitStepDownRequestAsync(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
-            newExceptionReply(request, generateNotLeaderException())));
+            newExceptionReply(request, newNotLeaderException())));
   }
 
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
@@ -2064,7 +2049,7 @@ class RaftServerImpl implements RaftServer.Division,
       final CacheEntry cacheEntry = getRetryCache().getIfPresent(invocationId);
       if (cacheEntry != null) {
         cacheEntry.failWithReply(newReplyBuilder(invocationId, logEntry.getIndex())
-            .setException(generateNotLeaderException())
+            .setException(newNotLeaderException())
             .build());
       }
     }
