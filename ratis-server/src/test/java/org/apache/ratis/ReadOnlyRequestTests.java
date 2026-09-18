@@ -27,6 +27,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.apache.ratis.protocol.exceptions.ReadException;
+import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
@@ -101,6 +102,17 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
               leader, () -> CompletableFuture.completedFuture(getCount(leader))).get());
         }
       }
+      final CompletableFuture<Object> nullResult = readOnlyAsync(leader, () -> null);
+      final CompletionException nullException = Assertions.assertThrows(CompletionException.class, nullResult::join);
+      Assertions.assertInstanceOf(NullPointerException.class, nullException.getCause());
+
+      final RuntimeException expected = new RuntimeException("supplier failed");
+      final CompletableFuture<Object> throwingResult = readOnlyAsync(leader, () -> {
+        throw expected;
+      });
+      final CompletionException throwingException = Assertions.assertThrows(
+          CompletionException.class, throwingResult::join);
+      Assertions.assertSame(expected, throwingException.getCause());
 
       if (RaftServerConfigKeys.Read.option(cluster.getProperties()) == RaftServerConfigKeys.Read.Option.DEFAULT) {
         final RaftServer.Division follower = cluster.getFollowers().get(0);
@@ -215,6 +227,15 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
       startSnapshotInstallation(follower, 1);
       try {
+        final AtomicBoolean callbackInvoked = new AtomicBoolean();
+        final CompletableFuture<Long> localRead = readOnlyAsync(follower, () -> {
+          callbackInvoked.set(true);
+          return CompletableFuture.completedFuture(getCount(follower));
+        });
+        final CompletionException localException = Assertions.assertThrows(CompletionException.class, localRead::join);
+        assertSnapshotInstallationReadException(localException);
+        Assertions.assertFalse(callbackInvoked.get());
+
         final CompletionException pendingException = Assertions.assertThrows(CompletionException.class,
             pendingRead::join);
         assertSnapshotInstallationReadException(pendingException);
@@ -229,6 +250,21 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
       assertReplyExact(2, writeReply.join());
       assertReplyExact(2, followerClient.io().sendReadOnly(QUERY, followerId));
     }
+  }
+
+  @Test
+  public void testReadOnlyAsyncFailsWhenServerNotRunning() throws Exception {
+    runWithNewCluster(NUM_SERVERS, cluster -> {
+      final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+      cluster.killServer(leader.getId());
+
+      final AtomicBoolean callbackInvoked = new AtomicBoolean();
+      Assertions.assertThrows(ServerNotReadyException.class, () -> readOnlyAsync(leader, () -> {
+        callbackInvoked.set(true);
+        return CompletableFuture.completedFuture(getCount(leader));
+      }));
+      Assertions.assertFalse(callbackInvoked.get());
+    });
   }
 
   static int retrieve(RaftClientReply reply) {

@@ -117,6 +117,11 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     runWithNewCluster(LinearizableReadTests::runTestFollowerLinearizableRead);
   }
 
+  @Test
+  public void testFollowerLinearizableReadFailsWhenLeaderUnknown() throws Exception {
+    runWithNewCluster(LinearizableReadTests::runTestFollowerLinearizableReadFailsWhenLeaderUnknown);
+  }
+
   public static class Reply {
     private final int count;
     private final CompletableFuture<RaftClientReply> future;
@@ -189,6 +194,30 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
       Assertions.assertThrows(CompletionException.class, preferNonLinearizable::join);
       Assertions.assertFalse(callbackInvoked.get());
     }
+  }
+
+  static <C extends MiniRaftCluster> void runTestFollowerLinearizableReadFailsWhenLeaderUnknown(C cluster)
+      throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final List<RaftServer.Division> followers = cluster.getFollowers();
+    Assertions.assertEquals(2, followers.size());
+
+    final RaftServer.Division follower = followers.get(0);
+    cluster.killServer(leader.getId());
+    cluster.killServer(followers.get(1).getId());
+    JavaUtils.attemptRepeatedly(() -> {
+      Assertions.assertNull(follower.getInfo().getLeaderId());
+      return null;
+    }, 10, ONE_SECOND, follower.getId() + " leader unknown", null);
+
+    final AtomicBoolean callbackInvoked = new AtomicBoolean();
+    final CompletableFuture<Long> read = readOnlyAsync(follower, () -> {
+      callbackInvoked.set(true);
+      return CompletableFuture.completedFuture(getCount(follower));
+    });
+    final CompletionException exception = Assertions.assertThrows(CompletionException.class, read::join);
+    Assertions.assertInstanceOf(ReadIndexException.class, exception.getCause());
+    Assertions.assertFalse(callbackInvoked.get());
   }
 
   @Test
