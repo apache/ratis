@@ -1124,7 +1124,12 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<Long> getReadIndex(RaftClientRequest request, LeaderStateImpl leader) {
-    return writeIndexCache.getWriteIndexFuture(request).thenCompose(leader::getReadIndex);
+    return getReadIndex(request.getClientId(), request.getType().getRead(), leader);
+  }
+
+  private CompletableFuture<Long> getReadIndex(
+      ClientId clientId, ReadRequestTypeProto readRequestType, LeaderStateImpl leader) {
+    return writeIndexCache.getWriteIndexFuture(clientId, readRequestType).thenCompose(leader::getReadIndex);
   }
 
   private CompletableFuture<Long> getReadIndex(CompletableFuture<ReadIndexReplyProto> readIndexReply) {
@@ -1141,7 +1146,7 @@ class RaftServerImpl implements RaftServer.Division,
   private CompletableFuture<Long> getReadIndexForReadOnly(ClientId clientId, ReadRequestTypeProto readRequestType) {
     final LeaderStateImpl leader = role.getLeaderState().orElse(null);
     if (leader != null) {
-      return leader.getReadIndex(null);
+      return getReadIndex(clientId, readRequestType, leader);
     }
 
     final long installSnapshot = snapshotInstallationHandler.getInProgressInstallSnapshotIndex();
