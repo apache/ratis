@@ -116,6 +116,18 @@ public interface RaftServer extends Closeable, RpcType.Get,
      * clients should continue to use
      * {@link org.apache.ratis.client.api.AsyncApi#sendReadOnly(org.apache.ratis.protocol.Message)}.
      */
+    default <T> CompletableFuture<T> readOnlyAsync(Supplier<CompletableFuture<T>> query) throws IOException {
+      return readOnlyAsync(ClientId.randomId(), ReadRequestTypeProto.getDefaultInstance(), query);
+    }
+
+    /**
+     * Execute a local read-only query after applying the configured
+     * {@link RaftServerConfigKeys.Read.Option} consistency checks.
+     *
+     * <p>The {@code clientId} and {@code readRequestType} identify the read
+     * semantics.  In particular, callers requesting read-after-write
+     * consistency must use the same client ID as their prior writes.
+     */
     default <T> CompletableFuture<T> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
         Supplier<CompletableFuture<T>> query) throws IOException {
       throw new UnsupportedOperationException("readOnlyAsync is not supported");

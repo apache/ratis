@@ -242,7 +242,7 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
   static <T> CompletableFuture<T> readOnlyAsync(
       RaftServer.Division server, Supplier<CompletableFuture<T>> query) throws IOException {
-    return server.readOnlyAsync(ClientId.randomId(), RaftClientRequest.readRequestType().getRead(), query);
+    return server.readOnlyAsync(query);
   }
 
   static <T> CompletableFuture<T> readOnlyAsyncPreferNonLinearizable(
