@@ -1122,9 +1122,11 @@ class RaftServerImpl implements RaftServer.Division,
       return JavaUtils.completeExceptionally(e);
     }
   }
+
   private CompletableFuture<Long> getReadIndex(RaftClientRequest request, LeaderStateImpl leader) {
     return writeIndexCache.getWriteIndexFuture(request).thenCompose(leader::getReadIndex);
   }
+
   private CompletableFuture<Long> getReadIndex(CompletableFuture<ReadIndexReplyProto> readIndexReply) {
     return readIndexReply.thenApply(reply -> {
       if (reply.getServerReply().getSuccess()) {
