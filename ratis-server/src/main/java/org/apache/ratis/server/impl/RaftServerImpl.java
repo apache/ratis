@@ -1149,7 +1149,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   private <T> CompletableFuture<T> checkLeaderStateForReadOnly() {
     if (!getInfo().isLeader()) {
-      return JavaUtils.completeExceptionally(generateNotLeaderException());
+      return JavaUtils.completeExceptionally(newNotLeaderException());
     }
     if (!getInfo().isLeaderReady()) {
       return JavaUtils.completeExceptionally(new LeaderNotReadyException(getMemberId()));
