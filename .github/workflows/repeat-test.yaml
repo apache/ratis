@@ -42,7 +42,7 @@ on:
         default: false
         required: true
 env:
-  MAVEN_OPTS: -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.http.retryHandler.class=standard -Dmaven.wagon.http.retryHandler.count=3
+  MAVEN_OPTS: -Dhttp.keepAlive=false -Daether.connector.http.retryHandler.count=10
   TEST_CLASS: ${{ github.event.inputs.test-class }}
   TEST_METHOD: ${{ github.event.inputs.test-method }}
   ITERATIONS: ${{ github.event.inputs.iterations }}
