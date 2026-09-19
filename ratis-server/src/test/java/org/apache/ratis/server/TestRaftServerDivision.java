@@ -18,57 +18,21 @@
  */
 package org.apache.ratis.server;
 
-import java.util.Arrays;
-import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.protocol.RaftGroupMemberId;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
+import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
-import org.apache.ratis.protocol.exceptions.RaftException;
-import org.apache.ratis.util.LifeCycle;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import static org.mockito.Answers.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 class TestRaftServerDivision {
-  private static final RaftPeerId LOCAL_ID = RaftPeerId.valueOf("local");
-  private static final RaftPeerId REMOTE_ID = RaftPeerId.valueOf("remote");
-  private static final RaftGroupMemberId MEMBER_ID =
-      RaftGroupMemberId.valueOf(LOCAL_ID, RaftGroupId.emptyGroupId());
-  private static final RaftPeer REMOTE_PEER = RaftPeer.newBuilder().setId(REMOTE_ID).build();
-
   @Test
-  void testCheckLeaderReady() {
-    final RaftServer.Division division = mock(RaftServer.Division.class, CALLS_REAL_METHODS);
-    final DivisionInfo info = mock(DivisionInfo.class);
-    final RaftConfiguration conf = mock(RaftConfiguration.class);
-    when(division.getMemberId()).thenReturn(MEMBER_ID);
-    when(division.getInfo()).thenReturn(info);
-    when(division.getRaftConf()).thenReturn(conf);
-    when(info.getLifeCycleState()).thenReturn(LifeCycle.State.RUNNING);
-    when(conf.getAllPeers()).thenReturn(Arrays.asList(RaftPeer.newBuilder().setId(LOCAL_ID).build(), REMOTE_PEER));
-
-    when(info.isLeader()).thenReturn(true);
-    when(info.isLeaderReady()).thenReturn(true);
-    Assertions.assertNull(division.checkLeaderReady());
-
-    when(info.isLeaderReady()).thenReturn(false);
-    Assertions.assertInstanceOf(LeaderNotReadyException.class, division.checkLeaderReady());
-
-    when(info.isLeader()).thenReturn(false);
-    when(info.getLeaderId()).thenReturn(LOCAL_ID);
-    final RaftException staleLeader = division.checkLeaderReady();
-    Assertions.assertInstanceOf(NotLeaderException.class, staleLeader);
-    Assertions.assertNull(((NotLeaderException) staleLeader).getSuggestedLeader());
-
-    when(info.getLeaderId()).thenReturn(REMOTE_ID);
-    when(conf.getPeer(REMOTE_ID)).thenReturn(REMOTE_PEER);
-    final RaftException knownLeader = division.checkLeaderReady();
-    Assertions.assertInstanceOf(NotLeaderException.class, knownLeader);
-    Assertions.assertEquals(REMOTE_PEER, ((NotLeaderException) knownLeader).getSuggestedLeader());
+  void testLeadershipStatusExceptionClasses() {
+    Assertions.assertNull(RaftServer.Division.LeadershipStatus.LEADER_READY.getExceptionClass());
+    Assertions.assertEquals(LeaderNotReadyException.class,
+        RaftServer.Division.LeadershipStatus.LEADER_NOT_READY.getExceptionClass());
+    Assertions.assertEquals(LeaderSteppingDownException.class,
+        RaftServer.Division.LeadershipStatus.LEADER_STEPPING_DOWN.getExceptionClass());
+    Assertions.assertEquals(NotLeaderException.class,
+        RaftServer.Division.LeadershipStatus.NOT_LEADER.getExceptionClass());
   }
 }
