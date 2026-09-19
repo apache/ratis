@@ -80,7 +80,7 @@ import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServer.LeadershipStatus;
+import org.apache.ratis.server.RaftServer.Division.LeadershipStatus;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.LeaderElection.Phase;
@@ -783,7 +783,7 @@ class RaftServerImpl implements RaftServer.Division,
    */
   private CompletableFuture<RaftClientReply> checkLeaderState(
       RaftClientRequest request, CacheEntry entry, TransactionContextImpl context) {
-    final LeadershipStatus leadershipStatus = getLeadershipStatus();
+    final LeadershipStatus leadershipStatus = getCurrentLeadershipStatus();
     switch (leadershipStatus) {
       case NOT_LEADER:
         return failWithReply(request, leadershipStatus, entry, context);
@@ -806,7 +806,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
-  public LeadershipStatus getLeadershipStatus() {
+  public LeadershipStatus getCurrentLeadershipStatus() {
     return !getInfo().isLeader() ? LeadershipStatus.NOT_LEADER
         : !getInfo().isLeaderReady() ? LeadershipStatus.LEADER_NOT_READY
         : isSteppingDown() ? LeadershipStatus.LEADER_STEPPING_DOWN

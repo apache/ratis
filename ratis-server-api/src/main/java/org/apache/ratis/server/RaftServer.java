@@ -62,34 +62,34 @@ public interface RaftServer extends Closeable, RpcType.Get,
     AdminProtocol, AdminAsynchronousProtocol {
   Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
-  enum LeadershipStatus {
-    /** The division is a leader and it is ready. */
-    LEADER_READY(null),
-    /** The division is a leader, but it is NOT ready. */
-    LEADER_NOT_READY(LeaderNotReadyException.class),
-    /** The division is a leader, but it is stepping down. */
-    LEADER_STEPPING_DOWN(LeaderSteppingDownException.class),
-    /** The division is NOT a leader; */
-    NOT_LEADER(NotLeaderException.class);
-
-    private final Class<? extends RaftException> exceptionClass;
-
-    LeadershipStatus(Class<? extends RaftException> exceptionClass) {
-      this.exceptionClass = exceptionClass;
-    }
-
-    /**
-     *  @return For {@link #LEADER_READY}, return null.
-     *          Otherwise, return the corresponding exception class.
-     */
-    public Class<? extends RaftException> getExceptionClass() {
-      return exceptionClass;
-    }
-  }
-
   /** A division of a {@link RaftServer} for a particular {@link RaftGroup}. */
   interface Division extends Closeable {
     Logger LOG = LoggerFactory.getLogger(Division.class);
+
+    enum LeadershipStatus {
+      /** The division is a leader and it is ready. */
+      LEADER_READY(null),
+      /** The division is a leader, but it is NOT ready. */
+      LEADER_NOT_READY(LeaderNotReadyException.class),
+      /** The division is a leader, but it is stepping down. */
+      LEADER_STEPPING_DOWN(LeaderSteppingDownException.class),
+      /** The division is NOT a leader; */
+      NOT_LEADER(NotLeaderException.class);
+
+      private final Class<? extends RaftException> exceptionClass;
+
+      LeadershipStatus(Class<? extends RaftException> exceptionClass) {
+        this.exceptionClass = exceptionClass;
+      }
+
+      /**
+       *  @return For {@link #LEADER_READY}, return null.
+       *          Otherwise, return the corresponding exception class.
+       */
+      public Class<? extends RaftException> getExceptionClass() {
+        return exceptionClass;
+      }
+    }
 
     /** @return the {@link DivisionProperties} for this division. */
     DivisionProperties properties();
@@ -112,7 +112,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
     DivisionInfo getInfo();
 
     /** @return the current leadership status of this division. */
-    LeadershipStatus getLeadershipStatus();
+    LeadershipStatus getCurrentLeadershipStatus();
 
     /**
      * Convert the given leadership status (not necessarily the current status) to an exception.

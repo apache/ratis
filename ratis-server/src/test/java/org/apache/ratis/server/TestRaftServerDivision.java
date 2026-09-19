@@ -27,12 +27,12 @@ import org.junit.jupiter.api.Test;
 class TestRaftServerDivision {
   @Test
   void testLeadershipStatusExceptionClasses() {
-    Assertions.assertNull(RaftServer.LeadershipStatus.LEADER_READY.getExceptionClass());
+    Assertions.assertNull(RaftServer.Division.LeadershipStatus.LEADER_READY.getExceptionClass());
     Assertions.assertEquals(LeaderNotReadyException.class,
-        RaftServer.LeadershipStatus.LEADER_NOT_READY.getExceptionClass());
+        RaftServer.Division.LeadershipStatus.LEADER_NOT_READY.getExceptionClass());
     Assertions.assertEquals(LeaderSteppingDownException.class,
-        RaftServer.LeadershipStatus.LEADER_STEPPING_DOWN.getExceptionClass());
+        RaftServer.Division.LeadershipStatus.LEADER_STEPPING_DOWN.getExceptionClass());
     Assertions.assertEquals(NotLeaderException.class,
-        RaftServer.LeadershipStatus.NOT_LEADER.getExceptionClass());
+        RaftServer.Division.LeadershipStatus.NOT_LEADER.getExceptionClass());
   }
 }
