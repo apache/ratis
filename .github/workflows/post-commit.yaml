@@ -34,7 +34,7 @@ jobs:
     if: github.event_name == 'pull_request'
       || github.repository == 'apache/ratis'
       || github.ref_name != 'master'
-    uses: ./.github/workflows/ci.yaml
+    uses: $/.github/workflows/ci.yaml
     secrets:
       DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
       SONARCLOUD_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}

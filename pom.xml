@@ -149,15 +149,15 @@
     <license.bundles.dependencies>false</license.bundles.dependencies>
 
     <!-- Maven plugin versions -->
-    <maven-bundle-plugin.version>6.1.2</maven-bundle-plugin.version>
+    <maven-bundle-plugin.version>6.2.0</maven-bundle-plugin.version>
     <wagon-ssh.version>3.5.3</wagon-ssh.version>
     <hadoop-maven-plugins.version>3.4.3</hadoop-maven-plugins.version>
     <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
 
     <!-- org.codehaus.mojo -->
-    <build-helper-maven-plugin.version>3.6.1</build-helper-maven-plugin.version>
-    <exec-maven-plugin.version>3.6.3</exec-maven-plugin.version>
-    <extra-enforcer-rules.version>1.12.0</extra-enforcer-rules.version>
+    <build-helper-maven-plugin.version>3.6.2</build-helper-maven-plugin.version>
+    <exec-maven-plugin.version>3.6.4</exec-maven-plugin.version>
+    <extra-enforcer-rules.version>1.12.1</extra-enforcer-rules.version>
     <restrict-imports-enforcer-rule.version>3.0.1</restrict-imports-enforcer-rule.version>
     <license-maven-plugin.version>2.7.1</license-maven-plugin.version>
 
@@ -184,7 +184,7 @@
     <shaded.grpc.version>1.82.1</shaded.grpc.version>
 
     <!-- OpenTelemetry versions -->
-    <opentelemetry.version>1.65.0</opentelemetry.version>
+    <opentelemetry.version>1.66.0</opentelemetry.version>
     <opentelemetry-javaagent.version>2.31.1</opentelemetry-javaagent.version>
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>

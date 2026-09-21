@@ -79,7 +79,9 @@ import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
+import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServer.Division.LeadershipStatus;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.LeaderElection.Phase;
@@ -782,28 +784,64 @@ class RaftServerImpl implements RaftServer.Division,
    */
   private CompletableFuture<RaftClientReply> checkLeaderState(
       RaftClientRequest request, CacheEntry entry, TransactionContextImpl context) {
-    if (!getInfo().isLeader()) {
-      NotLeaderException exception = newNotLeaderException();
-      final RaftClientReply reply = newExceptionReply(request, exception);
-      return failWithReply(reply, entry, context);
+    final LeadershipStatus leadershipStatus = getCurrentLeadershipStatus();
+    switch (leadershipStatus) {
+      case NOT_LEADER:
+        return failWithReply(request, leadershipStatus, entry, context);
+      case LEADER_NOT_READY:
+        final CacheEntry cacheEntry = retryCache.getIfPresent(ClientInvocationId.valueOf(request));
+        if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
+          return cacheEntry.getReplyFuture();
+        }
+        return failWithReply(request, leadershipStatus, entry, context);
+      case LEADER_STEPPING_DOWN:
+        if (!request.isReadOnly()) {
+          return failWithReply(request, leadershipStatus, entry, context);
+        }
+        return null;
+      case LEADER_READY:
+        return null;
+      default:
+        throw new IllegalStateException("Unexpected LeadershipStatus: " + leadershipStatus);
     }
-    if (!getInfo().isLeaderReady()) {
-      final CacheEntry cacheEntry = retryCache.getIfPresent(ClientInvocationId.valueOf(request));
-      if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
-        return cacheEntry.getReplyFuture();
-      }
-      final LeaderNotReadyException lnre = new LeaderNotReadyException(getMemberId());
-      final RaftClientReply reply = newExceptionReply(request, lnre);
-      return failWithReply(reply, entry, context);
-    }
+  }
 
-    if (!request.isReadOnly() && isSteppingDown()) {
-      final LeaderSteppingDownException lsde = new LeaderSteppingDownException(getMemberId() + " is stepping down");
-      final RaftClientReply reply = newExceptionReply(request, lsde);
-      return failWithReply(reply, entry, context);
-    }
+  @Override
+  public LeadershipStatus getCurrentLeadershipStatus() {
+    return !getInfo().isLeader() ? LeadershipStatus.NOT_LEADER
+        : !getInfo().isLeaderReady() ? LeadershipStatus.LEADER_NOT_READY
+        : isSteppingDown() ? LeadershipStatus.LEADER_STEPPING_DOWN
+        : LeadershipStatus.LEADER_READY;
+  }
 
-    return null;
+  @Override
+  public RaftException newLeadershipException(LeadershipStatus leadershipStatus) {
+    switch (leadershipStatus) {
+      case NOT_LEADER:
+        return newNotLeaderException();
+      case LEADER_NOT_READY:
+        return new LeaderNotReadyException(getMemberId());
+      case LEADER_STEPPING_DOWN:
+        return new LeaderSteppingDownException(getMemberId() + " is stepping down");
+      case LEADER_READY:
+        return null;
+      default:
+        throw new IllegalStateException("Unexpected LeadershipStatus: " + leadershipStatus);
+    }
+  }
+
+  NotLeaderException newNotLeaderException() {
+    if (!getInfo().getLifeCycleState().isRunning()) {
+      return new NotLeaderException(getMemberId(), null, null);
+    }
+    RaftPeerId leaderId = getInfo().getLeaderId();
+    if (leaderId == null || leaderId.equals(getId())) {
+      // No idea about who is the current leader. Or the peer is the current
+      // leader, but it is about to step down. set the suggested leader as null.
+      leaderId = null;
+    }
+    final RaftConfiguration conf = getRaftConf();
+    return new NotLeaderException(getMemberId(), conf.getPeer(leaderId), conf.getAllPeers());
   }
 
   void assertLifeCycleState(Set<LifeCycle.State> expected) throws ServerNotReadyException {
@@ -820,11 +858,17 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> failWithReply(
-      RaftClientReply reply, CacheEntry entry, TransactionContextImpl context) {
+      RaftClientRequest request, LeadershipStatus leadershipStatus, CacheEntry entry, TransactionContextImpl context) {
+    return failWithReply(request, newLeadershipException(leadershipStatus), entry, context);
+  }
+
+  private CompletableFuture<RaftClientReply> failWithReply(
+      RaftClientRequest request, RaftException e, CacheEntry entry, TransactionContextImpl context) {
     if (context != null) {
-      cancelTransaction(context, reply.getException());
+      cancelTransaction(context, e);
     }
 
+    final RaftClientReply reply = newExceptionReply(request, e);
     if (entry == null) {
       return CompletableFuture.completedFuture(reply);
     }
@@ -861,9 +905,7 @@ class RaftServerImpl implements RaftServer.Division,
 
     final LeaderStateImpl unsyncedLeaderState = role.getLeaderState().orElse(null);
     if (unsyncedLeaderState == null) {
-      final NotLeaderException nle = newNotLeaderException();
-      final RaftClientReply reply = newExceptionReply(request, nle);
-      return failWithReply(reply, cacheEntry, context);
+      return failWithReply(request, LeadershipStatus.NOT_LEADER, cacheEntry, context);
     }
     final PendingRequests.Permit unsyncedPermit = unsyncedLeaderState.tryAcquirePendingRequest(request.getMessage());
     if (unsyncedPermit == null) {
@@ -890,14 +932,13 @@ class RaftServerImpl implements RaftServer.Division,
       try {
         state.appendLog(context);
       } catch (StateMachineException e) {
-        // the StateMachineException is thrown by the SM in the preAppend stage.
-        // Return the exception in a RaftClientReply.
-        final RaftClientReply exceptionReply = newExceptionReply(request, e);
         // leader will step down here
         if (e.leaderShouldStepDown() && getInfo().isLeader()) {
           leaderState.submitStepDownEvent(StepDownReason.STATE_MACHINE_EXCEPTION);
         }
-        return failWithReply(exceptionReply, cacheEntry, null);
+        // the StateMachineException is thrown by the SM in the preAppend stage.
+        // Return the exception in a RaftClientReply.
+        return failWithReply(request, e, cacheEntry, null);
       }
 
       // put the request into the pending queue
@@ -1042,8 +1083,7 @@ class RaftServerImpl implements RaftServer.Division,
     if (context.getException() != null) {
       final Exception exception = context.getException();
       final StateMachineException e = new StateMachineException(getMemberId(), exception);
-      final RaftClientReply exceptionReply = newExceptionReply(request, e);
-      return failWithReply(exceptionReply, cacheEntry, context);
+      return failWithReply(request, e, cacheEntry, context);
     }
 
     try {
