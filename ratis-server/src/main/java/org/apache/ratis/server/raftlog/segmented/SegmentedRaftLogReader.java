@@ -82,16 +82,6 @@ final class SegmentedRaftLogReader implements Closeable {
     }
 
     @Override
-    public int read(byte[] data) throws IOException {
-      checkLimit(data.length);
-      int ret = super.read(data);
-      if (ret > 0) {
-        curPos += ret;
-      }
-      return ret;
-    }
-
-    @Override
     public int read(byte[] data, int offset, int length) throws IOException {
       checkLimit(length);
       int ret = super.read(data, offset, length);
@@ -150,6 +140,7 @@ final class SegmentedRaftLogReader implements Closeable {
   private final SegmentedRaftLogMetrics raftLogMetrics;
   private final SizeInBytes maxOpSize;
 
+  @SuppressWarnings("java:S2095")
   static SegmentedRaftLogReader newInstance(File file, SizeInBytes maxOpSize, SegmentedRaftLogMetrics raftLogMetrics)
           throws IOException {
     final LimitedInputStream limiter = new LimitedInputStream(new BufferedInputStream(FileUtils.newInputStream(file)));

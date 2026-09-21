@@ -169,7 +169,6 @@ class BufferedWriteChannel implements Closeable {
     writeBuffer.flip();
     writeToChannel(writeBuffer);
     writeBuffer.clear();
-    forced = false;
   }
 
   boolean isOpen() {
