@@ -775,25 +775,24 @@ public class GrpcLogAppender extends LogAppenderBase {
           removePending(reply);
           break;
         case SNAPSHOT_UNAVAILABLE:
-          BatchLogger.print(BatchLogKey.SNAPSHOT_UNAVAILABLE,  name,
-              suffix -> LOG.info("{}: Follower failed since the snapshot is unavailable {}", this, suffix));
-          getFollower().setAttemptedToInstallSnapshot();
-          notifyInstallSnapshotFinished(InstallSnapshotResult.SNAPSHOT_UNAVAILABLE, RaftLog.INVALID_LOG_INDEX);
-          removePending(reply);
-          break;
-        case UNRECOGNIZED:
-          LOG.error("{}: Reply result {}, {}",
-              name, reply.getResult(), ServerStringUtils.toInstallSnapshotReplyString(reply));
+          handleFailureReply(reply, BatchLogKey.SNAPSHOT_UNAVAILABLE);
           break;
         case SNAPSHOT_EXPIRED:
-          LOG.warn("{}: Follower failed since the request expired, {}",
-              name, ServerStringUtils.toInstallSnapshotReplyString(reply));
-          getFollower().setAttemptedToInstallSnapshot();
-          removePending(reply);
+          handleFailureReply(reply, BatchLogKey.SNAPSHOT_UNAVAILABLE);
           break;
         default:
+          LOG.error("{}: Unexpected InstallSnapshotReply result {} in {}",
+              name, reply.getResult(), ServerStringUtils.toInstallSnapshotReplyString(reply));
           break;
       }
+    }
+
+    private void handleFailureReply(InstallSnapshotReplyProto reply, BatchLogKey logKey) {
+      BatchLogger.print(logKey,  name,
+          suffix -> LOG.info("{}: Follower failed due to {}: {}{}", this, reply.getResult(), reply, suffix));
+      getFollower().setAttemptedToInstallSnapshot();
+      notifyInstallSnapshotFinished(reply.getResult(), RaftLog.INVALID_LOG_INDEX);
+      removePending(reply);
     }
 
     @Override
