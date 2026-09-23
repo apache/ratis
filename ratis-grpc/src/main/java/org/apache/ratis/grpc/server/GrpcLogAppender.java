@@ -80,7 +80,8 @@ public class GrpcLogAppender extends LogAppenderBase {
     INSTALL_SNAPSHOT_NOTIFY,
     INSTALL_SNAPSHOT_REPLY,
     INSTALL_SNAPSHOT_IN_PROGRESS,
-    SNAPSHOT_UNAVAILABLE
+    SNAPSHOT_UNAVAILABLE,
+    SNAPSHOT_EXPIRED
   }
 
   public static final int INSTALL_SNAPSHOT_NOTIFICATION_INDEX = 0;
@@ -778,7 +779,7 @@ public class GrpcLogAppender extends LogAppenderBase {
           handleFailureReply(reply, BatchLogKey.SNAPSHOT_UNAVAILABLE);
           break;
         case SNAPSHOT_EXPIRED:
-          handleFailureReply(reply, BatchLogKey.SNAPSHOT_UNAVAILABLE);
+          handleFailureReply(reply, BatchLogKey.SNAPSHOT_EXPIRED);
           break;
         default:
           LOG.error("{}: Unexpected InstallSnapshotReply result {} in {}",
