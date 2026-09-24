@@ -32,8 +32,13 @@ public interface SegmentedRaftLogTestUtils {
 
   static SegmentedRaftLogInputStream newSegmentedRaftLogInputStream(File log,
       long startIndex, long endIndex, boolean isOpen) {
+    return newSegmentedRaftLogInputStream(log, startIndex, endIndex, isOpen, MAX_OP_SIZE);
+  }
+
+  static SegmentedRaftLogInputStream newSegmentedRaftLogInputStream(File log,
+                                                                    long startIndex, long endIndex, boolean isOpen, SizeInBytes maxOpSize) {
     final LogSegmentStartEnd startEnd = LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen);
-    return new SegmentedRaftLogInputStream(log, startEnd, MAX_OP_SIZE, null);
+    return new SegmentedRaftLogInputStream(log, startEnd, maxOpSize, null);
   }
 
   static void setRaftLogWorkerLogLevel(Level level) {
