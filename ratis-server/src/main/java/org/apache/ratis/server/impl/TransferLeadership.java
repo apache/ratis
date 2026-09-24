@@ -166,14 +166,14 @@ public class TransferLeadership {
   private final RaftServerImpl server;
   private final TimeDuration requestTimeout;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
-  private static long appliedIndexThreshold;
+  private final long appliedIndexThreshold;
 
   private final AtomicReference<PendingRequest> pending = new AtomicReference<>();
 
   TransferLeadership(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
     this.requestTimeout = RaftServerConfigKeys.Rpc.requestTimeout(properties);
-    appliedIndexThreshold = RaftServerConfigKeys
+    this.appliedIndexThreshold = RaftServerConfigKeys
                                  .LeaderElection
                                  .transferLeadershipRequiredAppliedIndexGap(properties);
   }
@@ -187,7 +187,7 @@ public class TransferLeadership {
     return pending.get() != null;
   }
 
-  static Result isFollowerUpToDate(FollowerInfo follower, TermIndex leaderLastEntry) {
+  Result isFollowerUpToDate(FollowerInfo follower, TermIndex leaderLastEntry) {
     if (follower == null) {
       return Result.NULL_FOLLOWER;
     }
@@ -202,12 +202,13 @@ public class TransferLeadership {
           + " < leaderLastEntry.getIndex() = " + leaderLastEntry.getIndex());
     }
 
-    // the leadership transfer cannot proceed if 
-    // the follower's applied index gap is greater than the safe threshold.
+    // the leadership transfer cannot proceed if the follower's applied index gap is greater than the safe threshold.
     final long followerAppliedIndex = follower.getAppliedIndex();
     final long appliedIndexGap = leaderLastEntry.getIndex() - followerAppliedIndex;
     if (appliedIndexGap > appliedIndexThreshold) {
-        return new Result(Result.Type.RISKY_LEADER_CHANGE, "follower's applied index gap is greater than " + appliedIndexThreshold);
+      return new Result(
+          Result.Type.RISKY_LEADER_CHANGE,
+          "follower's applied index gap is greater than " + appliedIndexThreshold);
     }
     return Result.SUCCESS;
   }
