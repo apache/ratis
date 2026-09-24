@@ -761,9 +761,9 @@ class LeaderStateImpl implements LeaderState {
     return pendingStepDown.submitAsync(request);
   }
 
-  private static LogAppender chooseUpToDateFollower(List<LogAppender> followers, TermIndex leaderLastEntry) {
+  private LogAppender chooseUpToDateFollower(List<LogAppender> followers, TermIndex leaderLastEntry) {
     for(LogAppender f : followers) {
-      if (TransferLeadership.isFollowerUpToDate(f.getFollower(), leaderLastEntry)
+      if (server.getTransferLeadership().isFollowerUpToDate(f.getFollower(), leaderLastEntry)
           == TransferLeadership.Result.SUCCESS) {
         return f;
       }
