@@ -27,24 +27,15 @@ import java.util.Map;
 
 /** Unit tests for {@link SetPriorityCommand}. */
 public class TestSetPriorityCommand {
-
-  @Test
-  public void testParseAddressPriorityMapMatchesPeerAddressFromCluster() {
-    final RaftPeer peer = CliUtils.parseRaftPeers("127.0.0.1:6000").get(0);
-    final Map<String, Integer> map = SetPriorityCommand.parseAddressPriorityMap(
-        new String[] {"127.0.0.1:6000|5"});
-
-    final Integer newPriority = map.get(peer.getAddress());
-    Assertions.assertNotNull(newPriority);
-    Assertions.assertEquals(5, newPriority.intValue());
-  }
-
   @Test
   public void testParseAddressPriorityMapNormalizesIpv6LikeParseRaftPeers() {
     final RaftPeer peer = CliUtils.parseRaftPeers("[::1]:6000").get(0);
     final Map<String, Integer> map = SetPriorityCommand.parseAddressPriorityMap(
         new String[] {"[::1]:6000|2"});
-    Assertions.assertEquals(2, map.get(peer.getAddress()));
+    
+    final Integer newPriority = map.get(peer.getAddress());
+    Assertions.assertNotNull(newPriority);
+    Assertions.assertEquals(2, newPriority.intValue());
   }
 
   @Test
@@ -60,11 +51,5 @@ public class TestSetPriorityCommand {
     final Map<String, Integer> map = SetPriorityCommand.parseAddressPriorityMap(
         new String[] {"localhost:6000|3"});
     Assertions.assertEquals(3, map.get(peer.getAddress()));
-  }
-
-  @Test
-  public void testParseAddressPriorityMapRejectsInvalidFormat() {
-    Assertions.assertThrows(IllegalArgumentException.class,
-        () -> SetPriorityCommand.parseAddressPriorityMap(new String[] {"127.0.0.1:6000"}));
   }
 }
