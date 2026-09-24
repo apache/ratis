@@ -273,7 +273,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   }
 
   @Test
-  public void testFixMarkOverflow() throws IOException {
+  public void testReadEntryAtMaxOpSize() throws IOException {
     final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
     final File openSegment = ZERO_START_NULL_END.getFile(storage);
     SimpleOperation m = new SimpleOperation("m1");
