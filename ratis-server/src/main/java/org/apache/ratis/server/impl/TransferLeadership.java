@@ -265,6 +265,9 @@ public class TransferLeadership {
     if (result == Result.SUCCESS) {
       LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
           server.getMemberId(), follower.getId());
+    } else if (result.getType() == Result.Type.RISKY_LEADER_CHANGE) {
+      LOG.info("{}: {} aborting leadership transfer to {}", server.getMemberId(), result, follower.getId());
+      complete(result);
     }
   }
 
