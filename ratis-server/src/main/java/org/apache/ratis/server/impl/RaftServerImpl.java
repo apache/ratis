@@ -1160,20 +1160,12 @@ class RaftServerImpl implements RaftServer.Division,
     });
   }
 
-  private static <T> CompletableFuture<T> supplyReadOnly(Supplier<CompletableFuture<T>> query) {
-    try {
-      return Objects.requireNonNull(query.get(), "query returned null");
-    } catch (Throwable t) {
-      return JavaUtils.completeExceptionally(t);
-    }
-  }
-
   @Override
-  public <T> CompletableFuture<T> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
-      Supplier<CompletableFuture<T>> query) throws IOException {
+  public CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
+      Message queryMessage) throws IOException {
     Objects.requireNonNull(clientId, "clientId == null");
     Objects.requireNonNull(readRequestType, "readRequestType == null");
-    Objects.requireNonNull(query, "query == null");
+    Objects.requireNonNull(queryMessage, "queryMessage == null");
     assertLifeCycleState(LifeCycle.States.RUNNING);
     if (readRequestType.getPreferNonLinearizable() || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
       if (!getInfo().isLeader()) {
@@ -1182,13 +1174,13 @@ class RaftServerImpl implements RaftServer.Division,
       if (!getInfo().isLeaderReady()) {
         return JavaUtils.completeExceptionally(new LeaderNotReadyException(getMemberId()));
       }
-      return supplyReadOnly(query);
+      return getStateMachine().query(queryMessage);
     } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
       final LeaderStateImpl leader = role.getLeaderState().orElse(null);
       return getReadIndex(clientId, readRequestType, leader)
           .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
               () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
-          .thenCompose(readIndex -> supplyReadOnly(query));
+          .thenCompose(readIndex -> getStateMachine().query(queryMessage));
     } else {
       throw new IllegalStateException("Unexpected read option: " + readOption);
     }
