@@ -59,7 +59,7 @@ public class SetPriorityCommand extends AbstractRatisCommand {
       addressPriorityMap = parseAddressPriorityMap(
           cl.getOptionValues(PEER_WITH_NEW_PRIORITY_OPTION_NAME));
     } catch (IllegalArgumentException e) {
-      println("The format of the parameter is wrong");
+      e.printStackTrace(getPrintStream());
       return -1;
     }
 
@@ -117,7 +117,8 @@ public class SetPriorityCommand extends AbstractRatisCommand {
     for (String optionValue : optionValues) {
       String[] str = optionValue.split("[|]");
       if (str.length < 2) {
-        throw new IllegalArgumentException("The format of the parameter is wrong");
+        throw new IllegalArgumentException(
+            "Invalid option <PEER_HOST:PEER_PORT|PRIORITY>: " + optionValue);
       }
       final String normalized = NetUtils.address2String(CliUtils.parseInetSocketAddress(str[0]));
       addressPriorityMap.put(normalized, Integer.parseInt(str[1]));
