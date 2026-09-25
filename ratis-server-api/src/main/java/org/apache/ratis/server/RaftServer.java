@@ -24,12 +24,16 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.ReadRequestTypeProto;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.AdminProtocol;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftClientProtocol;
 import org.apache.ratis.protocol.RaftGroup;
@@ -141,6 +145,33 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link StateMachine} for this division. */
     StateMachine getStateMachine();
+
+    /**
+     * Execute a local read-only query after applying the configured
+     * {@link RaftServerConfigKeys.Read.Option} consistency checks.
+     *
+     * <p>This API is intended for embedded users that already have a local
+     * server division.  Applications may use local {@link Message}
+     * implementations so that their state machine can avoid materializing
+     * application request bytes.  Remote clients should continue to use
+     * {@link org.apache.ratis.client.api.AsyncApi#sendReadOnly(Message)}.
+     */
+    default CompletableFuture<Message> readOnlyAsync(Message queryMessage) throws IOException {
+      return readOnlyAsync(ClientId.randomId(), ReadRequestTypeProto.getDefaultInstance(), queryMessage);
+    }
+
+    /**
+     * Execute a local read-only query after applying the configured
+     * {@link RaftServerConfigKeys.Read.Option} consistency checks.
+     *
+     * <p>The {@code clientId} and {@code readRequestType} identify the read
+     * semantics.  In particular, callers requesting read-after-write
+     * consistency must use the same client ID as their prior writes.
+     */
+    default CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
+        Message queryMessage) throws IOException {
+      throw new UnsupportedOperationException("readOnlyAsync is not supported");
+    }
 
     /** @return the raft log of this division. */
     RaftLog getRaftLog();

@@ -44,15 +44,20 @@ import org.slf4j.event.Level;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.ReadOnlyRequestTests.CounterStateMachine;
 import static org.apache.ratis.ReadOnlyRequestTests.INCREMENT;
 import static org.apache.ratis.ReadOnlyRequestTests.QUERY;
 import static org.apache.ratis.ReadOnlyRequestTests.WAIT_AND_INCREMENT;
+import static org.apache.ratis.ReadOnlyRequestTests.assertLongAtLeast;
 import static org.apache.ratis.ReadOnlyRequestTests.assertOption;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyAtLeast;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyExact;
+import static org.apache.ratis.ReadOnlyRequestTests.readOnlyAsync;
+import static org.apache.ratis.ReadOnlyRequestTests.readOnlyAsyncPreferNonLinearizable;
+import static org.apache.ratis.ReadOnlyRequestTests.retrieve;
 import static org.apache.ratis.server.RaftServerConfigKeys.Read.Option.LINEARIZABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -111,6 +116,11 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     runWithNewCluster(LinearizableReadTests::runTestFollowerLinearizableRead);
   }
 
+  @Test
+  public void testFollowerLinearizableReadFailsWhenLeaderUnknown() throws Exception {
+    runWithNewCluster(LinearizableReadTests::runTestFollowerLinearizableReadFailsWhenLeaderUnknown);
+  }
+
   public static class Reply {
     private final int count;
     private final CompletableFuture<RaftClientReply> future;
@@ -153,6 +163,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     final int n = 100;
     final List<Reply> f0Replies = new ArrayList<>(n);
     final List<Reply> f1Replies = new ArrayList<>(n);
+    final List<CompletableFuture<Message>> f0LocalReplies = new ArrayList<>(n);
     try (RaftClient client = cluster.createClient(leaderId);
          RaftClient c0 = cluster.createClient(f0);
          RaftClient c1 = cluster.createClient(f1);
@@ -163,13 +174,38 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
         f0Replies.add(new Reply(count, c0.async().sendReadOnly(QUERY, f0)));
         f1Replies.add(new Reply(count, c1.async().sendReadOnly(QUERY, f1)));
+        f0LocalReplies.add(readOnlyAsync(followers.get(0), QUERY));
       }
 
       for (int i = 0; i < n; i++) {
         f0Replies.get(i).assertAtLeast();
         f1Replies.get(i).assertAtLeast();
+        assertLongAtLeast(i + 1, retrieve(f0LocalReplies.get(i).join()));
       }
+
+      final CompletableFuture<Message> preferNonLinearizable =
+          readOnlyAsyncPreferNonLinearizable(followers.get(0), QUERY);
+      Assertions.assertThrows(CompletionException.class, preferNonLinearizable::join);
     }
+  }
+
+  static <C extends MiniRaftCluster> void runTestFollowerLinearizableReadFailsWhenLeaderUnknown(C cluster)
+      throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final List<RaftServer.Division> followers = cluster.getFollowers();
+    Assertions.assertEquals(2, followers.size());
+
+    final RaftServer.Division follower = followers.get(0);
+    cluster.killServer(leader.getId());
+    cluster.killServer(followers.get(1).getId());
+    JavaUtils.attemptRepeatedly(() -> {
+      Assertions.assertNull(follower.getInfo().getLeaderId());
+      return null;
+    }, 10, ONE_SECOND, follower.getId() + " leader unknown", null);
+
+    final CompletableFuture<Message> read = readOnlyAsync(follower, QUERY);
+    final CompletionException exception = Assertions.assertThrows(CompletionException.class, read::join);
+    Assertions.assertInstanceOf(ReadIndexException.class, exception.getCause());
   }
 
   @Test
