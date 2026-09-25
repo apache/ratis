@@ -20,7 +20,6 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.ReadRequestTypeProto;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
@@ -56,11 +55,6 @@ class WriteIndexCache {
     }
     ref.updateAndGet(previous -> previous == null ? current
         : previous.thenCombine(current, Math::max));
-  }
-
-  CompletableFuture<Long> getWriteIndexFuture(RaftClientRequest request) {
-    return request != null ? getWriteIndexFuture(request.getClientId(), request.getType().getRead())
-        : CompletableFuture.completedFuture(null);
   }
 
   CompletableFuture<Long> getWriteIndexFuture(ClientId clientId, ReadRequestTypeProto readRequestType) {
