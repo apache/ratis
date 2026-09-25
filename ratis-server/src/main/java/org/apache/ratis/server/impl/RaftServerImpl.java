@@ -1126,7 +1126,9 @@ class RaftServerImpl implements RaftServer.Division,
     return installSnapshot == RaftLog.INVALID_LOG_INDEX ? null : new ReadException(getMemberId() + ": Failed to " + op
         + " readIndex as snapshot (" + installSnapshot + ") installation is " + (started ? "started" : "in progress"));
   }
-  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync(RaftClientRequest clientRequest) {
+
+  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync(
+      ClientId clientId, ReadRequestTypeProto readRequestType) {
     final long installSnapshot = snapshotInstallationHandler.getInProgressInstallSnapshotIndex();
     if (installSnapshot != RaftLog.INVALID_LOG_INDEX) {
       return JavaUtils.completeExceptionally(getReadException("get", installSnapshot, false));
@@ -1135,11 +1137,6 @@ class RaftServerImpl implements RaftServer.Division,
     if (leaderId == null) {
       return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
     }
-    return sendReadIndexAsync(clientRequest.getClientId(), clientRequest.getType().getRead(), leaderId);
-  }
-
-  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync(
-      ClientId clientId, ReadRequestTypeProto readRequestType, RaftPeerId leaderId) {
     final ReadIndexRequestProto request = toReadIndexRequestProto(clientId, readRequestType, getMemberId(), leaderId);
     try {
       return getServerRpc().async().readIndexAsync(request);
@@ -1148,53 +1145,19 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  private CompletableFuture<Long> getReadIndex(RaftClientRequest request, LeaderStateImpl leader) {
-    return getReadIndex(request.getClientId(), request.getType().getRead(), leader);
-  }
-
   private CompletableFuture<Long> getReadIndex(
       ClientId clientId, ReadRequestTypeProto readRequestType, LeaderStateImpl leader) {
-    return writeIndexCache.getWriteIndexFuture(clientId, readRequestType).thenCompose(leader::getReadIndex);
-  }
-
-  private CompletableFuture<Long> getReadIndex(CompletableFuture<ReadIndexReplyProto> readIndexReply) {
-    return readIndexReply.thenApply(reply -> {
+    if (leader != null) {
+      return writeIndexCache.getWriteIndexFuture(clientId, readRequestType).thenCompose(leader::getReadIndex);
+    }
+    return sendReadIndexAsync(clientId, readRequestType).thenApply(reply -> {
       if (reply.getServerReply().getSuccess()) {
         return reply.getReadIndex();
       } else {
         throw new CompletionException(new ReadIndexException(getId()
-            + ": Failed to get read index from the leader: " + reply));
+                + ": Failed to get read index from the leader: " + reply));
       }
     });
-  }
-
-  private CompletableFuture<Long> getReadIndexForReadOnly(ClientId clientId, ReadRequestTypeProto readRequestType) {
-    final LeaderStateImpl leader = role.getLeaderState().orElse(null);
-    if (leader != null) {
-      return getReadIndex(clientId, readRequestType, leader);
-    }
-
-    final long installSnapshot = snapshotInstallationHandler.getInProgressInstallSnapshotIndex();
-    if (installSnapshot != RaftLog.INVALID_LOG_INDEX) {
-      return JavaUtils.completeExceptionally(getReadException("get", installSnapshot, false));
-    }
-
-    final RaftPeerId leaderId = getInfo().getLeaderId();
-    if (leaderId == null) {
-      return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
-    }
-
-    return getReadIndex(sendReadIndexAsync(clientId, readRequestType, leaderId));
-  }
-
-  private <T> CompletableFuture<T> checkLeaderStateForReadOnly() {
-    if (!getInfo().isLeader()) {
-      return JavaUtils.completeExceptionally(newNotLeaderException());
-    }
-    if (!getInfo().isLeaderReady()) {
-      return JavaUtils.completeExceptionally(new LeaderNotReadyException(getMemberId()));
-    }
-    return null;
   }
 
   private static <T> CompletableFuture<T> supplyReadOnly(Supplier<CompletableFuture<T>> query) {
@@ -1213,10 +1176,16 @@ class RaftServerImpl implements RaftServer.Division,
     Objects.requireNonNull(query, "query == null");
     assertLifeCycleState(LifeCycle.States.RUNNING);
     if (readRequestType.getPreferNonLinearizable() || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
-      final CompletableFuture<T> reply = checkLeaderStateForReadOnly();
-      return reply != null ? reply : supplyReadOnly(query);
+      if (!getInfo().isLeader()) {
+        return JavaUtils.completeExceptionally(newNotLeaderException());
+      }
+      if (!getInfo().isLeaderReady()) {
+        return JavaUtils.completeExceptionally(new LeaderNotReadyException(getMemberId()));
+      }
+      return supplyReadOnly(query);
     } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
-      return getReadIndexForReadOnly(clientId, readRequestType)
+      final LeaderStateImpl leader = role.getLeaderState().orElse(null);
+      return getReadIndex(clientId, readRequestType, leader)
           .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
               () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
           .thenCompose(readIndex -> supplyReadOnly(query));
@@ -1237,11 +1206,7 @@ class RaftServerImpl implements RaftServer.Division,
     } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
       final LeaderStateImpl leader = role.getLeaderState().orElse(null);
       final CompletableFuture<Long> replyFuture;
-      if (leader != null) {
-        replyFuture = getReadIndex(request, leader);
-      } else {
-        replyFuture = getReadIndex(sendReadIndexAsync(request));
-      }
+      replyFuture = getReadIndex(request.getClientId(), request.getType().getRead(), leader);
 
       return replyFuture
           .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
@@ -1687,7 +1652,8 @@ class RaftServerImpl implements RaftServer.Division,
       return CompletableFuture.completedFuture(toReadIndexReplyProto(peerId, getMemberId()));
     }
 
-    return getReadIndex(ClientProtoUtils.toRaftClientRequest(request.getClientRequest()), leader)
+    final RaftClientRequest clientRequest = ClientProtoUtils.toRaftClientRequest(request.getClientRequest());
+    return getReadIndex(clientRequest.getClientId(), clientRequest.getType().getRead(), leader)
         .thenApply(index -> toReadIndexReplyProto(peerId, getMemberId(), true, index))
         .whenComplete((reply, exception) -> {
           if (exception == null) {
