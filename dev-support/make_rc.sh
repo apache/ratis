@@ -162,25 +162,46 @@ Please choose from available phases (eg. make_rc.sh 1-prepare-src):
    2-verify-bin:   The source artifact is copied to the $WORKINGDIR and the binary artifact is created from the source.
                    This is an additional check as the the released source artifact should be enough to build the whole project.
 
-   3-publish-mvn:  Performs the final build, and uploads the artifacts to the maven staging repository
+   3-publish-mvn:  Performs the final build, and uploads the artifacts to the maven staging repository.
+                   For the first time, you can follow the instructions to setup your local environment at:
+                   https://infra.apache.org/publishing-maven-artifacts.html,
 
    4-assembly:     This step copies all the required artifacts to the svn directory ($SVNDISTDIR) and creates the signatures/checksum files.
 
    5-publish-git:  Only do it if everything is fine. It pushes the rc tag and release branch to the repository.
 
-   6-publish-svn:  Uploads the artifacts to the apache dev staging area.
+   6-publish-svn:  Uploads the artifacts to the apache dev staging area at https://dist.apache.org/repos/dist/dev/ratis.
+                   Note that apache id/passcode should be sufficient to access this svn dev repo.
 
 The next steps of the release process are not scripted:
 
-   7. Close the staging maven repository at https://repository.apache.org/
+   7. Close the staging maven repository at https://repository.apache.org/. Your apache id/passcode is sufficient to login
+      to this tool.
 
-   8. Send out the vote mail to the ratis-dev list
+   8. Send out the vote mail to the dev@ratis.apache.org list.
 
    9. Summarize the vote after the given period.
 
    10. (If the vote passed): Move the staged artifacts in svn from the dev area to the dist area.
 
-   11. Publish maven repository at https://repository.apache.org/
+   11. Publish maven repository at https://repository.apache.org/.
+
+   12. Update Ratis website by following instruction at https://github.com/apache/ratis/blob/asf-site-source/README.md.
+
+   13. Update versions in Jira:
+       - mark $RATISVERSION as released
+       - create next patch version
+       - also create next minor version if this is .0 release
+       https://issues.apache.org/jira/plugins/servlet/project-config/RATIS/administer-versions
+
+   14. Add release information to report database: https://reporter.apache.org/addrelease.html?ratis
+
+   15. Update version in pom.xml to the next SNAPSHOT version
+
+   16. Copy the passed RC git tag to the final release git tag. For example, 3.3.1-rc3 was voted and passed, should copy
+       3.3.1-rc3 as 3.3.1.
+
+   17. Send out an announcement to dev@ratis.apache.org.
 
 
 
