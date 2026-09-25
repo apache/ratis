@@ -188,7 +188,7 @@ The next steps of the release process are not scripted:
    7. Close the staging maven repository at https://repository.apache.org/. Your apache id/passcode is sufficient to login
       to this tool.
 
-   8. Send out the vote mail to the ratis-dev list.
+   8. Send out the vote mail to the dev@ratis.apache.org list.
 
    9. Summarize the vote after the given period.
 
@@ -198,10 +198,20 @@ The next steps of the release process are not scripted:
 
    12. Update Ratis website by following instruction at https://github.com/apache/ratis/blob/asf-site-source/README.md.
 
-   13. Copy the passed RC git tag to the final release git tag. For example, 3.3.1-rc3 was voted and passed, should copy
+   13. Update versions in Jira:
+       - mark thirdparty-$RATISVERSION as released
+       - create next patch version
+       - also create next minor version if this is .0 release
+       https://issues.apache.org/jira/plugins/servlet/project-config/RATIS/administer-versions
+
+   14. Add release information to report database: https://reporter.apache.org/addrelease.html?ratis
+
+   15. Update version in pom.xml to the next SNAPSHOT version
+
+   16. Copy the passed RC git tag to the final release git tag. For example, 3.3.1-rc3 was voted and passed, should copy
        3.3.1-rc3 as 3.3.1.
 
-   14. Send out an announcement to dev@ratis.apache.org.
+   17. Send out an announcement to dev@ratis.apache.org.
 
 
 
