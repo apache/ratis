@@ -36,7 +36,7 @@ public interface SegmentedRaftLogTestUtils {
   }
 
   static SegmentedRaftLogInputStream newSegmentedRaftLogInputStream(File log,
-                                                                    long startIndex, long endIndex, boolean isOpen, SizeInBytes maxOpSize) {
+      long startIndex, long endIndex, boolean isOpen, SizeInBytes maxOpSize) {
     final LogSegmentStartEnd startEnd = LogSegmentStartEnd.valueOf(startIndex, endIndex, isOpen);
     return new SegmentedRaftLogInputStream(log, startEnd, maxOpSize, null);
   }

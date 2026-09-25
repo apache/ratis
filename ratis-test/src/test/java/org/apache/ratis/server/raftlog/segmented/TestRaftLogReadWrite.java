@@ -282,12 +282,12 @@ public class TestRaftLogReadWrite extends BaseTest {
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
         segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       out.write(logEntry);
-    }finally {
+    } finally {
       storage.close();
     }
 
-    try(SegmentedRaftLogInputStream in = SegmentedRaftLogTestUtils.newSegmentedRaftLogInputStream(
-        openSegment, 0, RaftLog.INVALID_LOG_INDEX, true, SizeInBytes.valueOf(size))){
+    try (SegmentedRaftLogInputStream in = SegmentedRaftLogTestUtils.newSegmentedRaftLogInputStream(
+        openSegment, 0, RaftLog.INVALID_LOG_INDEX, true, SizeInBytes.valueOf(size))) {
       LogEntryProto readLogEntry = in.nextEntry();
       Assertions.assertEquals(logEntry, readLogEntry);
     }
