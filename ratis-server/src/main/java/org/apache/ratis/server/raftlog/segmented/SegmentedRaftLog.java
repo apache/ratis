@@ -222,7 +222,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  public AutoCloseableLock readLock(final LockType lock) {
+  public AutoCloseableLock readLock(LockType lock) {
     return readLockEnabled ? super.readLock(lock) : null;
   }
 
@@ -247,7 +247,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   private void loadLogSegments(long lastIndexInSnapshot,
       Consumer<LogEntryProto> logConsumer) throws IOException {
-    try(AutoCloseableLock writeLock = writeLock(LockType.SNAPSHOT_INDEX)) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       final List<LogSegmentPath> paths = LogSegmentPath.getLogSegmentPaths(storage);
       int i = 0;
       for (LogSegmentPath pi : paths) {
