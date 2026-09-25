@@ -575,6 +575,8 @@ public class GrpcLogAppender extends LogAppenderBase {
             getFollower().updateNextIndex(reply.getMatchIndex() + 1);
             getLeaderState().onFollowerSuccessAppendEntries(getFollower());
           }
+
+          getFollower().updateAppliedIndex(reply.getFollowerAppliedIndex());
           break;
         case NOT_LEADER:
           grpcServerMetrics.onRequestNotLeader(getFollowerId().toString());

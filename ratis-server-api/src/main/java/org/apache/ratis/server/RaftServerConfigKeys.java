@@ -1031,6 +1031,21 @@ public interface RaftServerConfigKeys {
     static void setMemberMajorityAdd(RaftProperties properties, boolean enableMemberMajorityAdd) {
       setBoolean(properties::setBoolean, MEMBER_MAJORITY_ADD_KEY, enableMemberMajorityAdd);
     }
+
+    String TRANSFER_LEADERSHIP_REQUIRED_APPLIED_INDEX_GAP_KEY = ".transfer-leadership.required-applied-index-gap";
+    long TRANSFER_LEADERSHIP_REQUIRED_APPLIED_INDEX_GAP_DEFAULT = 2_000L;
+    static long transferLeadershipRequiredAppliedIndexGap(RaftProperties properties) {
+        return getLong(
+                properties::getLong,
+                TRANSFER_LEADERSHIP_REQUIRED_APPLIED_INDEX_GAP_KEY,
+                TRANSFER_LEADERSHIP_REQUIRED_APPLIED_INDEX_GAP_DEFAULT,
+                getDefaultLog(),
+                requireMin(0L)
+        );
+    }
+    static void setTransferLeadershipRequiredAppliedIndexGap(RaftProperties properties, long appliedIndexValue) {
+        setLong(properties::setLong, TRANSFER_LEADERSHIP_REQUIRED_APPLIED_INDEX_GAP_KEY, appliedIndexValue);
+    }
   }
 
   static void main(String[] args) {
