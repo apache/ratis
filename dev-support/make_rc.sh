@@ -163,18 +163,8 @@ Please choose from available phases (eg. make_rc.sh 1-prepare-src):
                    This is an additional check as the the released source artifact should be enough to build the whole project.
 
    3-publish-mvn:  Performs the final build, and uploads the artifacts to the maven staging repository.
-                   For the first time, you will need your apache id and passcode in local file ` ~/.m2/settings.xml` as:
-                  ```
-                  <settings>
-                    <servers>
-                      <server>
-                        <id>apache.releases.https</id>
-                        <username>username</username>
-                        <password>passcode</password>
-                      </server>
-                    </servers>
-                  </settings>
-                  ```
+                   For the first time, you can follow the instructions to setup your local environment at:
+                   https://infra.apache.org/publishing-maven-artifacts.html,
 
    4-assembly:     This step copies all the required artifacts to the svn directory ($SVNDISTDIR) and creates the signatures/checksum files.
 
@@ -199,7 +189,7 @@ The next steps of the release process are not scripted:
    12. Update Ratis website by following instruction at https://github.com/apache/ratis/blob/asf-site-source/README.md.
 
    13. Update versions in Jira:
-       - mark thirdparty-$RATISVERSION as released
+       - mark $RATISVERSION as released
        - create next patch version
        - also create next minor version if this is .0 release
        https://issues.apache.org/jira/plugins/servlet/project-config/RATIS/administer-versions
