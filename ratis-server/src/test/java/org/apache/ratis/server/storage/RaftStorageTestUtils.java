@@ -25,6 +25,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLogBase;
+import org.apache.ratis.server.raftlog.RaftLogBase.LockType;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.util.AutoCloseableLock;
 
@@ -60,7 +61,7 @@ public interface RaftStorageTestUtils {
 
     final TermIndex last;
     final long flushed, committed;
-    try(AutoCloseableLock readlock = log.readLock()) {
+    try(AutoCloseableLock readlock = log.readLock(LockType.COMMIT_INDEX)) {
       last = log.getLastEntryTermIndex();
       flushed = log.getFlushIndex();
       committed = log.getLastCommittedIndex();

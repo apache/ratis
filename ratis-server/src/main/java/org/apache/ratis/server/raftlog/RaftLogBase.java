@@ -58,6 +58,17 @@ public abstract class RaftLogBase implements RaftLog {
   public static final long LEAST_VALID_LOG_INDEX = 0L;
   public static final long INVALID_LOG_INDEX = LEAST_VALID_LOG_INDEX - 1;
 
+  /**
+   * The locks of this log.
+   * When both locks are needed, {@link #COMMIT_INDEX} must be acquired before {@link #SNAPSHOT_INDEX}.
+   */
+  public enum LockType {
+    /** Guards the log entries and the commit index. */
+    COMMIT_INDEX,
+    /** Guards the snapshot index. */
+    SNAPSHOT_INDEX
+  }
+
   private final String name;
   /**
    * The largest committed index. Note the last committed log may be included
@@ -72,7 +83,8 @@ public abstract class RaftLogBase implements RaftLog {
   private final RaftGroupMemberId memberId;
   private final int maxBufferSize;
 
-  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
+  private final ReentrantReadWriteLock snapshotIndexLock = new ReentrantReadWriteLock(true);
+  private final ReentrantReadWriteLock commitIndexLock = new ReentrantReadWriteLock(true);
   private final Runner runner = new Runner(this::getName);
   private final OpenCloseState state;
   private final LongSupplier getSnapshotIndexFromStateMachine;
@@ -120,7 +132,7 @@ public abstract class RaftLogBase implements RaftLog {
 
   @Override
   public boolean updateCommitIndex(long majorityIndex, long currentTerm, boolean isLeader) {
-    try(AutoCloseableLock writeLock = tryWriteLock(TimeDuration.ONE_SECOND)) {
+    try(AutoCloseableLock writeLock = tryWriteLock(TimeDuration.ONE_SECOND, LockType.COMMIT_INDEX)) {
       final long oldCommittedIndex = getLastCommittedIndex();
       final long newCommitIndex = Math.min(majorityIndex, getFlushIndex());
       if (oldCommittedIndex < newCommitIndex) {
@@ -153,7 +165,8 @@ public abstract class RaftLogBase implements RaftLog {
 
   @Override
   public void updateSnapshotIndex(long newSnapshotIndex) {
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock commitLock = writeLock(LockType.COMMIT_INDEX);
+        AutoCloseableLock snapshotLock = writeLock(LockType.SNAPSHOT_INDEX)) {
       final long oldSnapshotIndex = getSnapshotIndex();
       if (oldSnapshotIndex < newSnapshotIndex) {
         snapshotIndex.updateIncreasingly(newSnapshotIndex, infoIndexChange);
@@ -172,7 +185,7 @@ public abstract class RaftLogBase implements RaftLog {
 
   private long appendImpl(long term, TransactionContext operation) throws StateMachineException {
     checkLogState();
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       final long nextIndex = getNextIndex();
 
       // This is called here to guarantee strict serialization of callback executions in case
@@ -226,7 +239,7 @@ public abstract class RaftLogBase implements RaftLog {
 
     final LogEntryProto entry;
     final long nextIndex;
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       nextIndex = getNextIndex();
       entry = LogProtoUtils.toLogEntryProto(newCommitIndex, term, nextIndex);
       appendEntry(entry);
@@ -252,7 +265,7 @@ public abstract class RaftLogBase implements RaftLog {
 
   private long appendImpl(long term, RaftConfiguration newConf) {
     checkLogState();
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       final long nextIndex = getNextIndex();
       appendEntry(LogProtoUtils.toLogEntryProto(newConf, term, nextIndex));
       return nextIndex;
@@ -369,24 +382,28 @@ public abstract class RaftLogBase implements RaftLog {
         + (isOpened()? ":last" + getLastEntryTermIndex(): "");
   }
 
-  public AutoCloseableLock readLock() {
-    return AutoCloseableLock.acquire(lock.readLock());
+  private ReentrantReadWriteLock getLock(LockType lock) {
+    return lock == LockType.COMMIT_INDEX ? commitIndexLock : snapshotIndexLock;
   }
 
-  public AutoCloseableLock writeLock() {
-    return AutoCloseableLock.acquire(lock.writeLock());
+  public AutoCloseableLock readLock(LockType lock) {
+    return AutoCloseableLock.acquire(getLock(lock).readLock());
   }
 
-  public AutoCloseableLock tryWriteLock(TimeDuration timeout) throws InterruptedException {
-    return AutoCloseableLock.tryAcquire(lock.writeLock(), null, timeout);
+  public AutoCloseableLock writeLock(LockType lock) {
+    return AutoCloseableLock.acquire(getLock(lock).writeLock());
   }
 
-  public boolean hasWriteLock() {
-    return this.lock.isWriteLockedByCurrentThread();
+  public AutoCloseableLock tryWriteLock(TimeDuration timeout, LockType lock) throws InterruptedException {
+    return AutoCloseableLock.tryAcquire(getLock(lock).writeLock(), null, timeout);
   }
 
-  public boolean hasReadLock() {
-    return this.lock.getReadHoldCount() > 0 || hasWriteLock();
+  public boolean hasWriteLock(LockType lock) {
+    return getLock(lock).isWriteLockedByCurrentThread();
+  }
+
+  public boolean hasReadLock(LockType lock) {
+    return getLock(lock).getReadHoldCount() > 0 || hasWriteLock(lock);
   }
 
   @Override

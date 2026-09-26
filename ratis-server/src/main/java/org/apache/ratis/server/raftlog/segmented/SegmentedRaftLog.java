@@ -222,8 +222,8 @@ public final class SegmentedRaftLog extends RaftLogBase {
   }
 
   @Override
-  public AutoCloseableLock readLock() {
-    return readLockEnabled ? super.readLock() : null;
+  public AutoCloseableLock readLock(LockType lock) {
+    return readLockEnabled ? super.readLock(lock) : null;
   }
 
   @Override
@@ -247,7 +247,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   private void loadLogSegments(long lastIndexInSnapshot,
       Consumer<LogEntryProto> logConsumer) throws IOException {
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       final List<LogSegmentPath> paths = LogSegmentPath.getLogSegmentPaths(storage);
       int i = 0;
       for (LogSegmentPath pi : paths) {
@@ -281,7 +281,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     checkLogState();
     final LogSegment segment;
     final LogRecord record;
-    try (AutoCloseableLock readLock = readLock()) {
+    try (AutoCloseableLock readLock = readLock(LockType.COMMIT_INDEX)) {
       segment = cache.getSegment(index);
       if (segment == null) {
         return null;
@@ -331,7 +331,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   private void checkAndEvictCache() {
     if (cache.shouldEvict()) {
-      try (AutoCloseableLock ignored = writeLock()){
+      try (AutoCloseableLock ignored = writeLock(LockType.COMMIT_INDEX)){
         // TODO if the cache is hitting the maximum size and we cannot evict any
         // segment's cache, should block the new entry appending or new segment
         // allocation.
@@ -344,7 +344,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public TermIndex getTermIndex(long index) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    try(AutoCloseableLock readLock = readLock(LockType.COMMIT_INDEX)) {
       return cache.getTermIndex(index);
     }
   }
@@ -352,7 +352,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public LogEntryHeader[] getEntries(long startIndex, long endIndex) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    try(AutoCloseableLock readLock = readLock(LockType.COMMIT_INDEX)) {
       return cache.getTermIndices(startIndex, endIndex);
     }
   }
@@ -360,7 +360,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   public TermIndex getLastEntryTermIndex() {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    try(AutoCloseableLock readLock = readLock(LockType.COMMIT_INDEX)) {
       return cache.getLastTermIndex();
     }
   }
@@ -368,7 +368,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
   @Override
   protected CompletableFuture<Long> truncateImpl(long index) {
     checkLogState();
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       SegmentedRaftLogCache.TruncationSegments ts = cache.truncate(index);
       if (ts != null) {
         Task task = fileLogWorker.truncate(ts, index);
@@ -381,7 +381,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   @Override
   protected CompletableFuture<Long> purgeImpl(long index) {
-    try (AutoCloseableLock writeLock = writeLock()) {
+    try (AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       SegmentedRaftLogCache.TruncationSegments ts = cache.purge(index);
       updateSnapshotIndexFromStateMachine();
       if (ts != null) {
@@ -400,7 +400,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: appendEntry {}", getName(), LogProtoUtils.toLogEntryString(entry));
     }
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       final Timekeeper.Context appendEntryTimerContext = getRaftLogMetrics().startAppendEntryTimer();
       validateLogEntry(entry);
       final LogSegment currentOpenSegment = cache.getOpenSegment();
@@ -466,7 +466,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
     if (entries == null || entries.isEmpty()) {
       return Collections.emptyList();
     }
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       final TruncateIndices ti = cache.computeTruncateIndices(server::notifyTruncatedLogEntry, entries);
       final long truncateIndex = ti.getTruncateIndex();
       final int index = ti.getArrayIndex();
@@ -531,7 +531,7 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   @Override
   public void close() throws IOException {
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       super.close();
       cacheEviction.close();
       cache.close();
