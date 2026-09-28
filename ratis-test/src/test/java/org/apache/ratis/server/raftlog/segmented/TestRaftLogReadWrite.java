@@ -29,6 +29,7 @@ import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -179,6 +180,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     Assertions.assertArrayEquals(entries, readEntries);
 
     out.close();
+    storage.close();
     Assertions.assertEquals(size, openSegment.length());
   }
 
@@ -230,6 +232,9 @@ public class TestRaftLogReadWrite extends BaseTest {
     }
     Assertions.assertArrayEquals(entries,
         list.toArray(new LogEntryProto[list.size()]));
+
+    out.close();
+    storage.close();
   }
 
   /**
@@ -264,6 +269,27 @@ public class TestRaftLogReadWrite extends BaseTest {
       Assertions.fail("The read of corrupted log file should fail");
     } catch (ChecksumException e) {
       LOG.info("Caught ChecksumException as expected", e);
+    }
+  }
+
+  @Test
+  public void testReadEntryAtMaxOpSize() throws IOException {
+    final RaftStorage storage = RaftStorageTestUtils.newRaftStorage(storageDir);
+    final File openSegment = ZERO_START_NULL_END.getFile(storage);
+    SimpleOperation m = new SimpleOperation("m1");
+    LogEntryProto logEntry = LogProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, 0);
+    final int size = logEntry.getSerializedSize();
+    try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
+      out.write(logEntry);
+    } finally {
+      storage.close();
+    }
+
+    try (SegmentedRaftLogInputStream in = SegmentedRaftLogTestUtils.newSegmentedRaftLogInputStream(
+        openSegment, 0, RaftLog.INVALID_LOG_INDEX, true, SizeInBytes.valueOf(size))) {
+      LogEntryProto readLogEntry = in.nextEntry();
+      Assertions.assertEquals(logEntry, readLogEntry);
     }
   }
 }
