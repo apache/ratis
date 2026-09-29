@@ -38,7 +38,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
-import org.apache.ratis.test.tag.Flaky;
 import org.apache.ratis.thirdparty.com.codahale.metrics.Timer;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.JavaUtils;
@@ -750,7 +749,6 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  @Flaky("RATIS-2108")
   @Test
   public void testLeaderLeaseDuringReconfiguration() throws Exception {
     // use a strict lease
