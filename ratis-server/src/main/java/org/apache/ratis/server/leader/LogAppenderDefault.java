@@ -204,6 +204,7 @@ class LogAppenderDefault extends LogAppenderBase {
                 + ", reply=" + ServerStringUtils.toAppendEntriesReplyString(reply));
           }
 
+          getFollower().updateAppliedIndex(reply.getFollowerAppliedIndex());
           if (nextIndex > oldNextIndex) {
             getFollower().updateMatchIndex(nextIndex - 1);
             getFollower().increaseNextIndex(nextIndex);

@@ -51,6 +51,12 @@ public interface FollowerInfo {
   /** Update this follower's matchIndex. */
   boolean updateMatchIndex(long newMatchIndex);
 
+  /** @return the appliedIndex acknowledged by this follower */
+  long getAppliedIndex();
+
+  /** Update follower's appliedIndex */
+  boolean updateAppliedIndex(long newAppliedIndex);
+
   /** @return the commitIndex acknowledged by this follower. */
   long getCommitIndex();
 
