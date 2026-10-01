@@ -200,12 +200,12 @@ class TestLogAppenderDefault {
 
     @Override
     public long getAppliedIndex() {
-        return 0;
+      return 0;
     }
 
     @Override
     public boolean updateAppliedIndex(long newAppliedIndex) {
-        return false;
+      return false;
     }
 
     @Override
