@@ -79,14 +79,13 @@ public class TransferLeadership {
       TIMED_OUT,
       FAILED_TO_START,
       COMPLETED_EXCEPTIONALLY,
-      RISKY_LEADER_CHANGE,
+      FAILED_APPLIED_INDEX_GAP,
     }
 
     static final Result SUCCESS = new Result(Type.SUCCESS);
     static final Result DIFFERENT_LEADER = new Result(Type.DIFFERENT_LEADER);
     static final Result NULL_FOLLOWER = new Result(Type.NULL_FOLLOWER);
     static final Result NULL_LOG_APPENDER = new Result(Type.NULL_LOG_APPENDER);
-    static final Result RISKY_LEADER_CHANGE = new Result(Type.RISKY_LEADER_CHANGE);
 
     private final Type type;
     private final String errorMessage;
@@ -173,9 +172,7 @@ public class TransferLeadership {
   TransferLeadership(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
     this.requestTimeout = RaftServerConfigKeys.Rpc.requestTimeout(properties);
-    this.appliedIndexThreshold = RaftServerConfigKeys
-                                 .LeaderElection
-                                 .transferLeadershipRequiredAppliedIndexGap(properties);
+    this.appliedIndexThreshold = RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties);
   }
 
   private Optional<RaftPeerId> getTransferee() {
@@ -207,7 +204,7 @@ public class TransferLeadership {
     final long appliedIndexGap = leaderLastEntry.getIndex() - followerAppliedIndex;
     if (appliedIndexGap > appliedIndexThreshold) {
       return new Result(
-          Result.Type.RISKY_LEADER_CHANGE,
+          Result.Type.FAILED_APPLIED_INDEX_GAP,
           "follower's applied index gap is greater than " + appliedIndexThreshold);
     }
     return Result.SUCCESS;
@@ -265,7 +262,7 @@ public class TransferLeadership {
     if (result == Result.SUCCESS) {
       LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
           server.getMemberId(), follower.getId());
-    } else if (result.getType() == Result.Type.RISKY_LEADER_CHANGE) {
+    } else if (result.getType() == Result.Type.FAILED_APPLIED_INDEX_GAP) {
       LOG.info("{}: {} aborting leadership transfer to {}", server.getMemberId(), result, follower.getId());
       complete(result);
     }

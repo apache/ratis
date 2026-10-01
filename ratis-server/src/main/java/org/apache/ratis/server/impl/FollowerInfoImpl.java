@@ -97,12 +97,12 @@ class FollowerInfoImpl implements FollowerInfo {
 
   @Override
   public long getAppliedIndex() {
-      return appliedIndex.get();
+    return appliedIndex.get();
   }
 
   @Override
   public boolean updateAppliedIndex(long newAppliedIndex) {
-      return appliedIndex.updateToMax(newAppliedIndex, this::debug);
+    return appliedIndex.updateToMax(newAppliedIndex, this::debug);
   }
 
   @Override

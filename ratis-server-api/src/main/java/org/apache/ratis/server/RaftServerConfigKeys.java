@@ -1003,6 +1003,19 @@ public interface RaftServerConfigKeys {
       setTimeDuration(properties::setTimeDuration, LEADER_STEP_DOWN_WAIT_TIME_KEY, leaderStepDownWaitTime);
     }
 
+    String LEADER_TRANSFER_APPLIED_INDEX_GAP_KEY = PREFIX + ".leader.transfer.applied-index.gap";
+    long LEADER_TRANSFER_APPLIED_INDEX_GAP_DEFAULT = STAGING_CATCHUP_GAP_DEFAULT;
+    static long leaderTransferAppliedIndexGap(RaftProperties properties) {
+      return getLong(properties::getLong,
+          LEADER_TRANSFER_APPLIED_INDEX_GAP_KEY,
+          LEADER_TRANSFER_APPLIED_INDEX_GAP_DEFAULT,
+          getDefaultLog(), requireMin(0L)
+      );
+    }
+    static void setLeaderTransferAppliedIndexGap(RaftProperties properties, long appliedIndexValue) {
+      setLong(properties::setLong, LEADER_TRANSFER_APPLIED_INDEX_GAP_KEY, appliedIndexValue);
+    }
+
     String PRE_VOTE_KEY = PREFIX + ".pre-vote";
     boolean PRE_VOTE_DEFAULT = true;
     static boolean preVote(RaftProperties properties) {
@@ -1030,21 +1043,6 @@ public interface RaftServerConfigKeys {
     }
     static void setMemberMajorityAdd(RaftProperties properties, boolean enableMemberMajorityAdd) {
       setBoolean(properties::setBoolean, MEMBER_MAJORITY_ADD_KEY, enableMemberMajorityAdd);
-    }
-
-    String TRANSFER_LEADERSHIP_REQUIRED_APPLIED_INDEX_GAP_KEY = ".transfer-leadership.required-applied-index-gap";
-    long TRANSFER_LEADERSHIP_REQUIRED_APPLIED_INDEX_GAP_DEFAULT = 2_000L;
-    static long transferLeadershipRequiredAppliedIndexGap(RaftProperties properties) {
-        return getLong(
-                properties::getLong,
-                TRANSFER_LEADERSHIP_REQUIRED_APPLIED_INDEX_GAP_KEY,
-                TRANSFER_LEADERSHIP_REQUIRED_APPLIED_INDEX_GAP_DEFAULT,
-                getDefaultLog(),
-                requireMin(0L)
-        );
-    }
-    static void setTransferLeadershipRequiredAppliedIndexGap(RaftProperties properties, long appliedIndexValue) {
-        setLong(properties::setLong, TRANSFER_LEADERSHIP_REQUIRED_APPLIED_INDEX_GAP_KEY, appliedIndexValue);
     }
   }
 

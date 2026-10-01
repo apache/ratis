@@ -195,7 +195,6 @@ class LogAppenderDefault extends LogAppenderBase {
     if (reply != null) {
       switch (reply.getResult()) {
         case SUCCESS:
-          final long followerAppliedIndex = reply.getFollowerAppliedIndex();
           final long oldNextIndex = getFollower().getNextIndex();
           final long nextIndex = requestHeartbeat
               ? Math.max(oldNextIndex, requestPreviousIndex + 1) : reply.getNextIndex();
@@ -205,7 +204,7 @@ class LogAppenderDefault extends LogAppenderBase {
                 + ", reply=" + ServerStringUtils.toAppendEntriesReplyString(reply));
           }
 
-          getFollower().updateAppliedIndex(followerAppliedIndex);
+          getFollower().updateAppliedIndex(reply.getFollowerAppliedIndex());
           if (nextIndex > oldNextIndex) {
             getFollower().updateMatchIndex(nextIndex - 1);
             getFollower().increaseNextIndex(nextIndex);
