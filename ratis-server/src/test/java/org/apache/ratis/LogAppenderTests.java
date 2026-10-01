@@ -259,9 +259,11 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       final long term = leader.getInfo().getCurrentTerm();
       try {
         final long startIndexAfterPurge = setupPurgedLeaderLog(leader);
+        // Verify only if the node is still the leader in the term used for purge.
         if (isLeaderInTerm(leader, term)) {
           runTestNewAppendEntriesRequestAfterPurge(leader,
               followerBehindStartIndex ? startIndexAfterPurge - 1 : startIndexAfterPurge);
+          // Leadership may change during verification; accept the result only if it is still valid.
           if (isLeaderInTerm(leader, term)) {
             return;
           }
@@ -280,6 +282,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     Assertions.fail("Leader changed during all " + maxAttempts + " purge test attempts");
   }
 
+  // Check both role and term: the same server may step down and become leader again in a later term.
   private static boolean isLeaderInTerm(RaftServer.Division leader, long term) {
     return leader.getInfo().isLeader() && leader.getInfo().getCurrentTerm() == term;
   }
