@@ -91,8 +91,9 @@ public abstract class PendingRequestLeakBaseTest<CLUSTER extends MiniRaftCluster
         failPreAppend = false;
       }
 
-      // Without releasing the permits of the rejected requests, this fails with
+      // Without releasing the permits of the rejected requests, this would fail with
       // ResourceUnavailableException even though no request is actually pending.
+      // With releasing the permits of the rejected requests, the future request would pass.
       final RaftClientReply reply = client.io().send(new SimpleMessage("accepted"));
       Assertions.assertTrue(reply.isSuccess(),
           () -> "Leader rejected a write after " + (WRITE_ELEMENT_LIMIT * 2)
