@@ -932,6 +932,7 @@ class RaftServerImpl implements RaftServer.Division,
       try {
         state.appendLog(context);
       } catch (StateMachineException e) {
+        leaderState.releasePendingRequest(permit);
         // leader will step down here
         if (e.leaderShouldStepDown() && getInfo().isLeader()) {
           leaderState.submitStepDownEvent(StepDownReason.STATE_MACHINE_EXCEPTION);
