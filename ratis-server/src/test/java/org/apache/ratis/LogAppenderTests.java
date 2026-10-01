@@ -231,11 +231,8 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     final RaftProperties prop = getProperties();
     RaftServerConfigKeys.Log.setPurgeGap(prop, 1);
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("1KB"));
-    runWithNewCluster(3, cluster -> {
-      final long startIndexAfterPurge = setupPurgedLeaderLog(cluster);
-      // Test when followerNextIndex < leader's logStartIndex
-      runTestNewAppendEntriesRequestAfterPurge(cluster, startIndexAfterPurge - 1);
-    });
+    // Test when followerNextIndex < leader's logStartIndex.
+    runWithNewCluster(3, cluster -> runTestNewAppendEntriesRequestAfterPurge(cluster, true));
   }
 
   @Test
@@ -243,23 +240,52 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     final RaftProperties prop = getProperties();
     RaftServerConfigKeys.Log.setPurgeGap(prop, 1);
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("1KB"));
-    runWithNewCluster(3, cluster -> {
-      final long startIndexAfterPurge = setupPurgedLeaderLog(cluster);
-      // Test when followerNextIndex == leader's logStartIndex, but the previous index is already purged
-      runTestNewAppendEntriesRequestAfterPurge(cluster, startIndexAfterPurge);
-    });
+    // Test when followerNextIndex == leader's logStartIndex, but the previous index is already purged.
+    runWithNewCluster(3, cluster -> runTestNewAppendEntriesRequestAfterPurge(cluster, false));
   }
 
-  private long setupPurgedLeaderLog(CLUSTER cluster) throws Exception {
-    final RaftServer.Division leader = waitForLeader(cluster);
-    final RaftLog leaderLog = leader.getRaftLog();
-
-    try (RaftClient client = cluster.createClient(leader.getId())) {
-      for (SimpleMessage msg : generateMsgs(5)) {
-        client.io().send(msg);
+  private void runTestNewAppendEntriesRequestAfterPurge(CLUSTER cluster,
+      boolean followerBehindStartIndex) throws Exception {
+    final int maxAttempts = 3;
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try (RaftClient client = cluster.createClient(waitForLeader(cluster).getId())) {
+        for (SimpleMessage msg : generateMsgs(5)) {
+          client.io().send(msg);
+        }
       }
-    }
 
+      // Sending messages may change the leader. Use the same leader and term for purge and verification.
+      final RaftServer.Division leader = waitForLeader(cluster);
+      final long term = leader.getInfo().getCurrentTerm();
+      try {
+        final long startIndexAfterPurge = setupPurgedLeaderLog(leader);
+        if (isLeaderInTerm(leader, term)) {
+          runTestNewAppendEntriesRequestAfterPurge(leader,
+              followerBehindStartIndex ? startIndexAfterPurge - 1 : startIndexAfterPurge);
+          if (isLeaderInTerm(leader, term)) {
+            return;
+          }
+        }
+      } catch (InterruptedException e) {
+        throw e;
+      } catch (Exception | AssertionError e) {
+        if (isLeaderInTerm(leader, term)) {
+          throw e;
+        }
+        LOG.info("Leader {} changed during purge verification in term {}", leader.getId(), term, e);
+      }
+      LOG.info("Leader {} changed in term {} during purge test (attempt {}/{})",
+          leader.getId(), term, attempt, maxAttempts);
+    }
+    Assertions.fail("Leader changed during all " + maxAttempts + " purge test attempts");
+  }
+
+  private static boolean isLeaderInTerm(RaftServer.Division leader, long term) {
+    return leader.getInfo().isLeader() && leader.getInfo().getCurrentTerm() == term;
+  }
+
+  private long setupPurgedLeaderLog(RaftServer.Division leader) throws Exception {
+    final RaftLog leaderLog = leader.getRaftLog();
     final long lastLogIndex = leaderLog.getLastEntryTermIndex().getIndex();
     LOG.info("Leader log lastIndex={}, startIndex={}", lastLogIndex, leaderLog.getStartIndex());
     Assertions.assertTrue(lastLogIndex > 5, "Need enough log entries for the test");
@@ -281,9 +307,8 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     return startIndexAfterPurge;
   }
 
-  void runTestNewAppendEntriesRequestAfterPurge(CLUSTER cluster,
+  void runTestNewAppendEntriesRequestAfterPurge(RaftServer.Division leader,
       long targetNextIndex) throws Exception {
-    final RaftServer.Division leader = waitForLeader(cluster);
     final RaftLog leaderLog = leader.getRaftLog();
     final long startIndexAfterPurge = leaderLog.getStartIndex();
 
