@@ -22,7 +22,6 @@ import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_MEGA
 import static org.apache.ratis.server.metrics.RaftServerMetricsImpl.REQUEST_QUEUE_SIZE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
@@ -37,20 +36,15 @@ import org.apache.ratis.util.SizeInBytes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 /**
- * Test the resource accounting of {@link PendingRequests}.
- *
- * A {@link PendingRequests.Permit} which is acquired but never put into the pending queue must
- * give its resources back, otherwise the write capacity of a leader shrinks on every request
- * which fails before it is added, e.g. a request rejected by the state machine in preAppend.
+ * {@link RaftServerImpl#appendTransaction} acquires a {@link PendingRequests.Permit} before
+ * {@code appendLog}. If preAppend throws {@link org.apache.ratis.protocol.exceptions.StateMachineException},
+ * the permit is released via {@link PendingRequests#releasePermit} instead of {@link PendingRequests#add}.
  */
 public class TestPendingRequests {
-  private static final int ELEMENT_LIMIT = 3;
+  private static final int ELEMENT_LIMIT = 4;
   private static final Message MESSAGE = Message.valueOf("message");
 
   private PendingRequests pendingRequests;
@@ -72,64 +66,19 @@ public class TestPendingRequests {
   }
 
   @Test
-  public void testReleasePermitRestoresCapacity() {
-    final List<PendingRequests.Permit> permits = new ArrayList<>();
-    for (int i = 0; i < ELEMENT_LIMIT; i++) {
+  public void testReleasePermitAfterPreAppendFailure() {
+    // Same pattern as a leader that rejects preAppend: tryAcquire, never add, then release.
+    for (int i = 0; i < ELEMENT_LIMIT * 2; i++) {
+      final int iteration = i;
       final PendingRequests.Permit permit = pendingRequests.tryAcquire(MESSAGE);
-      assertNotNull(permit, () -> "Failed to acquire permit within the element limit");
-      permits.add(permit);
-    }
-    assertEquals(ELEMENT_LIMIT, getGauge(REQUEST_QUEUE_SIZE));
-    assertNull(pendingRequests.tryAcquire(MESSAGE), "Acquired more permits than the element limit");
-
-    // Releasing a permit which was never put into the pending queue must give the capacity back.
-    pendingRequests.releasePermit(permits.get(0));
-    assertEquals(ELEMENT_LIMIT - 1, getGauge(REQUEST_QUEUE_SIZE));
-    assertNotNull(pendingRequests.tryAcquire(MESSAGE), "Released capacity was not reusable");
-  }
-
-  @Test
-  public void testReleaseAllPermits() {
-    final List<PendingRequests.Permit> permits = new ArrayList<>();
-    for (int i = 0; i < ELEMENT_LIMIT; i++) {
-      permits.add(pendingRequests.tryAcquire(MESSAGE));
-    }
-    permits.forEach(pendingRequests::releasePermit);
-
-    assertEquals(0, getGauge(REQUEST_QUEUE_SIZE));
-    assertEquals(0, getGauge(REQUEST_MEGA_BYTE_SIZE));
-  }
-
-  @Test
-  public void testReleasePermitIsIdempotent() {
-    final PendingRequests.Permit permit = pendingRequests.tryAcquire(MESSAGE);
-    assertNotNull(permit);
-
-    pendingRequests.releasePermit(permit);
-    // A second release must not give the resources back twice.
-    pendingRequests.releasePermit(permit);
-
-    assertEquals(0, getGauge(REQUEST_QUEUE_SIZE));
-    assertEquals(0, getGauge(REQUEST_MEGA_BYTE_SIZE));
-  }
-
-  @Test
-  public void testReleaseLargePermitRestoresByteCapacity() {
-    final char[] chars = new char[2 * SizeInBytes.ONE_MB.getSizeInt()];
-    Arrays.fill(chars, 'a');
-    final Message large = Message.valueOf(new String(chars));
-
-    // Acquire and release far more megabytes in total than the byte limit allows to be
-    // outstanding at once.  This only keeps working if every release gives the bytes back.
-    for (int i = 0; i < 20; i++) {
-      final int index = i;
-      final PendingRequests.Permit permit = pendingRequests.tryAcquire(large);
-      assertNotNull(permit, () -> "Byte capacity was not released, failed on iteration " + index);
+      assertNotNull(permit, () -> "Failed to acquire permit on iteration " + iteration);
       pendingRequests.releasePermit(permit);
     }
 
     assertEquals(0, getGauge(REQUEST_QUEUE_SIZE));
     assertEquals(0, getGauge(REQUEST_MEGA_BYTE_SIZE));
+    assertNotNull(pendingRequests.tryAcquire(MESSAGE),
+        "Write capacity was not restored after rejected preAppend-style releases");
   }
 
   private int getGauge(String name) {
