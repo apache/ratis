@@ -29,6 +29,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
@@ -55,6 +57,20 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
     public static Map<Long, Set<CompletableFuture<Message>>> futures = new ConcurrentHashMap<>();
     public static Map<RaftPeerId, AtomicLong> numTxns = new ConcurrentHashMap<>();
     private final Map<Long, Long> appliedTxns = new ConcurrentHashMap<>();
+    private final CompletableFuture<Boolean> shutdownStarted = new CompletableFuture<>();
+    private final CompletableFuture<Boolean> shutdownCompleted = new CompletableFuture<>();
+    private final AtomicLong numShutdownStarted = new AtomicLong();
+
+    @Override
+    public void notifyServerShutdownStarted(RaftProtos.RoleInfoProto roleInfo, boolean allServer) {
+      numShutdownStarted.incrementAndGet();
+      shutdownStarted.complete(allServer);
+    }
+
+    @Override
+    public void notifyServerShutdown(RaftProtos.RoleInfoProto roleInfo, boolean allServer) {
+      shutdownCompleted.complete(allServer);
+    }
 
     private synchronized void updateTxns() {
       long appliedIndex = this.getLastAppliedTermIndex().getIndex() + 1;
@@ -119,6 +135,13 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
+  /** {@link StateMachineWithConditionalWait} counts transactions in static maps keyed by the (reused) peer ids. */
+  @BeforeEach
+  public void resetTxnCounts() {
+    StateMachineWithConditionalWait.futures.clear();
+    StateMachineWithConditionalWait.numTxns.clear();
+  }
+
   @Test
   public void testStateMachineShutdownWaitsForApplyTxn() throws Exception {
     final RaftProperties prop = getProperties();
@@ -180,6 +203,61 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
       Assertions.assertTrue(logIndex <= secondFollower.getInfo().getLastAppliedIndex());
       Assertions.assertEquals(3, StateMachineWithConditionalWait.numTxns.values().stream()
               .filter(val -> val.get() == 3).count());
+
+      cluster.shutdown();
+    }
+  }
+
+  /**
+   * {@link StateMachine.EventApi#notifyServerShutdown(RaftProtos.RoleInfoProto, boolean)} is invoked only after
+   * the shutdown has waited for the committed entries to be applied, which is unbounded in time.
+   * {@link StateMachine.EventApi#notifyServerShutdownStarted(RaftProtos.RoleInfoProto, boolean)} must instead be
+   * invoked before that wait, so that an application embedding a server can react without waiting for it.
+   */
+  @Test
+  public void testNotifyShutdownStartedBeforeWaitingForApplyTxn() throws Exception {
+    final RaftProperties prop = getProperties();
+    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        StateMachineWithConditionalWait.class, StateMachine.class);
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
+    RaftTestUtil.waitForLeader(cluster);
+    final RaftServer.Division leader = cluster.getLeader();
+
+    // Unblock the leader and the first follower so that entries can be committed.
+    ((StateMachineWithConditionalWait) leader.getStateMachine()).unblockAllTxns();
+    ((StateMachineWithConditionalWait) cluster.getFollowers().get(0).getStateMachine()).unblockAllTxns();
+    cluster.getLeaderAndSendFirstMessage(true);
+
+    try (final RaftClient client = cluster.createClient(leader.getId())) {
+      client.io().send(new RaftTestUtil.SimpleMessage("message"));
+      final long logIndex = client.io().send(new RaftTestUtil.SimpleMessage("message2")).getLogIndex();
+      client.io().watch(logIndex, RaftProtos.ReplicationLevel.ALL_COMMITTED);
+
+      // The second follower is still blocked in applyTransaction.
+      final RaftServer.Division secondFollower = cluster.getFollowers().get(1);
+      final StateMachineWithConditionalWait sm = (StateMachineWithConditionalWait) secondFollower.getStateMachine();
+      Assertions.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);
+
+      final Thread t = new Thread(() -> cluster.killServer(secondFollower.getId()));
+      // Daemon so that a failure below cannot leave the JVM hanging on the (still blocked) shutdown.
+      t.setDaemon(true);
+      t.start();
+
+      try {
+        // The shutdown-started notification must arrive while applyTransaction is still blocked.
+        Assertions.assertTrue(sm.shutdownStarted.get(5, TimeUnit.SECONDS));
+        Assertions.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);
+        Assertions.assertFalse(sm.shutdownCompleted.isDone());
+      } finally {
+        // The shutdown completes, and notifies, only once the entries have been applied.
+        sm.unblockAllTxns();
+      }
+      t.join(5000);
+      Assertions.assertTrue(sm.shutdownCompleted.get(5, TimeUnit.SECONDS));
+      Assertions.assertTrue(logIndex <= secondFollower.getInfo().getLastAppliedIndex());
+      // The division is notified exactly once, even though more than one shutdown path may notify it.
+      Assertions.assertEquals(1, sm.numShutdownStarted.get());
 
       cluster.shutdown();
     }

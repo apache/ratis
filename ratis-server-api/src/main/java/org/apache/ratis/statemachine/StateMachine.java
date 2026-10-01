@@ -243,6 +243,24 @@ public interface StateMachine extends Closeable {
      * @param allServer whether all raft servers will be shutdown at this time
      */
     default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {}
+
+    /**
+     * Notify the {@link StateMachine} that the shutdown of either the server for this division
+     * or all the servers has started.
+     * <p>
+     * In contrast to {@link #notifyServerShutdown(RoleInfoProto, boolean)}, which is invoked once the shutdown
+     * has completed, this method is invoked before the shutdown has closed any resources.
+     * In particular, it is invoked before waiting for the committed log entries to be applied to this
+     * {@link StateMachine}, which is unbounded in time.  An application embedding a {@link RaftServer} can use
+     * this notification to react immediately, e.g. to reject incoming requests or to terminate itself,
+     * instead of waiting for the shutdown to complete.
+     * <p>
+     * This method is invoked from the shutdown path, so an implementation must return promptly.
+     *
+     * @param roleInfo roleInfo this server
+     * @param allServer whether all raft servers will be shutdown at this time
+     */
+    default void notifyServerShutdownStarted(RoleInfoProto roleInfo, boolean allServer) {}
   }
 
   /**
