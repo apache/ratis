@@ -917,12 +917,19 @@ class RaftServerImpl implements RaftServer.Division,
     synchronized (this) {
       final CompletableFuture<RaftClientReply> reply = checkLeaderState(request, cacheEntry, context);
       if (reply != null) {
+        unsyncedLeaderState.releasePendingRequest(unsyncedPermit);
         return reply;
       }
 
       leaderState = role.getLeaderStateNonNull();
-      final PendingRequests.Permit permit = leaderState == unsyncedLeaderState ? unsyncedPermit
-          : leaderState.tryAcquirePendingRequest(request.getMessage());
+      final PendingRequests.Permit permit;
+      if (leaderState == unsyncedLeaderState) {
+        permit = unsyncedPermit;
+      } else {
+        // The leader state has changed; the permit above was charged to the previous leader state.
+        unsyncedLeaderState.releasePendingRequest(unsyncedPermit);
+        permit = leaderState.tryAcquirePendingRequest(request.getMessage());
+      }
       if (permit == null) {
         return getResourceUnavailableReply("acquire a pending write request", request, cacheEntry, context);
       }
@@ -932,6 +939,7 @@ class RaftServerImpl implements RaftServer.Division,
       try {
         state.appendLog(context);
       } catch (StateMachineException e) {
+        leaderState.releasePendingRequest(permit);
         // leader will step down here
         if (e.leaderShouldStepDown() && getInfo().isLeader()) {
           leaderState.submitStepDownEvent(StepDownReason.STATE_MACHINE_EXCEPTION);
@@ -944,6 +952,7 @@ class RaftServerImpl implements RaftServer.Division,
       // put the request into the pending queue
       pending = leaderState.addPendingRequest(permit, request, context);
       if (pending == null) {
+        leaderState.releasePendingRequest(permit);
         return getResourceUnavailableReply("add a pending write request", request, cacheEntry, context);
       }
     }

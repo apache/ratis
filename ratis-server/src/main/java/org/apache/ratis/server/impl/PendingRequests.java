@@ -60,7 +60,14 @@ class PendingRequests {
     return Math.toIntExact((bytes - 1) / ONE_MB + 1);
   }
 
-  static class Permit {}
+  static class Permit {
+    /** The message size charged by {@link RequestMap#tryAcquire(Message)} for this permit. */
+    private final int messageSize;
+
+    Permit(int messageSize) {
+      this.messageSize = messageSize;
+    }
+  }
 
   /**
    * The return type of {@link RequestLimits#tryAcquire(int)}.
@@ -140,9 +147,23 @@ class PendingRequests {
         resource.releaseExtraMb(messageSizeMb - diffMb);
       }
 
-      final Permit permit = new Permit();
+      final Permit permit = new Permit(messageSize);
       permits.put(permit, permit);
       return permit;
+    }
+
+    /**
+     * Release a {@link Permit} acquired by {@link #tryAcquire(Message)} but never passed to
+     * {@link #put(Permit, PendingRequest)}, e.g. when the request failed before it was added
+     * to the pending queue.  Otherwise, the resources charged for it are never given back.
+     */
+    synchronized void releasePermit(Permit permit) {
+      if (permits.remove(permit) == null) {
+        // Either put(..) already consumed it, so remove(TermIndex) is responsible for the release,
+        // or setNotLeaderException(..) cleared it and closed the resource, which must not be released.
+        return;
+      }
+      releaseResource(permit.messageSize);
     }
 
     synchronized PendingRequest put(Permit permit, PendingRequest p) {
@@ -169,13 +190,17 @@ class PendingRequests {
       if (r == null) {
         return null;
       }
-      final int messageSize = Message.getSize(r.getRequest().getMessage());
+      releaseResource(Message.getSize(r.getRequest().getMessage()));
+      return r;
+    }
+
+    /** Reverse the resource accounting performed by {@link #tryAcquire(Message)}. */
+    private void releaseResource(int messageSize) {
       final long oldSize = requestSize.getAndAdd(-messageSize);
       final long newSize = oldSize - messageSize;
       final int diffMb = roundUpMb(oldSize) - roundUpMb(newSize);
       resource.release(diffMb);
       LOG.trace("release {} MB", diffMb);
-      return r;
     }
 
     Collection<TransactionContext> setNotLeaderException(NotLeaderException nle,
@@ -224,6 +249,10 @@ class PendingRequests {
 
   Permit tryAcquire(Message message) {
     return pendingRequests.tryAcquire(message);
+  }
+
+  void releasePermit(Permit permit) {
+    pendingRequests.releasePermit(permit);
   }
 
   PendingRequest add(Permit permit, RaftClientRequest request, TransactionContext entry) {
