@@ -36,6 +36,7 @@ import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
+import org.apache.ratis.server.raftlog.RaftLogBase.LockType;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CollectionUtils;
@@ -571,7 +572,7 @@ public interface RaftTestUtil {
   }
 
   static LogEntryProto getLastEntry(LogEntryBodyCase targetCase, RaftLog raftLog) throws Exception {
-    try(AutoCloseableLock readLock = ((RaftLogBase)raftLog).readLock()) {
+    try(AutoCloseableLock readLock = ((RaftLogBase)raftLog).readLock(LockType.COMMIT_INDEX)) {
       long i = raftLog.getNextIndex() - 1;
       for(; i >= 0; i--) {
         final LogEntryProto entry = raftLog.get(i);

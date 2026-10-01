@@ -102,7 +102,7 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   public LogEntryProto get(long index) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    try(AutoCloseableLock readLock = readLock(LockType.COMMIT_INDEX)) {
       return entries.get(Math.toIntExact(index));
     }
   }
@@ -115,7 +115,7 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   public TermIndex getTermIndex(long index) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    try(AutoCloseableLock readLock = readLock(LockType.COMMIT_INDEX)) {
       return entries.getTermIndex(Math.toIntExact(index));
     }
   }
@@ -123,7 +123,7 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   public LogEntryHeader[] getEntries(long startIndex, long endIndex) {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    try(AutoCloseableLock readLock = readLock(LockType.COMMIT_INDEX)) {
       if (startIndex >= entries.size()) {
         return null;
       }
@@ -140,7 +140,7 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   protected CompletableFuture<Long> truncateImpl(long index) {
     checkLogState();
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       Preconditions.assertTrue(index >= 0);
       entries.truncate(Math.toIntExact(index));
     }
@@ -150,7 +150,7 @@ public class MemoryRaftLog extends RaftLogBase {
 
   @Override
   protected CompletableFuture<Long> purgeImpl(long index) {
-    try (AutoCloseableLock writeLock = writeLock()) {
+    try (AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       Preconditions.assertTrue(index >= 0);
       entries.purge(Math.toIntExact(index));
     }
@@ -160,7 +160,7 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   public TermIndex getLastEntryTermIndex() {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
+    try(AutoCloseableLock readLock = readLock(LockType.COMMIT_INDEX)) {
       return entries.getTermIndex(entries.size() - 1);
     }
   }
@@ -168,7 +168,7 @@ public class MemoryRaftLog extends RaftLogBase {
   @Override
   protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry, TransactionContext context) {
     checkLogState();
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       validateLogEntry(entry);
       entries.add(entry);
     }
@@ -186,7 +186,7 @@ public class MemoryRaftLog extends RaftLogBase {
     if (logEntryProtos == null || logEntryProtos.isEmpty()) {
       return Collections.emptyList();
     }
-    try(AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock(LockType.COMMIT_INDEX)) {
       // Before truncating the entries, we first need to check if some
       // entries are duplicated. If the leader sends entry 6, entry 7, then
       // entry 6 again, without this check the follower may truncate entry 7
