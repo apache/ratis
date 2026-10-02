@@ -77,6 +77,7 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
       Assertions.assertEquals(AppendResult.SUCCESS, initial.getResult());
       Assertions.assertEquals(0L, loadPersistedTerm(follower));
 
+      // Make raft-meta.tmp a directory so opening it for writing fails with IOException.
       Files.createDirectory(temporaryMetadataFile.toPath());
       try {
         final RaftServerImpl server = follower;
@@ -150,6 +151,7 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
       final File temporaryMetadataFile = AtomicFileOutputStream.getTemporaryFile(metadataFile);
       final RequestVoteRequestProto vote = requestVote(group, LEADER, 1);
 
+      // Make raft-meta.tmp a directory so opening it for writing fails with IOException.
       Files.createDirectory(temporaryMetadataFile.toPath());
       try {
         Assertions.assertThrows(IOException.class, () -> follower.requestVote(vote));
@@ -182,6 +184,7 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
       final File metadataFile = new File(follower.getRaftStorage().getStorageDir().getCurrentDir(), "raft-meta");
       final File temporaryMetadataFile = AtomicFileOutputStream.getTemporaryFile(metadataFile);
 
+      // Make raft-meta.tmp a directory so opening it for writing fails with IOException.
       Files.createDirectory(temporaryMetadataFile.toPath());
       try {
         Assertions.assertThrows(IOException.class, () -> follower.requestVote(requestVote(group, LEADER, 1)));
