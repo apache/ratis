@@ -155,13 +155,15 @@ public final class RaftClientImpl implements RaftClient {
 
     /** @return the replied callIds for the given callId. */
     Iterable<Long> get(long callId) {
-      final Supplier<Set<Long>> supplier = MemoizedSupplier.valueOf(this::getAndReset);
-      final Set<Long> set = Collections.unmodifiableSet(sent.computeIfAbsent(callId, cid -> supplier.get()));
+      final Set<Long> set = Collections.unmodifiableSet(sent.computeIfAbsent(callId, cid -> getAndReset()));
       LOG.debug("{}: get {} returns {}", name, callId, set);
       return set;
     }
 
     synchronized Set<Long> getAndReset() {
+      if (replied.isEmpty()) {
+        return Collections.emptySet();
+      }
       final Set<Long> previous = replied;
       replied = new TreeSet<>();
       return previous;
