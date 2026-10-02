@@ -89,6 +89,9 @@ class ServerState {
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile RaftPeerId votedFor;
 
+  /** Keep retrying an incomplete metadata persistence attempt until it succeeds. */
+  private volatile boolean metadataPersistencePending;
+
   /**
    * Latest installed snapshot for this server. This maybe different than StateMachine's latest
    * snapshot. Once we successfully install a snapshot, the SM may not pick it up immediately.
@@ -267,8 +270,14 @@ class ServerState {
     return new LeaderElection.ConfAndTerm(getRaftConf(), term);
   }
 
-  void persistMetadata() throws IOException {
+  boolean isMetadataPersistencePending() {
+    return metadataPersistencePending;
+  }
+
+  synchronized void persistMetadata() throws IOException {
+    metadataPersistencePending = true;
     getLog().persistMetadata(RaftStorageMetadata.valueOf(currentTerm.get(), votedFor));
+    metadataPersistencePending = false;
   }
 
   RaftPeerId getVotedFor() {

@@ -644,7 +644,7 @@ class RaftServerImpl implements RaftServer.Division,
       Object reason) throws IOException {
     final AtomicBoolean metadataUpdated = new AtomicBoolean();
     final CompletableFuture<Void> future = changeToFollower(newTerm, false, allowListener, reason, metadataUpdated);
-    if (metadataUpdated.get()) {
+    if (metadataUpdated.get() || state.isMetadataPersistencePending()) {
       state.persistMetadata();
     }
     return future;
@@ -1576,7 +1576,7 @@ class RaftServerImpl implements RaftServer.Division,
         if (voteGranted) {
           state.grantVote(candidate.getId());
         }
-        if (termUpdated.get() || voteGranted) {
+        if (termUpdated.get() || voteGranted || state.isMetadataPersistencePending()) {
           state.persistMetadata(); // sync metafile
         }
       }
