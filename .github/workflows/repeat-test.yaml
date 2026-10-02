@@ -42,7 +42,7 @@ on:
         default: false
         required: true
 env:
-  MAVEN_OPTS: -Dhttp.keepAlive=false -Daether.connector.http.retryHandler.count=10
+  MAVEN_OPTS: -Daether.connector.http.connectionMaxTtl=25 -Daether.connector.http.retryHandler.count=5 -Daether.connector.http.retryHandler.intervalMax=30000
   TEST_CLASS: ${{ github.event.inputs.test-class }}
   TEST_METHOD: ${{ github.event.inputs.test-method }}
   ITERATIONS: ${{ github.event.inputs.iterations }}

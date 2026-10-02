@@ -83,7 +83,7 @@ on:
 
 env:
   MAVEN_ARGS: --batch-mode --show-version
-  MAVEN_OPTS: -Dhttp.keepAlive=false -Daether.connector.http.retryHandler.count=10
+  MAVEN_OPTS: -Daether.connector.http.connectionMaxTtl=25 -Daether.connector.http.retryHandler.count=5 -Daether.connector.http.retryHandler.intervalMax=30000
   SCRIPT: ${{ inputs.script }}
   WITH_COVERAGE: ${{ github.event_name == 'push' }}
 
