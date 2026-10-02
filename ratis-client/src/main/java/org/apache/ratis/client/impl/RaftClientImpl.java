@@ -153,11 +153,6 @@ public final class RaftClientImpl implements RaftClient {
       sent.remove(repliedCallId);
     }
 
-    /** Drop bookkeeping for a completed read-only request (e.g. watch). */
-    void removeSent(long callId) {
-      sent.remove(callId);
-    }
-
     /** @return the replied callIds for the given callId. */
     Iterable<Long> get(long callId) {
       final Supplier<Set<Long>> supplier = MemoizedSupplier.valueOf(this::getAndReset);
@@ -166,7 +161,7 @@ public final class RaftClientImpl implements RaftClient {
       return set;
     }
 
-    private synchronized Set<Long> getAndReset() {
+    synchronized Set<Long> getAndReset() {
       final Set<Long> previous = replied;
       replied = new TreeSet<>();
       return previous;
@@ -295,7 +290,7 @@ public final class RaftClientImpl implements RaftClient {
       b.setServerId(server);
     } else {
       b.setLeaderId(getLeaderId())
-       .setRepliedCallIds(repliedCallIds.get(callId));
+       .setRepliedCallIds(type.isReadOnly() ? repliedCallIds.getAndReset() : repliedCallIds.get(callId));
     }
     if (TraceUtils.isEnabled()) {
       b.setSpanContext(TraceUtils.injectContextToProto());
@@ -367,8 +362,6 @@ public final class RaftClientImpl implements RaftClient {
     if (request.isToLeader() && reply != null) {
       if (!request.getType().isReadOnly()) {
         repliedCallIds.add(reply.getCallId());
-      } else {
-        repliedCallIds.removeSent(request.getCallId());
       }
 
       if (reply.getException() == null) {
