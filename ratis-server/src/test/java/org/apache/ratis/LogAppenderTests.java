@@ -317,12 +317,14 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
 
     final Stream<LogAppender> appenders = RaftServerTestUtil.getLogAppenders(leader);
     Assertions.assertNotNull(appenders, "Leader should have log appenders");
-    final LogAppender appender = appenders.findFirst().orElseThrow(
+    final LogAppender runningAppender = appenders.findFirst().orElseThrow(
         () -> new AssertionError("No log appender found"));
 
     Assertions.assertTrue(targetNextIndex > RaftLog.LEAST_VALID_LOG_INDEX,
         "targetNextIndex should be > LEAST_VALID_LOG_INDEX");
-    appender.getFollower().setNextIndex(targetNextIndex);
+    // Do not change the live appender's follower state: replication replies may update it concurrently.
+    final LogAppender appender = RaftServerTestUtil.newLogAppenderForTesting(
+        leader, runningAppender.getFollower().getPeer(), targetNextIndex);
 
     LOG.info("Set follower nextIndex={}, startIndexAfterPurge={}, snapshotIndex={}",
         targetNextIndex, startIndexAfterPurge, appender.getFollower().getSnapshotIndex());
