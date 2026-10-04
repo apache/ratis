@@ -20,6 +20,7 @@ package org.apache.ratis.netty.client;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.RaftClientRpcWithProxy;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.NettyRpcProxy;
 import org.apache.ratis.protocol.*;
@@ -47,8 +48,8 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
   private final TimeDuration requestTimeout;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
-  public NettyClientRpc(ClientId clientId, RaftProperties properties) {
-    super(new NettyRpcProxy.PeerMap(clientId.toString(), properties));
+  public NettyClientRpc(ClientId clientId, RaftProperties properties, Parameters parameters) {
+    super(new NettyRpcProxy.PeerMap(clientId.toString(), properties, parameters));
     this.clientId = clientId;
     this.requestTimeout = RaftClientConfigKeys.Rpc.requestTimeout(properties);
   }
