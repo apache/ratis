@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.util;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.grpc.util.GrpcTestClient.StreamObserverFactory;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
+import org.apache.ratis.thirdparty.io.grpc.stub.CallStreamObserver;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.StringUtils;
@@ -30,9 +31,11 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 public class TestStreamObserverWithTimeout extends BaseTest {
@@ -76,6 +79,58 @@ public class TestStreamObserverWithTimeout extends BaseTest {
     //Each sleep time is within the timeout,
     //Note that the total sleep time is longer than the timeout, but it does not matter.
     runTestTimeout(5, Type.WithTimeout);
+  }
+
+  /** A {@link CallStreamObserver} whose readiness and delivered messages can be inspected. */
+  private static final class ReadinessControlledObserver extends CallStreamObserver<String> {
+    private volatile boolean ready;
+    private final List<String> delivered = Collections.synchronizedList(new ArrayList<>());
+
+    ReadinessControlledObserver(boolean ready) {
+      this.ready = ready;
+    }
+
+    void setReady(boolean isReady) {
+      this.ready = isReady;
+    }
+
+    @Override public boolean isReady() {
+      return ready;
+    }
+    @Override public void onNext(String value) {
+      delivered.add(value);
+    }
+    @Override public void onError(Throwable t) { }
+    @Override public void onCompleted() { }
+    @Override public void setOnReadyHandler(Runnable onReadyHandler) { }
+    @Override public void disableAutoInboundFlowControl() { }
+    @Override public void request(int count) { }
+    @Override public void setMessageCompression(boolean enable) { }
+  }
+
+  /**
+   * When the outstanding-request limit is 0 (semaphore disabled), the only backpressure is
+   * {@link CallStreamObserver#isReady()}. onNext must stall while the stream is not ready so that
+   * requests are not buffered.
+   */
+  @Test
+  public void testOnNextWaitsForReadyWhenUnbounded() throws Exception {
+    final ReadinessControlledObserver observer = new ReadinessControlledObserver(false);
+    final StreamObserverWithTimeout<String> withTimeout = StreamObserverWithTimeout.newInstance(
+        "test", Function.identity(), () -> TimeDuration.valueOf(60, TimeUnit.SECONDS), 0,
+        interceptor -> observer);
+
+    final CompletableFuture<Void> sent = CompletableFuture.runAsync(() -> withTimeout.onNext("m1"));
+
+    // Not ready: the request must be held back rather than delivered.
+    Thread.sleep(100);
+    Assertions.assertFalse(sent.isDone(), "onNext should block while the stream is not ready");
+    Assertions.assertTrue(observer.delivered.isEmpty(), "request must not be sent while the stream is not ready");
+
+    // Becomes ready: the request should now be delivered and onNext should return.
+    observer.setReady(true);
+    sent.get(5, TimeUnit.SECONDS);
+    Assertions.assertEquals(Collections.singletonList("m1"), observer.delivered);
   }
 
   void runTestTimeout(int slow, Type type) throws Exception {

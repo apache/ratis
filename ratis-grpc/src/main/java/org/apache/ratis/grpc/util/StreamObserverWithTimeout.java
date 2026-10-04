@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.util;
 
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.grpc.ClientInterceptor;
+import org.apache.ratis.thirdparty.io.grpc.stub.CallStreamObserver;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ResourceSemaphore;
@@ -95,11 +96,32 @@ public final class StreamObserverWithTimeout<T> implements StreamObserver<T> {
     }
   }
 
+  /**
+   * Wait while the underlying stream is not ready providing backpressure
+   * in addition to the outstanding-request semaphore.
+   */
+  private void awaitReady(StringSupplier request) {
+    if (!(observer instanceof CallStreamObserver)) {
+      return;
+    }
+    final CallStreamObserver<T> callStreamObserver = (CallStreamObserver<T>) observer;
+    while (!callStreamObserver.isReady() && !isClose.get()) {
+      try {
+        TimeDuration.ONE_MILLISECOND.sleep();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException(name + ": Interrupted while waiting for the stream to be ready to send "
+            + request, e);
+      }
+    }
+  }
+
   @Override
   public void onNext(T request) {
     final StringSupplier requestString = StringSupplier.get(() -> requestToStringFunction.apply(request));
     final TimeDuration timeout = timeoutSupplier.get();
     acquire(requestString, timeout);
+    awaitReady(requestString);
     observer.onNext(request);
     final int id = requestCount.incrementAndGet();
     LOG.debug("{}: send {} with timeout={}: {}", name, id, timeout, requestString);
