@@ -322,17 +322,17 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
 
     Assertions.assertTrue(targetNextIndex > RaftLog.LEAST_VALID_LOG_INDEX,
         "targetNextIndex should be > LEAST_VALID_LOG_INDEX");
-    // Do not change the live appender's follower state: replication replies may update it concurrently.
-    final LogAppender appender = RaftServerTestUtil.newLogAppenderForTesting(
-        leader, runningAppender.getFollower().getPeer(), targetNextIndex);
-
-    LOG.info("Set follower nextIndex={}, startIndexAfterPurge={}, snapshotIndex={}",
-        targetNextIndex, startIndexAfterPurge, appender.getFollower().getSnapshotIndex());
-    Assertions.assertEquals(0, appender.getFollower().getSnapshotIndex(),
+    Assertions.assertEquals(0, runningAppender.getFollower().getSnapshotIndex(),
         "Follower snapshotIndex should be 0 (default, never installed snapshot)");
 
     Assertions.assertNull(leaderLog.getTermIndex(targetNextIndex - 1),
         "Entry at previousIndex=" + (targetNextIndex - 1) + " should have been purged");
+
+    // Do not change the live appender's follower state: replication replies may update it concurrently.
+    final LogAppender appender = RaftServerTestUtil.newLogAppenderForTesting(
+        leader, runningAppender.getFollower().getPeer(), targetNextIndex);
+    LOG.info("Create independent follower state with nextIndex={} and startIndexAfterPurge={}",
+        targetNextIndex, startIndexAfterPurge);
 
     // Should return null instead of throwing NPE
     Assertions.assertNull(appender.newAppendEntriesRequest(0, false),
