@@ -310,9 +310,10 @@ final class SegmentedRaftLogReader implements Closeable {
     final int varintLength = CodedOutputStream.computeUInt32SizeNoTag(
         entryLength);
     final int totalLength = varintLength + entryLength;
-    checkBufferSize(totalLength, max);
+    checkBufferSize(totalLength, max + varintLength);
     in.reset();
-    in.mark(max);
+    limiter.setLimit(max + varintLength + 4L);
+    in.mark(max + varintLength + 4);
     IOUtils.readFully(in, temp, 0, totalLength);
 
     // verify checksum

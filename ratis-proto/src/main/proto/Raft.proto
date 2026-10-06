@@ -204,6 +204,7 @@ message AppendEntriesReplyProto {
   uint64 followerCommit = 5;
   uint64 matchIndex = 6;
   bool isHearbeat = 7;
+  uint64 followerAppliedIndex = 8;
 }
 
 message InstallSnapshotRequestProto {

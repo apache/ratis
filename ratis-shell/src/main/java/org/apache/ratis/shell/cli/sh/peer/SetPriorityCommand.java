@@ -24,8 +24,10 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.shell.cli.CliUtils;
 import org.apache.ratis.shell.cli.sh.command.AbstractRatisCommand;
 import org.apache.ratis.shell.cli.sh.command.Context;
+import org.apache.ratis.util.NetUtils;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -52,14 +54,13 @@ public class SetPriorityCommand extends AbstractRatisCommand {
   @Override
   public int run(CommandLine cl) throws IOException {
     super.run(cl);
-    Map<String, Integer> addressPriorityMap = new HashMap<>();
-    for (String optionValue : cl.getOptionValues(PEER_WITH_NEW_PRIORITY_OPTION_NAME)) {
-      String[] str = optionValue.split("[|]");
-      if (str.length < 2) {
-        println("The format of the parameter is wrong");
-        return -1;
-      }
-      addressPriorityMap.put(str[0], Integer.parseInt(str[1]));
+    final Map<String, Integer> addressPriorityMap;
+    try {
+      addressPriorityMap = parseAddressPriorityMap(
+          cl.getOptionValues(PEER_WITH_NEW_PRIORITY_OPTION_NAME));
+    } catch (IllegalArgumentException e) {
+      e.printStackTrace(getPrintStream());
+      return -1;
     }
 
     try (RaftClient client = newRaftClient()) {
@@ -106,5 +107,22 @@ public class SetPriorityCommand extends AbstractRatisCommand {
    */
   public static String description() {
     return "Set priority to ratis peers";
+  }
+
+  static Map<String, Integer> parseAddressPriorityMap(String[] optionValues) {
+    Map<String, Integer> addressPriorityMap = new HashMap<>();
+    if (optionValues == null) {
+      return addressPriorityMap;
+    }
+    for (String optionValue : optionValues) {
+      String[] str = optionValue.split("[|]");
+      if (str.length < 2) {
+        throw new IllegalArgumentException(
+            "Invalid option <PEER_HOST:PEER_PORT|PRIORITY>: " + optionValue);
+      }
+      final String normalized = NetUtils.address2String(CliUtils.parseInetSocketAddress(str[0]));
+      addressPriorityMap.put(normalized, Integer.parseInt(str[1]));
+    }
+    return addressPriorityMap;
   }
 }
