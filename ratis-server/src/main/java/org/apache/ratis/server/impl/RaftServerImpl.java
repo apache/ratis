@@ -111,6 +111,7 @@ import org.apache.ratis.trace.TraceUtils;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.ConcurrentUtils;
+import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -255,6 +256,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicBoolean startComplete = new AtomicBoolean(false);
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
   private final CountDownLatch closeFinishedLatch = new CountDownLatch(1);
+  private final AtomicBoolean shutdownOnFailure = new AtomicBoolean();
 
   private final TransferLeadership transferLeadership;
   private final SnapshotManagementRequestHandler snapshotRequestHandler;
@@ -534,52 +536,97 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public void close() {
-    lifeCycle.checkStateAndClose(() -> {
-      LOG.info("{}: shutdown", getMemberId());
-      try {
-        jmxAdapter.unregister();
-      } catch (Exception e) {
-        LOG.warn("{}: Failed to un-register RaftServer JMX bean", getMemberId(), e);
+    try {
+      lifeCycle.checkStateAndClose(this::closeImpl);
+    } finally {
+      if (lifeCycle.getCurrentState() == State.CLOSED) {
+        closeFinishedLatch.countDown();
       }
-      try {
-        role.shutdownFollowerState();
-      } catch (Exception e) {
-        LOG.warn("{}: Failed to shutdown FollowerState", getMemberId(), e);
-      }
-      try{
-        role.shutdownLeaderElection();
-      } catch (Exception e) {
-        LOG.warn("{}: Failed to shutdown LeaderElection", getMemberId(), e);
-      }
-      try{
-        role.shutdownLeaderState(true).join();
-      } catch (Exception e) {
-        LOG.warn("{}: Failed to shutdown LeaderState monitor", getMemberId(), e);
-      }
-      try{
-        state.close();
-      } catch (Exception e) {
-        LOG.warn("{}: Failed to close state", getMemberId(), e);
-      }
-      try {
-        leaderElectionMetrics.unregister();
-        raftServerMetrics.unregister();
-        RaftServerMetricsImpl.removeRaftServerMetrics(getMemberId());
-      } catch (Exception e) {
-        LOG.warn("{}: Failed to unregister metric", getMemberId(), e);
-      }
-      try {
-        ConcurrentUtils.shutdownAndWait(clientExecutor);
-      } catch (Exception e) {
-        LOG.warn("{}: Failed to shutdown clientExecutor", getMemberId(), e);
-      }
-      try {
-        ConcurrentUtils.shutdownAndWait(serverExecutor);
-      } catch (Exception e) {
-        LOG.warn("{}: Failed to shutdown serverExecutor", getMemberId(), e);
-      }
-      closeFinishedLatch.countDown();
-    });
+    }
+  }
+
+  void closeOnFailure(IOException cause) {
+    LOG.error("{}: Failed to persist metadata. Closing this division.", getMemberId(), cause);
+    final State closing = lifeCycle.transition(current -> current.isClosingOrClosed() ? current
+        : current == State.NEW ? State.CLOSED : State.CLOSING);
+    final boolean notify = shutdownOnFailure.compareAndSet(false, true);
+    if (closing == null && !notify) {
+      return;
+    }
+    // The caller may hold the server lock or run on an executor that closeImpl must stop.
+    Daemon.newBuilder().setName(getMemberId() + "-close").setThreadGroup(threadGroup)
+        .setRunnable(() -> {
+          try {
+            if (closing == State.CLOSING) {
+              closeImpl();
+            }
+          } finally {
+            if (closing == State.CLOSING) {
+              lifeCycle.transition(State.CLOSED);
+            }
+            if (closing != null) {
+              closeFinishedLatch.countDown();
+            }
+            if (notify) {
+              try {
+                // A concurrent ordinary close may own cleanup; notify only after it finishes.
+                closeFinishedLatch.await();
+                stateMachine.event().notifyServerShutdown(getRoleInfoProto(), false);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOG.warn("{}: Interrupted before notifying server shutdown", getMemberId(), e);
+              } catch (Exception e) {
+                LOG.warn("{}: Failed to notify server shutdown", getMemberId(), e);
+              }
+            }
+          }
+        }).build().start();
+  }
+
+  private void closeImpl() {
+    LOG.info("{}: shutdown", getMemberId());
+    try {
+      jmxAdapter.unregister();
+    } catch (Exception e) {
+      LOG.warn("{}: Failed to un-register RaftServer JMX bean", getMemberId(), e);
+    }
+    try {
+      role.shutdownFollowerState();
+    } catch (Exception e) {
+      LOG.warn("{}: Failed to shutdown FollowerState", getMemberId(), e);
+    }
+    try{
+      role.shutdownLeaderElection();
+    } catch (Exception e) {
+      LOG.warn("{}: Failed to shutdown LeaderElection", getMemberId(), e);
+    }
+    try{
+      role.shutdownLeaderState(true).join();
+    } catch (Exception e) {
+      LOG.warn("{}: Failed to shutdown LeaderState monitor", getMemberId(), e);
+    }
+    try{
+      state.close();
+    } catch (Exception e) {
+      LOG.warn("{}: Failed to close state", getMemberId(), e);
+    }
+    try {
+      leaderElectionMetrics.unregister();
+      raftServerMetrics.unregister();
+      RaftServerMetricsImpl.removeRaftServerMetrics(getMemberId());
+    } catch (Exception e) {
+      LOG.warn("{}: Failed to unregister metric", getMemberId(), e);
+    }
+    try {
+      ConcurrentUtils.shutdownAndWait(clientExecutor);
+    } catch (Exception e) {
+      LOG.warn("{}: Failed to shutdown clientExecutor", getMemberId(), e);
+    }
+    try {
+      ConcurrentUtils.shutdownAndWait(serverExecutor);
+    } catch (Exception e) {
+      LOG.warn("{}: Failed to shutdown serverExecutor", getMemberId(), e);
+    }
   }
 
   void setFirstElection(Object reason) {
@@ -644,7 +691,7 @@ class RaftServerImpl implements RaftServer.Division,
       Object reason) throws IOException {
     final AtomicBoolean metadataUpdated = new AtomicBoolean();
     final CompletableFuture<Void> future = changeToFollower(newTerm, false, allowListener, reason, metadataUpdated);
-    if (metadataUpdated.get() || state.isMetadataPersistencePending()) {
+    if (metadataUpdated.get()) {
       state.persistMetadata();
     }
     return future;
@@ -1576,7 +1623,7 @@ class RaftServerImpl implements RaftServer.Division,
         if (voteGranted) {
           state.grantVote(candidate.getId());
         }
-        if (termUpdated.get() || voteGranted || state.isMetadataPersistencePending()) {
+        if (termUpdated.get() || voteGranted) {
           state.persistMetadata(); // sync metafile
         }
       }
