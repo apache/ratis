@@ -138,6 +138,22 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
   }
 
   @Test
+  public void testCloseOnFailureWithNonIOException() throws Exception {
+    final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(),
+        Arrays.asList(peer(LEADER), peer(FOLLOWER), peer(OTHER)));
+    final File storageVolume = new File(getTestDir(), "storage");
+    FileUtils.deleteFully(storageVolume);
+    final ShutdownStateMachine stateMachine = new ShutdownStateMachine();
+
+    try (RaftServerImpl follower = newServer(group, storageVolume, RaftStorage.StartupOption.FORMAT,
+        stateMachine, false)) {
+      follower.start();
+      follower.closeOnFailure(new IllegalStateException("Unexpected division failure"));
+      assertStopped(follower, group, stateMachine);
+    }
+  }
+
+  @Test
   public void testOriginalMetadataExceptionIsPreserved() throws Exception {
     final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(),
         Arrays.asList(peer(LEADER), peer(FOLLOWER), peer(OTHER)));

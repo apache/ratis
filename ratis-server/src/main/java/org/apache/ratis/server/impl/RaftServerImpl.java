@@ -545,8 +545,8 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  void closeOnFailure(IOException cause) {
-    LOG.error("{}: Failed to persist metadata. Closing this division.", getMemberId(), cause);
+  void closeOnFailure(Throwable cause) {
+    LOG.error("{}: Closing this division due to a failure.", getMemberId(), cause);
     final State closing = lifeCycle.transition(current -> current.isClosingOrClosed() ? current
         : current == State.NEW ? State.CLOSED : State.CLOSING);
     final boolean notify = shutdownOnFailure.compareAndSet(false, true);
