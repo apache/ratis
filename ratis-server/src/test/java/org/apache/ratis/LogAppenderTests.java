@@ -201,7 +201,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
           .filter(e -> e.getKey().endsWith(server.getId() + "_lastHeartbeatElapsedTime"))
           .findFirst().orElseThrow(() -> new AssertionError("Missing heartbeat gauge for " + server.getId()))
           .getValue();
-      assertTrue((long) heartbeat.getValue() > 0);
+      assertTrue((Long) heartbeat.getValue() > 0);
       assertTrue(registry.getGauges((s, m) -> s.contains("lastHeartbeatElapsedTime")).isEmpty());
       assertTrue(registry.getGauges((s, m) -> s.endsWith("numPendingRequestInQueue")
           || s.endsWith("numPendingRequestMegaByteSize") || s.matches(".*numWatch.*RequestInQueue")).isEmpty());
