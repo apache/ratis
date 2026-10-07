@@ -18,6 +18,9 @@
 package org.apache.ratis;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -156,14 +159,14 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
             final RatisMetricRegistryImpl previousLeaderRegistry = registries.get(leaderId);
             final SortedMap<String, Gauge> commitIndexGauges = previousLeaderRegistry.getGauges(
                 (s, m) -> s.endsWith("_peerCommitIndex"));
-            Assertions.assertEquals(3, commitIndexGauges.size());
+            assertEquals(3, commitIndexGauges.size());
             final RaftPeerId nextLeader = round == 0 ? cluster.getFollowers().get(0).getId() : originalLeader;
             assertTrue(client.admin().transferLeadership(nextLeader, 20_000).isSuccess());
-            Assertions.assertEquals(nextLeader, waitForLeader(cluster).getId());
+            assertEquals(nextLeader, waitForLeader(cluster).getId());
             // Commit-index gauges read the server cache and remain useful after step-down.
             final SortedMap<String, Gauge> retainedGauges = previousLeaderRegistry.getGauges(
                 (s, m) -> s.endsWith("_peerCommitIndex"));
-            commitIndexGauges.forEach((name, gauge) -> Assertions.assertSame(gauge, retainedGauges.get(name)));
+            commitIndexGauges.forEach((name, gauge) -> assertSame(gauge, retainedGauges.get(name)));
           }
         }
       }
@@ -178,18 +181,18 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
   private void assertFollowerHeartbeatMetrics(MiniRaftCluster cluster,
       Map<RaftPeerId, RatisMetricRegistryImpl> registries) {
     final RaftServer.Division leader = cluster.getLeader();
-    Assertions.assertNotNull(leader);
+    assertNotNull(leader);
     final RatisMetricRegistryImpl leaderRegistry = registries.get(leader.getId());
     final SortedMap<String, Gauge> heartbeatGauges = leaderRegistry.getGauges((s, m) ->
         s.contains("lastHeartbeatElapsedTime"));
-    Assertions.assertEquals(2, heartbeatGauges.size());
+    assertEquals(2, heartbeatGauges.size());
 
     for (RaftServer.Division server : cluster.iterateDivisions()) {
       final RatisMetricRegistryImpl registry = registries.get(server.getId());
-      Assertions.assertSame(registry, MetricRegistries.global().get(registry.getMetricRegistryInfo())
+      assertSame(registry, MetricRegistries.global().get(registry.getMetricRegistryInfo())
           .orElseThrow(() -> new AssertionError("Missing server registry for " + server.getId())));
       assertTrue(!registry.getGauges((s, m) -> s.endsWith(server.getId() + "_peerCommitIndex")).isEmpty());
-      Assertions.assertEquals(5, registry.getGauges((s, m) -> s.contains("retryCache")).size());
+      assertEquals(5, registry.getGauges((s, m) -> s.contains("retryCache")).size());
 
       if (server.getId().equals(leader.getId())) {
         continue;
