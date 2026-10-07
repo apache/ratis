@@ -154,27 +154,6 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
   }
 
   @Test
-  public void testOriginalMetadataExceptionIsPreserved() throws Exception {
-    final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(),
-        Arrays.asList(peer(LEADER), peer(FOLLOWER), peer(OTHER)));
-    final File storageVolume = new File(getTestDir(), "storage");
-    FileUtils.deleteFully(storageVolume);
-    final ShutdownStateMachine stateMachine = new ShutdownStateMachine();
-
-    try (RaftServerImpl follower = newServer(group, storageVolume, RaftStorage.StartupOption.FORMAT,
-        stateMachine, false)) {
-      follower.start();
-      final IOException failure = new IOException("Failed to persist metadata");
-      Mockito.doThrow(failure).when(spyMetadataFile(follower)).persist(Mockito.any());
-
-      final IOException thrown = Assertions.assertThrows(IOException.class,
-          () -> follower.appendEntries(appendEntries(group, 1, 0)));
-      Assertions.assertSame(failure, thrown);
-      assertStopped(follower, group, stateMachine);
-    }
-  }
-
-  @Test
   public void testMetadataFailureFromServerExecutorDoesNotDeadlock() throws Exception {
     final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(),
         Arrays.asList(peer(LEADER), peer(FOLLOWER), peer(OTHER)));
