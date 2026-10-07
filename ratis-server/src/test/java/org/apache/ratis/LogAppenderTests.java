@@ -49,7 +49,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -129,53 +131,83 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
-  public void testFollowerHeartbeatMetric() throws IOException, InterruptedException {
-
-    // Start a 3 node Ratis ring.
+  public void testFollowerHeartbeatMetric() throws Exception {
     final MiniRaftCluster cluster = newCluster(3);
+    final Map<RaftPeerId, RatisMetricRegistryImpl> registries = new HashMap<>();
     try {
       cluster.start();
-      final RaftServer.Division leaderServer = waitForLeader(cluster);
-
-      // Write 10 messages to leader.
-      try(RaftClient client = cluster.createClient(leaderServer.getId())) {
-        for (int i = 1; i <= 10; i++) {
-          client.io().send(new RaftTestUtil.SimpleMessage("Msg to make leader ready " +  i));
-        }
+      final RaftPeerId originalLeader = waitForLeader(cluster).getId();
+      for (RaftServer.Division server : cluster.iterateDivisions()) {
+        registries.put(server.getId(), (RatisMetricRegistryImpl)
+            ((RaftServerMetricsImpl) server.getRaftServerMetrics()).getRegistry());
       }
 
-      final RatisMetricRegistryImpl ratisMetricRegistry = (RatisMetricRegistryImpl)
-          ((RaftServerMetricsImpl)leaderServer.getRaftServerMetrics()).getRegistry();
-
-      // Get all last_heartbeat_elapsed_time metric gauges. Should be equal to number of followers.
-      SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
-          s.contains("lastHeartbeatElapsedTime"));
-      assertTrue(heartbeatElapsedTimeGauges.size() == 2);
-
-      for (RaftServer.Division followerServer : cluster.getFollowers()) {
-        String followerId = followerServer.getId().toString();
-        Gauge metric = heartbeatElapsedTimeGauges.entrySet().parallelStream().filter(e -> e.getKey().contains(
-            followerId)).iterator().next().getValue();
-        // Metric for this follower exists.
-        assertTrue(metric != null);
-        // Metric in nanos > 0.
-        assertTrue((long)metric.getValue() > 0);
-        // Try to get Heartbeat metrics for follower.
-        final RaftServerMetricsImpl followerMetrics = (RaftServerMetricsImpl) followerServer.getRaftServerMetrics();
-        // A former leader may retain gauges in its unregistered registry. Check only registered metrics.
-        MetricRegistries.global().get(followerMetrics.getRegistry().getMetricRegistryInfo())
-            .map(RatisMetricRegistryImpl.class::cast)
-            .ifPresent(registry -> assertTrue(
-                registry.getGauges((s, m) -> s.contains("lastHeartbeatElapsedTime")).isEmpty(),
-                "Follower " + followerId + " should not have registered leader heartbeat metrics"));
-        for (boolean heartbeat : new boolean[] { true, false }) {
-          final DefaultTimekeeperImpl t = (DefaultTimekeeperImpl) followerMetrics.getFollowerAppendEntryTimer(heartbeat);
-          assertTrue(t.getTimer().getMeanRate() > 0.0d);
-          assertTrue(t.getTimer().getCount() > 0L);
+      // Check initial leadership, step-down, and re-election without restarting the servers.
+      for (int round = 0; round < 3; round++) {
+        final RaftPeerId leaderId = waitForLeader(cluster).getId();
+        try (RaftClient client = cluster.createClient(leaderId)) {
+          for (int i = 0; i < 10; i++) {
+            RaftTestUtil.assertSuccessReply(
+                client.io().send(new SimpleMessage("heartbeat metrics round " + round + " message " + i)));
+          }
+          JavaUtils.attempt(() -> assertFollowerHeartbeatMetrics(cluster, registries),
+              100, HUNDRED_MILLIS, "check heartbeat metrics", LOG);
+          if (round < 2) {
+            final RatisMetricRegistryImpl previousLeaderRegistry = registries.get(leaderId);
+            final SortedMap<String, Gauge> commitIndexGauges = previousLeaderRegistry.getGauges(
+                (s, m) -> s.endsWith("_peerCommitIndex"));
+            Assertions.assertEquals(3, commitIndexGauges.size());
+            final RaftPeerId nextLeader = round == 0 ? cluster.getFollowers().get(0).getId() : originalLeader;
+            assertTrue(client.admin().transferLeadership(nextLeader, 20_000).isSuccess());
+            Assertions.assertEquals(nextLeader, waitForLeader(cluster).getId());
+            // Commit-index gauges read the server cache and remain useful after step-down.
+            final SortedMap<String, Gauge> retainedGauges = previousLeaderRegistry.getGauges(
+                (s, m) -> s.endsWith("_peerCommitIndex"));
+            commitIndexGauges.forEach((name, gauge) -> Assertions.assertSame(gauge, retainedGauges.get(name)));
+          }
         }
       }
     } finally {
       cluster.shutdown();
+    }
+    registries.values().forEach(registry -> assertTrue(
+        !MetricRegistries.global().get(registry.getMetricRegistryInfo()).isPresent(),
+        "Server registry should be unregistered after shutdown"));
+  }
+
+  private void assertFollowerHeartbeatMetrics(MiniRaftCluster cluster,
+      Map<RaftPeerId, RatisMetricRegistryImpl> registries) {
+    final RaftServer.Division leader = cluster.getLeader();
+    Assertions.assertNotNull(leader);
+    final RatisMetricRegistryImpl leaderRegistry = registries.get(leader.getId());
+    final SortedMap<String, Gauge> heartbeatGauges = leaderRegistry.getGauges((s, m) ->
+        s.contains("lastHeartbeatElapsedTime"));
+    Assertions.assertEquals(2, heartbeatGauges.size());
+
+    for (RaftServer.Division server : cluster.iterateDivisions()) {
+      final RatisMetricRegistryImpl registry = registries.get(server.getId());
+      Assertions.assertSame(registry, MetricRegistries.global().get(registry.getMetricRegistryInfo())
+          .orElseThrow(() -> new AssertionError("Missing server registry for " + server.getId())));
+      assertTrue(!registry.getGauges((s, m) -> s.endsWith(server.getId() + "_peerCommitIndex")).isEmpty());
+      Assertions.assertEquals(5, registry.getGauges((s, m) -> s.contains("retryCache")).size());
+
+      if (server.getId().equals(leader.getId())) {
+        continue;
+      }
+      final Gauge<?> heartbeat = heartbeatGauges.entrySet().stream()
+          .filter(e -> e.getKey().endsWith(server.getId() + "_lastHeartbeatElapsedTime"))
+          .findFirst().orElseThrow(() -> new AssertionError("Missing heartbeat gauge for " + server.getId()))
+          .getValue();
+      assertTrue((long) heartbeat.getValue() > 0);
+      assertTrue(registry.getGauges((s, m) -> s.contains("lastHeartbeatElapsedTime")).isEmpty());
+      assertTrue(registry.getGauges((s, m) -> s.endsWith("numPendingRequestInQueue")
+          || s.endsWith("numPendingRequestMegaByteSize") || s.matches(".*numWatch.*RequestInQueue")).isEmpty());
+      final RaftServerMetricsImpl metrics = (RaftServerMetricsImpl) server.getRaftServerMetrics();
+      for (boolean isHeartbeat : new boolean[] {true, false}) {
+        final DefaultTimekeeperImpl timer = (DefaultTimekeeperImpl) metrics.getFollowerAppendEntryTimer(isHeartbeat);
+        assertTrue(timer.getTimer().getMeanRate() > 0.0d);
+        assertTrue(timer.getTimer().getCount() > 0L);
+      }
     }
   }
 

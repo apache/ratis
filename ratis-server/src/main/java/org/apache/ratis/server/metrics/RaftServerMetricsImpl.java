@@ -197,6 +197,18 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   }
 
   /**
+   * Remove the heartbeat gauges owned by the leader, retaining server metrics.
+   * Peer commit-index gauges still read the server cache, which is updated as a follower.
+   * The caller must serialize this with follower metric registration and updates.
+   */
+  public void clearFollowerHeartbeatMetrics() {
+    followerLastHeartbeatElapsedTimeMap.keySet().forEach(followerId -> {
+      getRegistry().remove(String.format(FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC, followerId));
+    });
+    followerLastHeartbeatElapsedTimeMap.clear();
+  }
+
+  /**
    * Register a commit index tracker for the peer in cluster.
    */
   private void addPeerCommitIndexGauge(RaftPeerId peerId) {
