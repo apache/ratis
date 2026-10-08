@@ -302,14 +302,18 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return "conf: {index: " + logEntryIndex + ", cur=" + conf + ", old=" + oldConf + "}";
   }
 
+  /** @return true if the ids and the priorities are the same; the addresses are not compared. */
   boolean hasNoChange(Collection<RaftPeer> newMembers, Collection<RaftPeer> newListeners) {
     return hasNoChange(newMembers, newListeners, false);
   }
 
-  /**
-   * @param checkAddresses Should a peer with the same id but different addresses be considered as a change?
-   */
-  boolean hasNoChange(Collection<RaftPeer> newMembers, Collection<RaftPeer> newListeners, boolean checkAddresses) {
+  /** @return true if the ids, the priorities and the addresses are the same. */
+  boolean hasNoChangeIncludingAddresses(Collection<RaftPeer> newMembers, Collection<RaftPeer> newListeners) {
+    return hasNoChange(newMembers, newListeners, true);
+  }
+
+  private boolean hasNoChange(Collection<RaftPeer> newMembers, Collection<RaftPeer> newListeners,
+      boolean checkAddresses) {
     if (!isStable() || conf.size() != newMembers.size()
         || conf.getPeers(RaftPeerRole.LISTENER).size() != newListeners.size()) {
       return false;

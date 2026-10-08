@@ -1492,7 +1492,7 @@ class RaftServerImpl implements RaftServer.Division,
       }
 
       // return success with a null message if the new conf is the same as the current
-      if (current.hasNoChange(serversInNewConf, listenersInNewConf, true)) {
+      if (current.hasNoChangeIncludingAddresses(serversInNewConf, listenersInNewConf)) {
         pending = new PendingRequest(request);
         pending.setReply(newSuccessReply(request));
         return pending.getFuture();
