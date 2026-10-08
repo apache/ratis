@@ -326,6 +326,7 @@ public final class GrpcServicesImpl
   private final EventLoopGroup serverBosses;
   private final EventLoopGroup serverWorkers;
   private final EventLoopGroup clientWorkers;
+  private final TimeDuration executorShutdownWait;
 
   private GrpcServicesImpl(Builder b) {
     super(b.server::getId, id -> new PeerProxyMap<>(id.toString(),
@@ -334,6 +335,7 @@ public final class GrpcServicesImpl
     this.serverBosses = b.serverBosses;
     this.serverWorkers = b.serverWorkers;
     this.clientWorkers = b.clientWorkers;
+    this.executorShutdownWait = RaftServerConfigKeys.executorShutdownWait(b.server.getProperties());
 
     this.executor = b.newExecutor();
     this.clientProtocolService = b.newGrpcClientProtocolService(executor);
@@ -424,7 +426,7 @@ public final class GrpcServicesImpl
     if (interrupted) {
       executor.shutdown();  // shutdown but not wait
     } else {
-      ConcurrentUtils.shutdownAndWait(executor);
+      ConcurrentUtils.shutdownAndWait(executorShutdownWait, executor);
     }
 
     try {

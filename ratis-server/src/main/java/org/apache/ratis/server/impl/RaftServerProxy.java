@@ -424,8 +424,9 @@ class RaftServerProxy implements RaftServer {
     lifeCycle.checkStateAndClose(() -> {
       LOG.info("{}: close", getId());
 
+      final TimeDuration executorShutdownWait = RaftServerConfigKeys.executorShutdownWait(properties);
       try {
-        ConcurrentUtils.shutdownAndWait(implExecutor.get());
+        ConcurrentUtils.shutdownAndWait(executorShutdownWait, implExecutor.get());
       } catch (Exception ignored) {
         LOG.warn(getId() + ": Failed to shutdown implExecutor", ignored);
       }
@@ -445,7 +446,7 @@ class RaftServerProxy implements RaftServer {
       }
 
       try {
-        ConcurrentUtils.shutdownAndWait(executor.get());
+        ConcurrentUtils.shutdownAndWait(executorShutdownWait, executor.get());
       } catch (Exception ignored) {
         LOG.warn(getId() + ": Failed to shutdown executor", ignored);
       }
