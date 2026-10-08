@@ -40,10 +40,12 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
+import org.apache.ratis.server.storage.RaftStorageImpl;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
@@ -64,6 +66,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -652,7 +655,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       final RaftConfiguration confBefore = cluster.getLeader().getRaftConf();
 
       // no real configuration change in the request
-      final RaftClientReply reply = client.admin().setConfiguration(cluster.getPeers().toArray(RaftPeer.emptyArray()));
+      final RaftClientReply reply = client.admin().setConfiguration(new ArrayList<>(confBefore.getCurrentPeers()));
       Assertions.assertTrue(reply.isSuccess());
       final long newCommittedIndex = leaderLog.getLastCommittedIndex();
       for(long i = committedIndex + 1; i <= newCommittedIndex; i++) {
@@ -661,6 +664,51 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       }
       Assertions.assertSame(confBefore, cluster.getLeader().getRaftConf());
     }
+  }
+
+  /**
+   * When a request changes only the addresses of the existing peers,
+   * make sure the new configuration is committed and persisted.
+   */
+  @Test
+  public void testAddressChangeRequest() throws Exception {
+    runWithNewCluster(3, this::runTestAddressChangeRequest);
+  }
+
+  void runTestAddressChangeRequest(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final long confIndex = leader.getRaftConf().getLogEntryIndex();
+
+    // the same peers with an equivalent address
+    final List<RaftPeer> newPeers = leader.getRaftConf().getCurrentPeers().stream()
+        .map(p -> RaftPeer.newBuilder(p).setAddress(p.getAddress().replace(NetUtils.LOCALHOST, "127.0.0.1")).build())
+        .collect(Collectors.toList());
+    try (RaftClient client = cluster.createClient(leader.getId())) {
+      assertTrue(client.admin().setConfiguration(newPeers).isSuccess());
+      assertTrue(leader.getRaftConf().getLogEntryIndex() > confIndex);
+      assertAddresses(newPeers, cluster);
+
+      // the same request again has no change
+      final RaftConfiguration conf = leader.getRaftConf();
+      assertTrue(client.admin().setConfiguration(newPeers).isSuccess());
+      Assertions.assertSame(conf, leader.getRaftConf());
+    }
+
+    cluster.restart(false);
+    RaftTestUtil.waitForLeader(cluster);
+    assertAddresses(newPeers, cluster);
+  }
+
+  void assertAddresses(List<RaftPeer> expected, MiniRaftCluster cluster) throws Exception {
+    JavaUtils.attempt(() -> {
+      for (RaftServer.Division d : cluster.iterateDivisions()) {
+        final RaftConfiguration persisted = ((RaftStorageImpl) d.getRaftStorage()).readRaftConfiguration();
+        for (RaftPeer p : expected) {
+          assertEquals(p.getAddress(), d.getRaftConf().getPeer(p.getId()).getAddress());
+          assertEquals(p.getAddress(), persisted.getPeer(p.getId()).getAddress());
+        }
+      }
+    }, 10, ONE_SECOND, "assertAddresses", LOG);
   }
 
   /**
