@@ -155,11 +155,11 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
           }
           JavaUtils.attempt(() -> assertFollowerHeartbeatMetrics(cluster, registries),
               100, HUNDRED_MILLIS, "check heartbeat metrics", LOG);
+          final RatisMetricRegistryImpl previousLeaderRegistry = registries.get(leaderId);
+          final SortedMap<String, Gauge> commitIndexGauges = previousLeaderRegistry.getGauges(
+              (s, m) -> s.endsWith("_peerCommitIndex"));
+          assertEquals(3, commitIndexGauges.size());
           if (round < 2) {
-            final RatisMetricRegistryImpl previousLeaderRegistry = registries.get(leaderId);
-            final SortedMap<String, Gauge> commitIndexGauges = previousLeaderRegistry.getGauges(
-                (s, m) -> s.endsWith("_peerCommitIndex"));
-            assertEquals(3, commitIndexGauges.size());
             final RaftPeerId nextLeader = round == 0 ? cluster.getFollowers().get(0).getId() : originalLeader;
             assertTrue(client.admin().transferLeadership(nextLeader, 20_000).isSuccess());
             assertEquals(nextLeader, waitForLeader(cluster).getId());
