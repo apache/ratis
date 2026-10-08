@@ -18,8 +18,10 @@
 package org.apache.ratis.netty.server;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyRpcProxy;
+import org.apache.ratis.security.TlsConf;
 import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.protocol.GroupInfoReply;
 import org.apache.ratis.protocol.GroupListReply;
@@ -37,6 +39,7 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufVarin
 import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyExceptionReplyProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto;
@@ -63,6 +66,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
 
   public static final class Builder {
     private RaftServer server;
+    private Parameters parameters;
 
     private Builder() {}
 
@@ -71,8 +75,13 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
       return this;
     }
 
+    public Builder setParameters(Parameters params) {
+      this.parameters = params;
+      return this;
+    }
+
     public NettyRpcService build() {
-      return new NettyRpcService(server);
+      return new NettyRpcService(server, parameters);
     }
   }
 
@@ -97,9 +106,12 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
   }
 
   /** Constructs a netty server with the given port. */
-  private NettyRpcService(RaftServer server) {
-    super(server::getId, id -> new NettyRpcProxy.PeerMap(id.toString(), server.getProperties()));
+  private NettyRpcService(RaftServer server, Parameters parameters) {
+    super(server::getId, id -> new NettyRpcProxy.PeerMap(id.toString(), server.getProperties(), parameters));
     this.server = server;
+
+    final TlsConf tlsConf = NettyConfigKeys.Server.tlsConf(parameters);
+    final SslContext sslContext = NettyUtils.buildSslContextForServer(tlsConf);
 
     final ChannelInitializer<SocketChannel> initializer
         = new ChannelInitializer<SocketChannel>() {
@@ -107,6 +119,9 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
       protected void initChannel(SocketChannel ch) {
         final ChannelPipeline p = ch.pipeline();
 
+        if (sslContext != null) {
+          p.addLast("ssl", sslContext.newHandler(ch.alloc()));
+        }
         p.addLast(new ProtobufVarint32FrameDecoder());
         p.addLast(new ProtobufDecoder(RaftNettyServerRequestProto.getDefaultInstance()));
         p.addLast(new ProtobufVarint32LengthFieldPrepender());

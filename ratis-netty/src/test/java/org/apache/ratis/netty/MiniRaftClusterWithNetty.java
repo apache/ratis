@@ -55,10 +55,19 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
     super(ids, listenerIds, properties, null);
   }
 
+  public MiniRaftClusterWithNetty(String[] ids, RaftProperties properties, Parameters parameters) {
+    this(ids, new String[0], properties, parameters);
+  }
+
+  public MiniRaftClusterWithNetty(String[] ids, String[] listenerIds, RaftProperties properties,
+      Parameters parameters) {
+    super(ids, listenerIds, properties, parameters);
+  }
+
   @Override
   protected Parameters setPropertiesAndInitParameters(RaftPeerId id, RaftGroup group, RaftProperties properties) {
     NettyConfigKeys.Server.setPort(properties, getPort(id, group));
-    return null;
+    return parameters;
   }
 
   @Override
