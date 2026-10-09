@@ -83,7 +83,7 @@ public final class MessageStreamImpl implements MessageStreamApi {
   public CompletableFuture<RaftClientReply> streamAsync(Message message, SizeInBytes subSize) {
     final int n = subSize.getSizeInt();
     final MessageOutputStream out = stream();
-    final ByteString bytes = message.getContent();
+    final ByteString bytes = Message.toByteString(message);
     for(int i = 0; i < bytes.size(); ) {
       final int j = Math.min(i + n, bytes.size());
       final ByteString sub = bytes.substring(i, j);
