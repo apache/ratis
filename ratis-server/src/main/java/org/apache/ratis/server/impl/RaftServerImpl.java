@@ -136,7 +136,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -255,8 +254,7 @@ class RaftServerImpl implements RaftServer.Division,
   // Disallow appendEntries before start() complete; otherwise, it could fail with illegal lifeCycle transition
   private final AtomicBoolean startComplete = new AtomicBoolean(false);
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
-  private final CountDownLatch closeFinishedLatch = new CountDownLatch(1);
-  private final AtomicBoolean shutdownOnFailure = new AtomicBoolean();
+  private final CompletableFuture<Void> closeFuture = new CompletableFuture<>();
 
   private final TransferLeadership transferLeadership;
   private final SnapshotManagementRequestHandler snapshotRequestHandler;
@@ -318,6 +316,13 @@ class RaftServerImpl implements RaftServer.Division,
         .setGroupId(group.getGroupId())
         .setSuccess()
         .build());
+
+    this.closeFuture.whenComplete((v, e) -> {
+      // A division closed before its role is initialized has no role info to report.
+      if (role.getCurrentRole() != null) {
+        stateMachine.event().notifyServerShutdown(getRoleInfoProto(), false);
+      }
+    });
   }
 
   private long getCommitIndex(RaftPeerId id) {
@@ -496,11 +501,13 @@ class RaftServerImpl implements RaftServer.Division,
     state.getStateMachineUpdater().setRemoving();
     close();
     try {
-      closeFinishedLatch.await();
+      closeFuture.get();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       LOG.warn("{}: Waiting closing interrupted, will not continue to remove group locally", getMemberId());
       return;
+    } catch (ExecutionException e) {
+      throw new CompletionException(getMemberId() + ": Failed to close this division", e);
     }
     getStateMachine().event().notifyGroupRemove();
     if (deleteDirectory) {
@@ -536,96 +543,95 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public void close() {
-    try {
-      lifeCycle.checkStateAndClose(this::closeImpl);
-    } finally {
-      if (lifeCycle.getCurrentState() == State.CLOSED) {
-        closeFinishedLatch.countDown();
-      }
-    }
+    close(null);
   }
 
-  void closeOnFailure(Throwable cause) {
-    LOG.error("{}: Closing this division due to a failure.", getMemberId(), cause);
-    final State closing = lifeCycle.transition(current -> current.isClosingOrClosed() ? current
+  void close(Throwable cause) {
+    final State newState = lifeCycle.transition(current -> current.isClosingOrClosed() ? current
         : current == State.NEW ? State.CLOSED : State.CLOSING);
-    final boolean notify = shutdownOnFailure.compareAndSet(false, true);
-    if (closing == null && !notify) {
+    if (newState == State.CLOSED) {
+      completeClose(cause);
+    }
+    if (newState != State.CLOSING) {
       return;
     }
-    // The caller may hold the server lock or run on an executor that closeImpl must stop.
-    Daemon.newBuilder().setName(getMemberId() + "-close").setThreadGroup(threadGroup)
-        .setRunnable(() -> {
-          try {
-            if (closing == State.CLOSING) {
-              closeImpl();
-            }
-          } finally {
-            if (closing == State.CLOSING) {
-              lifeCycle.transition(State.CLOSED);
-            }
-            if (closing != null) {
-              closeFinishedLatch.countDown();
-            }
-            if (notify) {
-              try {
-                // A concurrent ordinary close may own cleanup; notify only after it finishes.
-                closeFinishedLatch.await();
-                stateMachine.event().notifyServerShutdown(getRoleInfoProto(), false);
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                LOG.warn("{}: Interrupted before notifying server shutdown", getMemberId(), e);
-              } catch (Exception e) {
-                LOG.warn("{}: Failed to notify server shutdown", getMemberId(), e);
-              }
-            }
-          }
-        }).build().start();
+    if (cause == null) {
+      closeImpl(null);
+    } else {
+      // Close on failure: The caller may hold the server lock or run on an executor that closeImpl must stop
+      Daemon.newBuilder()
+          .setName(getMemberId() + "-close")
+          .setThreadGroup(threadGroup)
+          .setRunnable(() -> closeImpl(cause))
+          .build()
+          .start();
+    }
   }
 
-  private void closeImpl() {
-    LOG.info("{}: shutdown", getMemberId());
+  private void closeImpl(Throwable cause) {
+    Throwable failure = cause;
     try {
-      jmxAdapter.unregister();
-    } catch (Exception e) {
-      LOG.warn("{}: Failed to un-register RaftServer JMX bean", getMemberId(), e);
+      if (cause != null) {
+        LOG.error("{}: shutdown this division due to a failure.", getMemberId(), cause);
+      } else {
+        LOG.info("{}: shutdown this division normally.", getMemberId());
+      }
+      try {
+        jmxAdapter.unregister();
+      } catch (Exception e) {
+        LOG.warn("{}: Failed to un-register RaftServer JMX bean", getMemberId(), e);
+      }
+      try {
+        role.shutdownFollowerState();
+      } catch (Exception e) {
+        LOG.warn("{}: Failed to shutdown FollowerState", getMemberId(), e);
+      }
+      try{
+        role.shutdownLeaderElection();
+      } catch (Exception e) {
+        LOG.warn("{}: Failed to shutdown LeaderElection", getMemberId(), e);
+      }
+      try{
+        role.shutdownLeaderState(true).join();
+      } catch (Exception e) {
+        LOG.warn("{}: Failed to shutdown LeaderState monitor", getMemberId(), e);
+      }
+      try{
+        state.close();
+      } catch (Exception e) {
+        LOG.warn("{}: Failed to close state", getMemberId(), e);
+      }
+      try {
+        leaderElectionMetrics.unregister();
+        raftServerMetrics.unregister();
+        RaftServerMetricsImpl.removeRaftServerMetrics(getMemberId());
+      } catch (Exception e) {
+        LOG.warn("{}: Failed to unregister metric", getMemberId(), e);
+      }
+      try {
+        ConcurrentUtils.shutdownAndWait(clientExecutor);
+      } catch (Exception e) {
+        LOG.warn("{}: Failed to shutdown clientExecutor", getMemberId(), e);
+      }
+      try {
+        ConcurrentUtils.shutdownAndWait(serverExecutor);
+      } catch (Exception e) {
+        LOG.warn("{}: Failed to shutdown serverExecutor", getMemberId(), e);
+      }
+    } catch (RuntimeException | Error e) {
+      failure = e;
+      throw e;
+    } finally {
+      completeClose(failure);
     }
-    try {
-      role.shutdownFollowerState();
-    } catch (Exception e) {
-      LOG.warn("{}: Failed to shutdown FollowerState", getMemberId(), e);
-    }
-    try{
-      role.shutdownLeaderElection();
-    } catch (Exception e) {
-      LOG.warn("{}: Failed to shutdown LeaderElection", getMemberId(), e);
-    }
-    try{
-      role.shutdownLeaderState(true).join();
-    } catch (Exception e) {
-      LOG.warn("{}: Failed to shutdown LeaderState monitor", getMemberId(), e);
-    }
-    try{
-      state.close();
-    } catch (Exception e) {
-      LOG.warn("{}: Failed to close state", getMemberId(), e);
-    }
-    try {
-      leaderElectionMetrics.unregister();
-      raftServerMetrics.unregister();
-      RaftServerMetricsImpl.removeRaftServerMetrics(getMemberId());
-    } catch (Exception e) {
-      LOG.warn("{}: Failed to unregister metric", getMemberId(), e);
-    }
-    try {
-      ConcurrentUtils.shutdownAndWait(clientExecutor);
-    } catch (Exception e) {
-      LOG.warn("{}: Failed to shutdown clientExecutor", getMemberId(), e);
-    }
-    try {
-      ConcurrentUtils.shutdownAndWait(serverExecutor);
-    } catch (Exception e) {
-      LOG.warn("{}: Failed to shutdown serverExecutor", getMemberId(), e);
+  }
+
+  private void completeClose(Throwable cause) {
+    lifeCycle.transitionIfNotEqual(State.CLOSED);
+    if (cause == null) {
+      closeFuture.complete(null);
+    } else {
+      closeFuture.completeExceptionally(cause);
     }
   }
 

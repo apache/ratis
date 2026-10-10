@@ -138,7 +138,7 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
   }
 
   @Test
-  public void testCloseOnFailureWithNonIOException() throws Exception {
+  public void testCloseWithNonIOException() throws Exception {
     final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(),
         Arrays.asList(peer(LEADER), peer(FOLLOWER), peer(OTHER)));
     final File storageVolume = new File(getTestDir(), "storage");
@@ -148,8 +148,58 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     try (RaftServerImpl follower = newServer(group, storageVolume, RaftStorage.StartupOption.FORMAT,
         stateMachine, false)) {
       follower.start();
-      follower.closeOnFailure(new IllegalStateException("Unexpected division failure"));
+      final IllegalStateException failure = new IllegalStateException("Unexpected division failure");
+      follower.close(failure);
       assertStopped(follower, group, stateMachine);
+      final ExecutionException thrown = Assertions.assertThrows(ExecutionException.class,
+          () -> closeFuture(follower).get(5, TimeUnit.SECONDS));
+      Assertions.assertSame(failure, thrown.getCause());
+    }
+  }
+
+  @Test
+  public void testNormalCloseCompletesFutureAfterClosed() throws Exception {
+    final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(),
+        Arrays.asList(peer(LEADER), peer(FOLLOWER), peer(OTHER)));
+    final File storageVolume = new File(getTestDir(), "storage");
+    FileUtils.deleteFully(storageVolume);
+    final AtomicReference<RaftServerImpl> server = new AtomicReference<>();
+    final AtomicReference<LifeCycle.State> stateWhenNotified = new AtomicReference<>();
+    final ShutdownStateMachine stateMachine = new ShutdownStateMachine() {
+      @Override
+      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {
+        stateWhenNotified.set(server.get().getInfo().getLifeCycleState());
+        super.notifyServerShutdown(roleInfo, allServer);
+      }
+    };
+
+    try (RaftServerImpl follower = newServer(group, storageVolume, RaftStorage.StartupOption.FORMAT,
+        stateMachine, false)) {
+      server.set(follower);
+      follower.start();
+      follower.close();
+      Assertions.assertTrue(closeFuture(follower).isDone());
+      Assertions.assertNull(closeFuture(follower).get(5, TimeUnit.SECONDS));
+      Assertions.assertEquals(LifeCycle.State.CLOSED, stateWhenNotified.get());
+      assertStopped(follower, group, stateMachine);
+    }
+  }
+
+  @Test
+  public void testCloseBeforeStartCompletesFuture() throws Exception {
+    final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(),
+        Arrays.asList(peer(LEADER), peer(FOLLOWER), peer(OTHER)));
+    final File storageVolume = new File(getTestDir(), "storage");
+    final ShutdownStateMachine stateMachine = new ShutdownStateMachine();
+
+    try (RaftServerImpl follower = newServer(group, storageVolume, RaftStorage.StartupOption.FORMAT,
+        stateMachine, false)) {
+      follower.close();
+      Assertions.assertEquals(LifeCycle.State.CLOSED, follower.getInfo().getLifeCycleState());
+      Assertions.assertTrue(closeFuture(follower).isDone());
+      Assertions.assertNull(closeFuture(follower).get(5, TimeUnit.SECONDS));
+      Assertions.assertFalse(stateMachine.shutdown.isDone());
+      Assertions.assertEquals(0, stateMachine.shutdownCount.get());
     }
   }
 
@@ -492,6 +542,11 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
       shutdownCount.incrementAndGet();
       shutdown.complete(allServer);
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static CompletableFuture<Void> closeFuture(RaftServerImpl server) {
+    return (CompletableFuture<Void>) RaftTestUtil.getDeclaredField(server, "closeFuture");
   }
 
   @SuppressWarnings("unchecked")
