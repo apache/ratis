@@ -18,11 +18,15 @@
 package org.apache.ratis;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -48,7 +52,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -128,50 +134,84 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
-  public void testFollowerHeartbeatMetric() throws IOException, InterruptedException {
-
-    // Start a 3 node Ratis ring.
+  public void testFollowerHeartbeatMetric() throws Exception {
     final MiniRaftCluster cluster = newCluster(3);
-    cluster.start();
-    final RaftServer.Division leaderServer = waitForLeader(cluster);
-
-    // Write 10 messages to leader.
-    try(RaftClient client = cluster.createClient(leaderServer.getId())) {
-      for (int i = 1; i <= 10; i++) {
-        client.io().send(new RaftTestUtil.SimpleMessage("Msg to make leader ready " +  i));
+    final Map<RaftPeerId, RatisMetricRegistryImpl> registries = new HashMap<>();
+    try {
+      cluster.start();
+      final RaftPeerId originalLeader = waitForLeader(cluster).getId();
+      for (RaftServer.Division server : cluster.iterateDivisions()) {
+        registries.put(server.getId(), (RatisMetricRegistryImpl)
+            ((RaftServerMetricsImpl) server.getRaftServerMetrics()).getRegistry());
       }
-    } catch (IOException e) {
-      throw e;
+
+      // Check initial leadership, step-down, and re-election without restarting the servers.
+      for (int round = 0; round < 3; round++) {
+        final RaftPeerId leaderId = waitForLeader(cluster).getId();
+        try (RaftClient client = cluster.createClient(leaderId)) {
+          for (int i = 0; i < 10; i++) {
+            RaftTestUtil.assertSuccessReply(
+                client.io().send(new SimpleMessage("heartbeat metrics round " + round + " message " + i)));
+          }
+          JavaUtils.attempt(() -> assertFollowerHeartbeatMetrics(cluster, registries),
+              100, HUNDRED_MILLIS, "check heartbeat metrics", LOG);
+          final RatisMetricRegistryImpl previousLeaderRegistry = registries.get(leaderId);
+          final SortedMap<String, Gauge> commitIndexGauges = previousLeaderRegistry.getGauges(
+              (s, m) -> s.endsWith("_peerCommitIndex"));
+          assertEquals(3, commitIndexGauges.size());
+          if (round < 2) {
+            final RaftPeerId nextLeader = round == 0 ? cluster.getFollowers().get(0).getId() : originalLeader;
+            assertTrue(client.admin().transferLeadership(nextLeader, 20_000).isSuccess());
+            assertEquals(nextLeader, waitForLeader(cluster).getId());
+            // Commit-index gauges read the server cache and remain useful after step-down.
+            final SortedMap<String, Gauge> retainedGauges = previousLeaderRegistry.getGauges(
+                (s, m) -> s.endsWith("_peerCommitIndex"));
+            commitIndexGauges.forEach((name, gauge) -> assertSame(gauge, retainedGauges.get(name)));
+          }
+        }
+      }
+    } finally {
+      cluster.shutdown();
     }
+    registries.values().forEach(registry -> assertTrue(
+        !MetricRegistries.global().get(registry.getMetricRegistryInfo()).isPresent(),
+        "Server registry should be unregistered after shutdown"));
+  }
 
-    final RatisMetricRegistryImpl ratisMetricRegistry = (RatisMetricRegistryImpl)
-        ((RaftServerMetricsImpl)leaderServer.getRaftServerMetrics()).getRegistry();
-
-    // Get all last_heartbeat_elapsed_time metric gauges. Should be equal to number of followers.
-    SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
+  private void assertFollowerHeartbeatMetrics(MiniRaftCluster cluster,
+      Map<RaftPeerId, RatisMetricRegistryImpl> registries) {
+    final RaftServer.Division leader = cluster.getLeader();
+    assertNotNull(leader);
+    final RatisMetricRegistryImpl leaderRegistry = registries.get(leader.getId());
+    final SortedMap<String, Gauge> heartbeatGauges = leaderRegistry.getGauges((s, m) ->
         s.contains("lastHeartbeatElapsedTime"));
-    assertTrue(heartbeatElapsedTimeGauges.size() == 2);
+    assertEquals(2, heartbeatGauges.size());
 
-    for (RaftServer.Division followerServer : cluster.getFollowers()) {
-      String followerId = followerServer.getId().toString();
-      Gauge metric = heartbeatElapsedTimeGauges.entrySet().parallelStream().filter(e -> e.getKey().contains(
-          followerId)).iterator().next().getValue();
-      // Metric for this follower exists.
-      assertTrue(metric != null);
-      // Metric in nanos > 0.
-      assertTrue((long)metric.getValue() > 0);
-      // Try to get Heartbeat metrics for follower.
-      final RaftServerMetricsImpl followerMetrics = (RaftServerMetricsImpl) followerServer.getRaftServerMetrics();
-      // Metric should not exist. It only exists in leader.
-      final RatisMetricRegistryImpl followerMetricRegistry = (RatisMetricRegistryImpl)followerMetrics.getRegistry();
-      assertTrue(followerMetricRegistry.getGauges((s, m) -> s.contains("lastHeartbeatElapsedTime")).isEmpty());
-      for (boolean heartbeat : new boolean[] { true, false }) {
-        final DefaultTimekeeperImpl t = (DefaultTimekeeperImpl) followerMetrics.getFollowerAppendEntryTimer(heartbeat);
-        assertTrue(t.getTimer().getMeanRate() > 0.0d);
-        assertTrue(t.getTimer().getCount() > 0L);
+    for (RaftServer.Division server : cluster.iterateDivisions()) {
+      final RatisMetricRegistryImpl registry = registries.get(server.getId());
+      assertSame(registry, MetricRegistries.global().get(registry.getMetricRegistryInfo())
+          .orElseThrow(() -> new AssertionError("Missing server registry for " + server.getId())));
+      assertTrue(!registry.getGauges((s, m) -> s.endsWith(server.getId() + "_peerCommitIndex")).isEmpty());
+      assertEquals(5, registry.getGauges((s, m) -> s.contains("retryCache")).size());
+
+      if (server.getId().equals(leader.getId())) {
+        continue;
+      }
+      final Gauge<?> heartbeat = heartbeatGauges.entrySet().stream()
+          .filter(e -> e.getKey().endsWith(server.getId() + "_lastHeartbeatElapsedTime"))
+          .findFirst().orElseThrow(() -> new AssertionError("Missing heartbeat gauge for " + server.getId()))
+          .getValue();
+      assertTrue((Long) heartbeat.getValue() > 0);
+      assertTrue(registry.getGauges((s, m) -> s.contains("lastHeartbeatElapsedTime")).isEmpty());
+      assertTrue(registry.getGauges((s, m) -> s.endsWith("numPendingRequestInQueue")
+          || s.endsWith("numPendingRequestMegaByteSize") || s.matches(".*numWatch.*RequestInQueue")).isEmpty());
+      final RaftServerMetricsImpl metrics = (RaftServerMetricsImpl) server.getRaftServerMetrics();
+      for (boolean isHeartbeat : new boolean[] {true, false}) {
+        final DefaultTimekeeperImpl timer = (DefaultTimekeeperImpl) metrics.getFollowerAppendEntryTimer(isHeartbeat);
+        assertTrue(timer.getTimer().getMeanRate() > 0.0d);
+        assertTrue(timer.getTimer().getCount() > 0L);
       }
     }
-    cluster.shutdown();
   }
 
   void runTest(CLUSTER cluster) throws Exception {
@@ -231,11 +271,8 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     final RaftProperties prop = getProperties();
     RaftServerConfigKeys.Log.setPurgeGap(prop, 1);
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("1KB"));
-    runWithNewCluster(3, cluster -> {
-      final long startIndexAfterPurge = setupPurgedLeaderLog(cluster);
-      // Test when followerNextIndex < leader's logStartIndex
-      runTestNewAppendEntriesRequestAfterPurge(cluster, startIndexAfterPurge - 1);
-    });
+    // Test when followerNextIndex < leader's logStartIndex.
+    runWithNewCluster(3, cluster -> runTestNewAppendEntriesRequestAfterPurge(cluster, true));
   }
 
   @Test
@@ -243,23 +280,55 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     final RaftProperties prop = getProperties();
     RaftServerConfigKeys.Log.setPurgeGap(prop, 1);
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("1KB"));
-    runWithNewCluster(3, cluster -> {
-      final long startIndexAfterPurge = setupPurgedLeaderLog(cluster);
-      // Test when followerNextIndex == leader's logStartIndex, but the previous index is already purged
-      runTestNewAppendEntriesRequestAfterPurge(cluster, startIndexAfterPurge);
-    });
+    // Test when followerNextIndex == leader's logStartIndex, but the previous index is already purged.
+    runWithNewCluster(3, cluster -> runTestNewAppendEntriesRequestAfterPurge(cluster, false));
   }
 
-  private long setupPurgedLeaderLog(CLUSTER cluster) throws Exception {
-    final RaftServer.Division leader = waitForLeader(cluster);
-    final RaftLog leaderLog = leader.getRaftLog();
-
-    try (RaftClient client = cluster.createClient(leader.getId())) {
-      for (SimpleMessage msg : generateMsgs(5)) {
-        client.io().send(msg);
+  private void runTestNewAppendEntriesRequestAfterPurge(CLUSTER cluster,
+      boolean followerBehindStartIndex) throws Exception {
+    final int maxAttempts = 3;
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try (RaftClient client = cluster.createClient(waitForLeader(cluster).getId())) {
+        for (SimpleMessage msg : generateMsgs(5)) {
+          client.io().send(msg);
+        }
       }
-    }
 
+      // Sending messages may change the leader. Use the same leader and term for purge and verification.
+      final RaftServer.Division leader = waitForLeader(cluster);
+      final long term = leader.getInfo().getCurrentTerm();
+      try {
+        final long startIndexAfterPurge = setupPurgedLeaderLog(leader);
+        // Verify only if the node is still the leader in the term used for purge.
+        if (isLeaderInTerm(leader, term)) {
+          runTestNewAppendEntriesRequestAfterPurge(leader,
+              followerBehindStartIndex ? startIndexAfterPurge - 1 : startIndexAfterPurge);
+          // Leadership may change during verification; accept the result only if it is still valid.
+          if (isLeaderInTerm(leader, term)) {
+            return;
+          }
+        }
+      } catch (InterruptedException e) {
+        throw e;
+      } catch (Exception | AssertionError e) {
+        if (isLeaderInTerm(leader, term)) {
+          throw e;
+        }
+        LOG.info("Leader {} changed during purge verification in term {}", leader.getId(), term, e);
+      }
+      LOG.info("Leader {} changed in term {} during purge test (attempt {}/{})",
+          leader.getId(), term, attempt, maxAttempts);
+    }
+    Assertions.fail("Leader changed during all " + maxAttempts + " purge test attempts");
+  }
+
+  // Check both role and term: the same server may step down and become leader again in a later term.
+  private static boolean isLeaderInTerm(RaftServer.Division leader, long term) {
+    return leader.getInfo().isLeader() && leader.getInfo().getCurrentTerm() == term;
+  }
+
+  private long setupPurgedLeaderLog(RaftServer.Division leader) throws Exception {
+    final RaftLog leaderLog = leader.getRaftLog();
     final long lastLogIndex = leaderLog.getLastEntryTermIndex().getIndex();
     LOG.info("Leader log lastIndex={}, startIndex={}", lastLogIndex, leaderLog.getStartIndex());
     Assertions.assertTrue(lastLogIndex > 5, "Need enough log entries for the test");
@@ -281,28 +350,29 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     return startIndexAfterPurge;
   }
 
-  void runTestNewAppendEntriesRequestAfterPurge(CLUSTER cluster,
+  void runTestNewAppendEntriesRequestAfterPurge(RaftServer.Division leader,
       long targetNextIndex) throws Exception {
-    final RaftServer.Division leader = waitForLeader(cluster);
     final RaftLog leaderLog = leader.getRaftLog();
     final long startIndexAfterPurge = leaderLog.getStartIndex();
 
     final Stream<LogAppender> appenders = RaftServerTestUtil.getLogAppenders(leader);
     Assertions.assertNotNull(appenders, "Leader should have log appenders");
-    final LogAppender appender = appenders.findFirst().orElseThrow(
+    final LogAppender runningAppender = appenders.findFirst().orElseThrow(
         () -> new AssertionError("No log appender found"));
 
     Assertions.assertTrue(targetNextIndex > RaftLog.LEAST_VALID_LOG_INDEX,
         "targetNextIndex should be > LEAST_VALID_LOG_INDEX");
-    appender.getFollower().setNextIndex(targetNextIndex);
-
-    LOG.info("Set follower nextIndex={}, startIndexAfterPurge={}, snapshotIndex={}",
-        targetNextIndex, startIndexAfterPurge, appender.getFollower().getSnapshotIndex());
-    Assertions.assertEquals(0, appender.getFollower().getSnapshotIndex(),
+    Assertions.assertEquals(0, runningAppender.getFollower().getSnapshotIndex(),
         "Follower snapshotIndex should be 0 (default, never installed snapshot)");
 
     Assertions.assertNull(leaderLog.getTermIndex(targetNextIndex - 1),
         "Entry at previousIndex=" + (targetNextIndex - 1) + " should have been purged");
+
+    // Do not change the live appender's follower state: replication replies may update it concurrently.
+    final LogAppender appender = RaftServerTestUtil.newLogAppenderForTesting(
+        leader, runningAppender.getFollower().getPeer(), targetNextIndex);
+    LOG.info("Create independent follower state with nextIndex={} and startIndexAfterPurge={}",
+        targetNextIndex, startIndexAfterPurge);
 
     // Should return null instead of throwing NPE
     Assertions.assertNull(appender.newAppendEntriesRequest(0, false),

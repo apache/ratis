@@ -985,6 +985,7 @@ class RaftServerImpl implements RaftServer.Division,
       try {
         state.appendLog(context);
       } catch (StateMachineException e) {
+        leaderState.releasePendingRequest(permit);
         // leader will step down here
         if (e.leaderShouldStepDown() && getInfo().isLeader()) {
           leaderState.submitStepDownEvent(StepDownReason.STATE_MACHINE_EXCEPTION);
@@ -1756,6 +1757,7 @@ class RaftServerImpl implements RaftServer.Division,
     final long leaderTerm = proto.getLeaderTerm();
     final long currentTerm;
     final long followerCommit = state.getLog().getLastCommittedIndex();
+    final long appliedIndex = state.getLastAppliedIndex();
     final Optional<FollowerState> followerState;
     final Timekeeper.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
     final CompletableFuture<Void> future;
@@ -1767,7 +1769,7 @@ class RaftServerImpl implements RaftServer.Division,
       if (!recognized) {
         return CompletableFuture.completedFuture(toAppendEntriesReplyProto(
             leaderId, getMemberId(), currentTerm, followerCommit, state.getNextIndex(),
-            AppendResult.NOT_LEADER, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat));
+            AppendResult.NOT_LEADER, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat, appliedIndex));
       }
       try {
         future = changeToFollowerAndPersistMetadata(leaderTerm, true, Op.APPEND_ENTRIES);
@@ -1792,7 +1794,7 @@ class RaftServerImpl implements RaftServer.Division,
       if (inconsistencyReplyNextIndex > RaftLog.INVALID_LOG_INDEX) {
         final AppendEntriesReplyProto reply = toAppendEntriesReplyProto(
             leaderId, getMemberId(), currentTerm, followerCommit, inconsistencyReplyNextIndex,
-            AppendResult.INCONSISTENCY, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat);
+            AppendResult.INCONSISTENCY, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat, appliedIndex);
         LOG.info("{}: appendEntries* reply {}", getMemberId(), toAppendEntriesReplyString(reply));
         followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
         return future.thenApply(dummy -> reply);
@@ -1834,7 +1836,7 @@ class RaftServerImpl implements RaftServer.Division,
       final long nextIndex = isHeartbeat? state.getNextIndex(): matchIndex + 1;
       final AppendEntriesReplyProto reply = toAppendEntriesReplyProto(leaderId, getMemberId(),
           currentTerm, updated? commitIndex : state.getLog().getLastCommittedIndex(),
-          nextIndex, AppendResult.SUCCESS, callId, matchIndex, isHeartbeat);
+          nextIndex, AppendResult.SUCCESS, callId, matchIndex, isHeartbeat, appliedIndex);
       logAppendEntries(isHeartbeat, () -> getMemberId()
           + ": appendEntries* reply " + toAppendEntriesReplyString(reply));
       return reply;

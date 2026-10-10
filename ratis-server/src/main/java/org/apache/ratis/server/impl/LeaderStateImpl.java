@@ -351,6 +351,8 @@ class LeaderStateImpl implements LeaderState {
   private final int stagingCatchupGap;
   private final TimeDuration stagingTimeout;
   private final RaftServerMetricsImpl raftServerMetrics;
+  // Serialize follower metric registration and updates with cleanup on step-down.
+  private final Object followerMetricsLock = new Object();
   private final LogAppenderMetrics logAppenderMetrics;
   private final long followerMaxGapThreshold;
   private final PendingStepDown pendingStepDown;
@@ -483,7 +485,9 @@ class LeaderStateImpl implements LeaderState {
       replyFlusher.stop();
     }
     logAppenderMetrics.unregister();
-    raftServerMetrics.unregister();
+    synchronized (followerMetricsLock) {
+      raftServerMetrics.clearFollowerHeartbeatMetrics();
+    }
     pendingRequests.close();
     watchRequests.close();
     leaderTracer.close();
@@ -555,6 +559,10 @@ class LeaderStateImpl implements LeaderState {
 
   PendingRequests.Permit tryAcquirePendingRequest(Message message) {
     return pendingRequests.tryAcquire(message);
+  }
+
+  void releasePendingRequest(PendingRequests.Permit permit) {
+    pendingRequests.releasePermit(permit);
   }
 
   PendingRequest addPendingRequest(PendingRequests.Permit permit, RaftClientRequest request, TransactionContext entry) {
@@ -683,7 +691,11 @@ class LeaderStateImpl implements LeaderState {
     final List<LogAppender> newAppenders = newPeers.stream().map(peer -> {
       final FollowerInfo f = new FollowerInfoImpl(server.getMemberId(), peer, this::getPeer, t, nextIndex, caughtUp);
       followerInfoMap.put(peer.getId(), f);
-      raftServerMetrics.addFollower(peer.getId());
+      synchronized (followerMetricsLock) {
+        if (!isStopped.get()) {
+          raftServerMetrics.addFollower(peer.getId());
+        }
+      }
       logAppenderMetrics.addFollowerGauges(peer.getId(), f::getNextIndex, f::getMatchIndex, f::getLastRpcTime);
       return newLogAppender(f);
     }).collect(Collectors.toList());
@@ -761,9 +773,9 @@ class LeaderStateImpl implements LeaderState {
     return pendingStepDown.submitAsync(request);
   }
 
-  private static LogAppender chooseUpToDateFollower(List<LogAppender> followers, TermIndex leaderLastEntry) {
+  private LogAppender chooseUpToDateFollower(List<LogAppender> followers, TermIndex leaderLastEntry) {
     for(LogAppender f : followers) {
-      if (TransferLeadership.isFollowerUpToDate(f.getFollower(), leaderLastEntry)
+      if (server.getTransferLeadership().isFollowerUpToDate(f.getFollower(), leaderLastEntry)
           == TransferLeadership.Result.SUCCESS) {
         return f;
       }
@@ -1366,7 +1378,12 @@ class LeaderStateImpl implements LeaderState {
       server.getStateMachine().leaderEvent().notifyFollowerSlowness(leaderInfo, follower.getPeer());
     }
     final RaftPeerId followerId = follower.getId();
-    raftServerMetrics.recordFollowerHeartbeatElapsedTime(followerId, elapsedTime.toLong(TimeUnit.NANOSECONDS));
+    synchronized (followerMetricsLock) {
+      // An appender may finish its current iteration after stopAsync() was called.
+      if (!isStopped.get()) {
+        raftServerMetrics.recordFollowerHeartbeatElapsedTime(followerId, elapsedTime.toLong(TimeUnit.NANOSECONDS));
+      }
+    }
   }
 
   @Override

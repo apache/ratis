@@ -39,6 +39,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.Timestamp;
 import org.apache.ratis.util.function.CheckedConsumer;
 import org.junit.jupiter.api.Assertions;
 import org.mockito.Mockito;
@@ -172,6 +173,19 @@ public final class RaftServerTestUtil {
 
   public static Stream<LogAppender> getLogAppenders(RaftServer.Division server) {
     return getLeaderState(server).map(LeaderStateImpl::getLogAppenders).orElse(null);
+  }
+
+  /** Create an unstarted appender with independent follower state for testing data append requests. */
+  public static LogAppender newLogAppenderForTesting(RaftServer.Division server, RaftPeer peer, long nextIndex) {
+    final LeaderStateImpl leaderState = getLeaderState(server).orElseThrow(
+        () -> new IllegalStateException(server + " is not the leader"));
+    final FollowerInfoImpl follower = new FollowerInfoImpl(server.getMemberId(), peer, id -> peer,
+        Timestamp.currentTime(), nextIndex, true);
+    // The tested request and snapshot methods are shared by the RPC implementations.
+    final LogAppender appender = Mockito.spy(LogAppender.newLogAppenderDefault(server, leaderState, follower));
+    // Keep data append tests independent of the heartbeat timer and thread scheduling.
+    Mockito.doReturn(Long.MAX_VALUE).when(appender).getHeartbeatWaitTimeMs();
+    return appender;
   }
 
   public static void assertLeaderLease(RaftServer.Division leader, boolean hasLease) {

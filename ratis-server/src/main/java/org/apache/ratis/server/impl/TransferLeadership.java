@@ -79,6 +79,7 @@ public class TransferLeadership {
       TIMED_OUT,
       FAILED_TO_START,
       COMPLETED_EXCEPTIONALLY,
+      FAILED_APPLIED_INDEX_GAP,
     }
 
     static final Result SUCCESS = new Result(Type.SUCCESS);
@@ -164,12 +165,14 @@ public class TransferLeadership {
   private final RaftServerImpl server;
   private final TimeDuration requestTimeout;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
+  private final long appliedIndexThreshold;
 
   private final AtomicReference<PendingRequest> pending = new AtomicReference<>();
 
   TransferLeadership(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
     this.requestTimeout = RaftServerConfigKeys.Rpc.requestTimeout(properties);
+    this.appliedIndexThreshold = RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties);
   }
 
   private Optional<RaftPeerId> getTransferee() {
@@ -181,7 +184,7 @@ public class TransferLeadership {
     return pending.get() != null;
   }
 
-  static Result isFollowerUpToDate(FollowerInfo follower, TermIndex leaderLastEntry) {
+  Result isFollowerUpToDate(FollowerInfo follower, TermIndex leaderLastEntry) {
     if (follower == null) {
       return Result.NULL_FOLLOWER;
     }
@@ -194,6 +197,15 @@ public class TransferLeadership {
     if (followerMatchIndex < leaderLastEntry.getIndex()) {
       return new Result(Result.Type.NOT_UP_TO_DATE, "followerMatchIndex = " + followerMatchIndex
           + " < leaderLastEntry.getIndex() = " + leaderLastEntry.getIndex());
+    }
+
+    // the leadership transfer cannot proceed if the follower's applied index gap is greater than the safe threshold.
+    final long followerAppliedIndex = follower.getAppliedIndex();
+    final long appliedIndexGap = leaderLastEntry.getIndex() - followerAppliedIndex;
+    if (appliedIndexGap > appliedIndexThreshold) {
+      return new Result(
+          Result.Type.FAILED_APPLIED_INDEX_GAP,
+          "follower's applied index gap is greater than " + appliedIndexThreshold);
     }
     return Result.SUCCESS;
   }
@@ -250,6 +262,9 @@ public class TransferLeadership {
     if (result == Result.SUCCESS) {
       LOG.info("{}: sent StartLeaderElection to transferee {} after received AppendEntriesResponse",
           server.getMemberId(), follower.getId());
+    } else if (result.getType() == Result.Type.FAILED_APPLIED_INDEX_GAP) {
+      LOG.info("{}: {} aborting leadership transfer to {}", server.getMemberId(), result, follower.getId());
+      complete(result);
     }
   }
 

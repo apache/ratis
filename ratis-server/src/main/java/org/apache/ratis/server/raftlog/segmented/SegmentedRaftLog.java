@@ -531,9 +531,10 @@ public final class SegmentedRaftLog extends RaftLogBase {
 
   @Override
   public void close() throws IOException {
+    // The eviction thread may need the write lock to finish, so join it before acquiring the lock.
+    cacheEviction.close();
     try(AutoCloseableLock writeLock = writeLock()) {
       super.close();
-      cacheEviction.close();
       cache.close();
     }
     fileLogWorker.close();

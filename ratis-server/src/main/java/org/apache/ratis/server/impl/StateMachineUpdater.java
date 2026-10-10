@@ -155,8 +155,11 @@ class StateMachineUpdater implements Runnable {
    * have been applied to the state machine.
    */
   void stopAndJoin() throws InterruptedException {
-    if (state == State.EXCEPTION) {
-      stop();
+    if (Thread.currentThread() == updater) {
+      // An apply failure can initiate server close on the updater itself. Never join this thread here.
+      if (state != State.STOP) {
+        stop();
+      }
       return;
     }
     if (stopIndex.compareAndSet(null, raftLog.getLastCommittedIndex())) {
@@ -205,7 +208,15 @@ class StateMachineUpdater implements Runnable {
         } else {
           state = State.EXCEPTION;
           LOG.error(this + " caught a Throwable.", t);
-          server.close();
+          try {
+            server.close();
+          } finally {
+            // A concurrent server close may already be joining us, so its close call is a no-op here.
+            // In that case we must stop ourselves even though the failed entry was not applied.
+            if (state != State.STOP) {
+              stop();
+            }
+          }
         }
       }
     }
