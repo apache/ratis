@@ -302,7 +302,18 @@ final class RaftConfigurationImpl implements RaftConfiguration {
     return "conf: {index: " + logEntryIndex + ", cur=" + conf + ", old=" + oldConf + "}";
   }
 
+  /** @return true if the ids and the priorities are the same; the addresses are not compared. */
   boolean hasNoChange(Collection<RaftPeer> newMembers, Collection<RaftPeer> newListeners) {
+    return hasNoChange(newMembers, newListeners, false);
+  }
+
+  /** @return true if the ids, the priorities and the addresses are the same. */
+  boolean hasNoChangeIncludingAddresses(Collection<RaftPeer> newMembers, Collection<RaftPeer> newListeners) {
+    return hasNoChange(newMembers, newListeners, true);
+  }
+
+  private boolean hasNoChange(Collection<RaftPeer> newMembers, Collection<RaftPeer> newListeners,
+      boolean checkAddresses) {
     if (!isStable() || conf.size() != newMembers.size()
         || conf.getPeers(RaftPeerRole.LISTENER).size() != newListeners.size()) {
       return false;
@@ -315,6 +326,9 @@ final class RaftConfigurationImpl implements RaftConfiguration {
       if (inConf.getPriority() != peer.getPriority()) {
         return false;
       }
+      if (checkAddresses && !hasSameAddresses(inConf, peer)) {
+        return false;
+      }
     }
     for (RaftPeer peer : newListeners) {
       final RaftPeer inConf = conf.getPeer(peer.getId(), RaftPeerRole.LISTENER);
@@ -324,8 +338,23 @@ final class RaftConfigurationImpl implements RaftConfiguration {
       if (inConf.getPriority() != peer.getPriority()) {
         return false;
       }
+      if (checkAddresses && !hasSameAddresses(inConf, peer)) {
+        return false;
+      }
     }
     return true;
+  }
+
+  private static boolean hasSameAddresses(RaftPeer left, RaftPeer right) {
+    return isSameAddress(left.getAddress(), right.getAddress())
+        && isSameAddress(left.getAdminAddress(), right.getAdminAddress())
+        && isSameAddress(left.getClientAddress(), right.getClientAddress())
+        && isSameAddress(left.getDataStreamAddress(), right.getDataStreamAddress());
+  }
+
+  /** An unset address is null in a newly built peer but empty in a peer converted from a proto. */
+  private static boolean isSameAddress(String left, String right) {
+    return (left == null ? "" : left).equals(right == null ? "" : right);
   }
 
   @Override

@@ -26,6 +26,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -143,5 +146,36 @@ public class TestRaftConfiguration extends BaseTest {
         .setConf(new PeerConfiguration(raftPeersWithPriority(1, 2, 3, 4, 5)))
         .build();
     assertFalse(config.changeMajority(raftPeersWithPriority(1, 2, 3, 4, 6, 7)));
+  }
+
+  @Test
+  public void testHasNoChangeIncludingAddresses() {
+    final RaftPeer peer = RaftPeer.newBuilder().setId("s0").setAddress("h:1").build();
+    final RaftPeer listener = RaftPeer.newBuilder().setId("s1").setAddress("h:2").build();
+    final List<RaftPeer> peers = Collections.singletonList(peer);
+    final List<RaftPeer> listeners = Collections.singletonList(listener);
+    final RaftConfigurationImpl config = RaftConfigurationImpl.newBuilder()
+        .setConf(new PeerConfiguration(peers, listeners))
+        .build();
+    assertTrue(config.hasNoChangeIncludingAddresses(peers, listeners));
+
+    // an unset address is the same as an empty address
+    final RaftPeer empty = RaftPeer.newBuilder(peer)
+        .setAdminAddress("").setClientAddress("").setDataStreamAddress("").build();
+    assertTrue(config.hasNoChangeIncludingAddresses(Collections.singletonList(empty), listeners));
+
+    final List<UnaryOperator<RaftPeer.Builder>> changes = Arrays.asList(
+        b -> b.setAddress("h:9"), b -> b.setAdminAddress("h:9"),
+        b -> b.setClientAddress("h:9"), b -> b.setDataStreamAddress("h:9"));
+    for (UnaryOperator<RaftPeer.Builder> change : changes) {
+      final List<RaftPeer> newPeers = Collections.singletonList(change.apply(RaftPeer.newBuilder(peer)).build());
+      assertTrue(config.hasNoChange(newPeers, listeners));
+      assertFalse(config.hasNoChangeIncludingAddresses(newPeers, listeners));
+
+      final List<RaftPeer> newListeners = Collections.singletonList(
+          change.apply(RaftPeer.newBuilder(listener)).build());
+      assertTrue(config.hasNoChange(peers, newListeners));
+      assertFalse(config.hasNoChangeIncludingAddresses(peers, newListeners));
+    }
   }
 }
