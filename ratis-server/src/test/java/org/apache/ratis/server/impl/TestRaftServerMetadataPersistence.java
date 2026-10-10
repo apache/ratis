@@ -91,6 +91,42 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     runTestMetadataFailure(Op.INSTALL_SNAPSHOT, false, true);
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  public void testMetadataRuntimeFailureStopsDivision(boolean getLogFailure) throws Exception {
+    final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(),
+        Arrays.asList(peer(LEADER), peer(FOLLOWER), peer(OTHER)));
+    final File storageVolume = new File(getTestDir(), "storage");
+    FileUtils.deleteFully(storageVolume);
+    final ShutdownStateMachine stateMachine = new ShutdownStateMachine();
+
+    try (RaftServerImpl follower = newServer(group, storageVolume, RaftStorage.StartupOption.FORMAT,
+        stateMachine, false)) {
+      follower.start();
+      final RuntimeException failure = getLogFailure
+          ? new IllegalStateException("Raft log is unavailable")
+          : new SecurityException("Metadata write denied");
+      final ServerState state;
+      if (getLogFailure) {
+        // Inject only on the spy so the real state's log remains available for teardown.
+        state = Mockito.spy(follower.getState());
+        Mockito.doThrow(failure).when(state).getLog();
+      } else {
+        state = follower.getState();
+        Mockito.doThrow(failure).when(spyMetadataFile(follower)).persist(Mockito.any());
+      }
+
+      state.updateCurrentTerm(1);
+      Assertions.assertSame(failure, Assertions.assertThrows(RuntimeException.class, state::persistMetadata));
+      Assertions.assertEquals(1L, follower.getState().getCurrentTerm());
+      Assertions.assertEquals(0L, loadPersistedTerm(follower));
+      assertStopped(follower, group, stateMachine);
+      final ExecutionException thrown = Assertions.assertThrows(ExecutionException.class,
+          () -> closeFuture(follower).get(5, TimeUnit.SECONDS));
+      Assertions.assertSame(failure, thrown.getCause());
+    }
+  }
+
   @Test
   public void testSkipMetadataPersistenceForSameTermAppend() throws Exception {
     final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(),
