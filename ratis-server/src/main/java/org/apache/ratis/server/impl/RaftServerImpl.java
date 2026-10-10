@@ -1096,7 +1096,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
-    if (OrderedAsync.DUMMY.getContent().equals(request.getMessage().getContent())) {
+    if (isDummy(request)) {
       return CompletableFuture.completedFuture(RaftClientReply.newBuilder().setRequest(request).build());
     }
 
@@ -1194,7 +1194,7 @@ class RaftServerImpl implements RaftServer.Division,
       if (reply != null) {
         return reply;
       }
-      return isDummyRead(request) ? CompletableFuture.completedFuture(newSuccessReply(request))
+      return isDummy(request) ? CompletableFuture.completedFuture(newSuccessReply(request))
           : queryStateMachine(request);
     } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
       final LeaderStateImpl leader = role.getLeaderState().orElse(null);
@@ -1204,14 +1204,14 @@ class RaftServerImpl implements RaftServer.Division,
       return replyFuture
           .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
               () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
-          .thenCompose(readIndex -> isDummyRead(request)
+          .thenCompose(readIndex -> isDummy(request)
               ? CompletableFuture.completedFuture(newSuccessReply(request)) : queryStateMachine(request))
           .exceptionally(e -> readException2Reply(request, e));
     } else {
       throw new IllegalStateException("Unexpected read option: " + readOption);
     }
   }
-  private static boolean isDummyRead(RaftClientRequest request) {
+  private static boolean isDummy(RaftClientRequest request) {
     return request.getMessage() != null && OrderedAsync.DUMMY.getContent().equals(request.getMessage().getContent());
   }
 
