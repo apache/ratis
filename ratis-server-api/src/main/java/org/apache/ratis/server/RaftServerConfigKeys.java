@@ -104,7 +104,7 @@ public interface RaftServerConfigKeys {
   }
 
   String EXECUTOR_SHUTDOWN_WAIT_KEY = PREFIX + ".executor.shutdown.wait";
-  TimeDuration EXECUTOR_SHUTDOWN_WAIT_DEFAULT = TimeDuration.ONE_DAY;
+  TimeDuration EXECUTOR_SHUTDOWN_WAIT_DEFAULT = TimeDuration.ONE_HOUR;
   static TimeDuration executorShutdownWait(RaftProperties properties) {
     return getTimeDuration(properties.getTimeDuration(EXECUTOR_SHUTDOWN_WAIT_DEFAULT.getUnit()),
         EXECUTOR_SHUTDOWN_WAIT_KEY, EXECUTOR_SHUTDOWN_WAIT_DEFAULT, getDefaultLog());
