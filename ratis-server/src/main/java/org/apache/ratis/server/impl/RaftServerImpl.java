@@ -233,6 +233,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final TimeDuration leaderStepDownWaitTime;
   private final boolean memberMajorityAddEnabled;
   private final TimeDuration sleepDeviationThreshold;
+  private final TimeDuration executorShutdownWait;
 
   private final LifeCycle lifeCycle;
   private final ServerState state;
@@ -279,6 +280,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.leaderStepDownWaitTime = RaftServerConfigKeys.LeaderElection.leaderStepDownWaitTime(properties);
     this.memberMajorityAddEnabled = RaftServerConfigKeys.LeaderElection.memberMajorityAdd(properties);
     this.sleepDeviationThreshold = RaftServerConfigKeys.sleepDeviationThreshold(properties);
+    this.executorShutdownWait = RaftServerConfigKeys.executorShutdownWait(properties);
     this.proxy = proxy;
 
     this.state = new ServerState(id, group, stateMachine, this, option, properties);
@@ -569,12 +571,12 @@ class RaftServerImpl implements RaftServer.Division,
         LOG.warn("{}: Failed to unregister metric", getMemberId(), e);
       }
       try {
-        ConcurrentUtils.shutdownAndWait(clientExecutor);
+        ConcurrentUtils.shutdownAndWait(executorShutdownWait, clientExecutor);
       } catch (Exception e) {
         LOG.warn("{}: Failed to shutdown clientExecutor", getMemberId(), e);
       }
       try {
-        ConcurrentUtils.shutdownAndWait(serverExecutor);
+        ConcurrentUtils.shutdownAndWait(executorShutdownWait, serverExecutor);
       } catch (Exception e) {
         LOG.warn("{}: Failed to shutdown serverExecutor", getMemberId(), e);
       }
