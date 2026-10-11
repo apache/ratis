@@ -19,6 +19,7 @@ package org.apache.ratis.server.raftlog;
 
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.RaftConfiguration;
@@ -212,7 +213,7 @@ public final class LogProtoUtils {
   public static StateMachineLogEntryProto toStateMachineLogEntryProto(
       RaftClientRequest request, ByteString logData, ByteString stateMachineData) {
     if (logData == null) {
-      logData = request.getMessage().getContent();
+      logData = Message.toByteString(request.getMessage());
     }
     final StateMachineLogEntryProto.Type type = toStateMachineLogEntryProtoType(request.getType().getTypeCase());
     return toStateMachineLogEntryProto(request.getClientId(), request.getCallId(), type, logData, stateMachineData);
