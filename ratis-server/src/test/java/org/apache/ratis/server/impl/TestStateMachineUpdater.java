@@ -102,7 +102,7 @@ public class TestStateMachineUpdater {
       Assertions.assertTrue(applying.await(10, TimeUnit.SECONDS));
       final Future<?> closing;
       if (shutdownFirst) {
-        closing = closer.submit(server::close);
+        closing = closer.submit(() -> server.close());
         Assertions.assertTrue(stopIndexRead.await(10, TimeUnit.SECONDS));
       } else {
         closing = CompletableFuture.completedFuture(null);
