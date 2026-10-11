@@ -103,6 +103,16 @@ public interface RaftServerConfigKeys {
     setTimeDuration(properties::setTimeDuration, CLOSE_THRESHOLD_KEY, threshold);
   }
 
+  String EXECUTOR_SHUTDOWN_WAIT_KEY = PREFIX + ".executor.shutdown.wait";
+  TimeDuration EXECUTOR_SHUTDOWN_WAIT_DEFAULT = TimeDuration.ONE_HOUR;
+  static TimeDuration executorShutdownWait(RaftProperties properties) {
+    return getTimeDuration(properties.getTimeDuration(EXECUTOR_SHUTDOWN_WAIT_DEFAULT.getUnit()),
+        EXECUTOR_SHUTDOWN_WAIT_KEY, EXECUTOR_SHUTDOWN_WAIT_DEFAULT, getDefaultLog());
+  }
+  static void setExecutorShutdownWait(RaftProperties properties, TimeDuration waitTime) {
+    setTimeDuration(properties::setTimeDuration, EXECUTOR_SHUTDOWN_WAIT_KEY, waitTime);
+  }
+
   /**
    * When bootstrapping a new peer, If the gap between the match index of the
    * peer and the leader's latest committed index is less than this gap, we

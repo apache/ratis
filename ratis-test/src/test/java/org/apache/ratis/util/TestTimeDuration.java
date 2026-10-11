@@ -265,6 +265,7 @@ public class TestTimeDuration {
     assertTimeDurationCompareTo(TimeDuration.ONE_DAY, fifteenSecond);
 
     assertTimeDurationEquals(TimeDuration.ONE_MINUTE, fifteenSecond.multiply(4));
+    assertTimeDurationEquals(TimeDuration.ONE_HOUR, TimeDuration.ONE_MINUTE.multiply(60));
     assertTimeDurationEquals(TimeDuration.ONE_DAY, TimeDuration.ONE_MINUTE.multiply(60).multiply(24));
   }
 

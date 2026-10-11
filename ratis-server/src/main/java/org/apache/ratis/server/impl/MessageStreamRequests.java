@@ -52,7 +52,7 @@ class MessageStreamRequests {
             "Unexpected message id in " + key + ": messageId = " + messageId + " != nextId = " + nextId));
       }
       nextId++;
-      bytes = bytes.concat(message.getContent());
+      bytes = bytes.concat(Message.toByteString(message));
       return CompletableFuture.completedFuture(bytes);
     }
 

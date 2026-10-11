@@ -534,7 +534,7 @@ public interface ClientProtoUtils {
   }
 
   static ClientMessageEntryProto.Builder toClientMessageEntryProtoBuilder(Message message) {
-    return toClientMessageEntryProtoBuilder(message.getContent());
+    return toClientMessageEntryProtoBuilder(Message.toByteString(message));
   }
 
   static SetConfigurationRequest toSetConfigurationRequest(

@@ -130,10 +130,11 @@ public interface ConcurrentUtils {
   /**
    * Shutdown the given executor and wait for its termination.
    *
+   * @param waitTime the maximum time to wait for termination
    * @param executor The executor to be shut down.
    */
-  static void shutdownAndWait(ExecutorService executor) {
-    shutdownAndWait(TimeDuration.ONE_DAY, executor, timeout -> {
+  static void shutdownAndWait(TimeDuration waitTime, ExecutorService executor) {
+    shutdownAndWait(waitTime, executor, timeout -> {
       throw new IllegalStateException(executor.getClass().getName() + " shutdown timeout in " + timeout);
     });
   }

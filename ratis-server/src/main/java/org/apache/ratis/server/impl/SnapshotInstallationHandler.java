@@ -180,6 +180,7 @@ class SnapshotInstallationHandler {
     final long lastIncludedIndex = lastIncluded.getIndex();
     final CompletableFuture<Void> future;
     synchronized (server) {
+      server.assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
       final boolean recognized = state.recognizeLeader(Op.INSTALL_SNAPSHOT, leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
@@ -259,6 +260,7 @@ class SnapshotInstallationHandler {
     final long firstAvailableLogIndex = firstAvailableLogTermIndex.getIndex();
     final CompletableFuture<Void> future;
     synchronized (server) {
+      server.assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
       final boolean recognized = state.recognizeLeader(UpdateType.INSTALL_SNAPSHOT_NOTIFICATION, leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
