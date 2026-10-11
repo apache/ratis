@@ -1048,7 +1048,7 @@ class RaftServerImpl implements RaftServer.Division,
       throws InvalidProtocolBufferException {
     return !request.is(TypeCase.FORWARD) ? request : ClientProtoUtils.toRaftClientRequest(
         RaftClientRequestProto.parseFrom(
-            request.getMessage().getContent().asReadOnlyByteBuffer()));
+            request.getMessage().asReadOnlyByteBuffer()));
   }
 
   <REPLY> CompletableFuture<REPLY> executeSubmitServerRequestAsync(
@@ -1151,7 +1151,7 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
-    if (OrderedAsync.DUMMY.getContent().equals(request.getMessage().getContent())) {
+    if (isDummyRead(request)) {
       return CompletableFuture.completedFuture(RaftClientReply.newBuilder().setRequest(request).build());
     }
 

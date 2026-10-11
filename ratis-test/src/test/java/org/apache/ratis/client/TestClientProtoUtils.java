@@ -20,6 +20,7 @@ package org.apache.ratis.client;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.client.impl.OrderedAsync;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
 import org.apache.ratis.proto.RaftProtos.LeaderInfoProto;
@@ -29,14 +30,17 @@ import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.proto.RaftProtos.TermIndexProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.GroupInfoReply;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
@@ -47,6 +51,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
@@ -95,6 +100,102 @@ public class TestClientProtoUtils extends BaseTest {
     System.out.printf("%nmessageSize=%s, n=%d%n", messageSize, n);
     print("toProto  ", toProto, n);
     print("toRequest", toRequest, n);
+  }
+
+  static Message newByteBufferMessage(ByteBuffer buffer) {
+    return new Message() {
+      @Override
+      public ByteString getContent() {
+        throw new UnsupportedOperationException("Unexpected getContent()");
+      }
+
+      @Override
+      public boolean isByteBufferSupported() {
+        return true;
+      }
+
+      @Override
+      public ByteBuffer asReadOnlyByteBuffer() {
+        return buffer == null ? null : buffer.asReadOnlyBuffer();
+      }
+    };
+  }
+
+  @Test
+  public void testNullMessage() {
+    Assertions.assertEquals(0, Message.getSize((Message) null));
+    Assertions.assertEquals(0, Message.getSize((ByteBuffer) null));
+    Assertions.assertEquals(0, Message.getSize((ByteString) null));
+
+    Assertions.assertNotEquals(Message.EMPTY, null);
+    Assertions.assertNotEquals(OrderedAsync.DUMMY, null);
+    Assertions.assertNotEquals(OrderedAsync.DUMMY, "DUMMY");
+
+    final RaftClientRequest request = RaftClientRequest.newBuilder()
+        .setClientId(ClientId.randomId())
+        .setServerId(RaftPeerId.valueOf("s0"))
+        .setGroupId(RaftGroupId.randomId())
+        .setCallId(1)
+        .setMessage(null)
+        .setType(RaftClientRequest.watchRequestType())
+        .build();
+    Assertions.assertFalse(OrderedAsync.DUMMY.equals(request.getMessage()));
+    Assertions.assertFalse(ClientProtoUtils.toRaftClientRequestProto(request).hasMessage());
+  }
+
+  @Test
+  public void testNullContent() {
+    final Message nullByteString = Message.valueOf((ByteString) null, () -> "nullByteString");
+    final Message nullLambda = () -> null;
+    final Message nullByteBuffer = newByteBufferMessage(null);
+
+    for (Message m : new Message[]{nullByteString, nullLambda, nullByteBuffer}) {
+      Assertions.assertEquals(0, m.size());
+      Assertions.assertEquals(0, Message.getSize(m));
+      Assertions.assertNull(m.asReadOnlyByteBuffer());
+      Assertions.assertNull(Message.toByteString(m));
+
+      Assertions.assertEquals(nullByteString, m);
+      Assertions.assertNotEquals(Message.EMPTY, m);
+      Assertions.assertNotEquals(OrderedAsync.DUMMY, m);
+    }
+    Assertions.assertEquals(0, nullByteString.hashCode());
+    Assertions.assertNotEquals(nullByteString, Message.EMPTY);
+    Assertions.assertNotEquals(nullByteString, newByteBufferMessage(ByteBuffer.allocate(0)));
+  }
+
+  @Test
+  public void testByteBufferMessage() throws Exception {
+    final ByteString expected = newByteString(1000, 7);
+    final ByteBuffer direct = ByteBuffer.allocateDirect(expected.size());
+    expected.copyTo(direct);
+    direct.flip();
+
+    for (ByteBuffer buffer : new ByteBuffer[]{direct, ByteBuffer.wrap(expected.toByteArray())}) {
+      final Message message = newByteBufferMessage(buffer);
+      Assertions.assertEquals(expected.size(), message.size());
+      Assertions.assertEquals(expected, Message.toByteString(message));
+      Assertions.assertEquals(Message.valueOf(expected), message);
+      Assertions.assertNotEquals(Message.valueOf("DUMMY"), message);
+
+      final RaftClientRequest request = RaftClientRequest.newBuilder()
+          .setClientId(ClientId.randomId())
+          .setServerId(RaftPeerId.valueOf("s0"))
+          .setGroupId(RaftGroupId.randomId())
+          .setCallId(1)
+          .setMessage(message)
+          .setType(RaftClientRequest.writeRequestType())
+          .build();
+      final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
+      Assertions.assertEquals(expected, proto.getMessage().getContent());
+      Assertions.assertEquals(expected, ClientProtoUtils.toRaftClientRequest(proto).getMessage().getContent());
+
+      final StateMachineLogEntryProto entry = LogProtoUtils.toStateMachineLogEntryProto(request, null, null);
+      Assertions.assertEquals(expected, entry.getLogData());
+
+      Assertions.assertEquals(0, buffer.position());
+      Assertions.assertEquals(expected.size(), buffer.limit());
+    }
   }
 
   void print(String name, TimeDuration t, int n) {
