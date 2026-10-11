@@ -84,7 +84,6 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServer.Division.LeadershipStatus;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.impl.LeaderElection.Phase;
 import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
 import org.apache.ratis.server.impl.ServerImplUtils.NavigableIndices;
 import org.apache.ratis.server.leader.LeaderState.StepDownReason;
@@ -153,13 +152,9 @@ import static org.apache.ratis.server.impl.ServerImplUtils.effectiveCommitIndex;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toAppendEntriesReplyProto;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexReplyProto;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexRequestProto;
-import static org.apache.ratis.server.impl.ServerProtoUtils.toRequestVoteReplyProto;
-import static org.apache.ratis.server.impl.ServerProtoUtils.toStartLeaderElectionReplyProto;
 import static org.apache.ratis.server.raftlog.LogProtoUtils.toLogEntryTermIndexString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesReplyString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesRequestString;
-import static org.apache.ratis.server.util.ServerStringUtils.toRequestVoteReplyString;
-
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
@@ -259,6 +254,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final TransferLeadership transferLeadership;
   private final SnapshotManagementRequestHandler snapshotRequestHandler;
   private final SnapshotInstallationHandler snapshotInstallationHandler;
+  private final ElectionRequestHandler electionRequestHandler;
 
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
@@ -297,6 +293,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.transferLeadership = new TransferLeadership(this, properties);
     this.snapshotRequestHandler = new SnapshotManagementRequestHandler(this);
     this.snapshotInstallationHandler = new SnapshotInstallationHandler(this, properties);
+    this.electionRequestHandler = new ElectionRequestHandler(this);
     this.appendLogTermIndices = RaftServerConfigKeys.Log.appendEntriesComposeEnabled(properties) ?
         new NavigableIndices() : null;
 
@@ -594,7 +591,7 @@ class RaftServerImpl implements RaftServer.Division,
    * @param force Force to start a new {@link FollowerState} even if this server is already a follower.
    * @return if the term/votedFor should be updated to the new term
    */
-  private synchronized CompletableFuture<Void> changeToFollower(
+  synchronized CompletableFuture<Void> changeToFollower(
       long newTerm, boolean force, boolean allowListener, Object reason, AtomicBoolean metadataUpdated) {
     final RaftPeerRole old = role.getCurrentRole();
     if (old == RaftPeerRole.LISTENER && !allowListener) {
@@ -1523,80 +1520,9 @@ class RaftServerImpl implements RaftServer.Division,
     return Stream.concat(toAdds.stream(), inConfs.values().stream()).collect(Collectors.toList());
   }
 
-  /**
-   * The remote peer should shut down if all the following are true.
-   * 1. this is the current leader
-   * 2. current conf is stable and has been committed
-   * 3. candidate is not in the current conf
-   * 4. candidate last entry index < conf index (the candidate was removed)
-   */
-  private boolean shouldSendShutdown(RaftPeerId candidateId, TermIndex candidateLastEntry) {
-    return getInfo().isLeader()
-        && getRaftConf().isStable()
-        && getState().isConfCommitted()
-        && !getRaftConf().containsInConf(candidateId)
-        && candidateLastEntry.getIndex() < getRaftConf().getLogEntryIndex()
-        && role.getLeaderState().map(ls -> !ls.isBootStrappingPeer(candidateId)).orElse(false);
-  }
-
   @Override
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto r) throws IOException {
-    final RaftRpcRequestProto request = r.getServerRequest();
-    return requestVote(r.getPreVote() ? Phase.PRE_VOTE : Phase.ELECTION,
-        RaftPeerId.valueOf(request.getRequestorId()),
-        ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
-        r.getCandidateTerm(),
-        TermIndex.valueOf(r.getCandidateLastEntry()),
-        request.getCallId());
-  }
-
-  private RequestVoteReplyProto requestVote(Phase phase,
-      RaftPeerId candidateId, RaftGroupId candidateGroupId,
-      long candidateTerm, TermIndex candidateLastEntry, long callId) throws IOException {
-    CodeInjectionForTesting.execute(REQUEST_VOTE, getId(),
-        candidateId, candidateTerm, candidateLastEntry);
-    LOG.info("{}: receive requestVote({}, {}, {}, {}, {})",
-        getMemberId(), phase, candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-    assertGroup(getMemberId(), candidateId, candidateGroupId);
-
-    boolean shouldShutdown = false;
-    final RequestVoteReplyProto reply;
-    CompletableFuture<Void> future = null;
-    synchronized (this) {
-      // Check life cycle state again to avoid the PAUSING/PAUSED state.
-      assertLifeCycleState(LifeCycle.States.RUNNING);
-
-      final VoteContext context = new VoteContext(this, phase, candidateId);
-      final RaftPeer candidate = context.recognizeCandidate(candidateTerm);
-      final boolean voteGranted = context.decideVote(candidate, candidateLastEntry);
-      if (candidate != null && phase == Phase.ELECTION) {
-        // change server state in the ELECTION phase
-        final AtomicBoolean termUpdated = new AtomicBoolean();
-        future = changeToFollower(candidateTerm, true, false, "candidate:" + candidateId, termUpdated);
-        if (voteGranted) {
-          state.grantVote(candidate.getId());
-        }
-        if (termUpdated.get() || voteGranted) {
-          state.persistMetadata(); // sync metafile
-        }
-      }
-      if (voteGranted) {
-        role.getFollowerState().ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.REQUEST_VOTE));
-      } else if(shouldSendShutdown(candidateId, candidateLastEntry)) {
-        shouldShutdown = true;
-      }
-      reply = toRequestVoteReplyProto(candidateId, getMemberId(),
-          voteGranted, state.getCurrentTerm(), shouldShutdown, state.getLastEntry(), callId);
-      if (LOG.isInfoEnabled()) {
-        LOG.info("{} replies to {} vote request: {}. Peer's state: {}",
-            getMemberId(), phase, toRequestVoteReplyString(reply), state);
-      }
-    }
-    if (future != null) {
-      future.join();
-    }
-    return reply;
+    return electionRequestHandler.requestVote(r);
   }
 
   @Override
@@ -1872,46 +1798,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public StartLeaderElectionReplyProto startLeaderElection(StartLeaderElectionRequestProto request) throws IOException {
-    final RaftRpcRequestProto r = request.getServerRequest();
-    final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
-    final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(r.getRaftGroupId());
-    CodeInjectionForTesting.execute(START_LEADER_ELECTION, getId(), leaderId, request);
-
-    if (!request.hasLeaderLastEntry()) {
-      // It should have a leaderLastEntry since there is a placeHolder entry.
-      LOG.warn("{}: leaderLastEntry is missing in {}", getMemberId(), request);
-      return toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
-    }
-
-    final TermIndex leaderLastEntry = TermIndex.valueOf(request.getLeaderLastEntry());
-    LOG.debug("{}: receive startLeaderElection from {} with lastEntry {}", getMemberId(), leaderId, leaderLastEntry);
-
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-    assertGroup(getMemberId(), leaderId, leaderGroupId);
-
-    synchronized (this) {
-      // Check life cycle state again to avoid the PAUSING/PAUSED state.
-      assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
-      final boolean recognized = state.recognizeLeader("startLeaderElection", leaderId, leaderLastEntry.getTerm());
-      if (!recognized) {
-        return toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
-      }
-
-      if (!getInfo().isFollower()) {
-        LOG.warn("{} refused StartLeaderElectionRequest from {}, because role is:{}",
-            getMemberId(), leaderId, role.getCurrentRole());
-        return toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
-      }
-
-      if (ServerState.compareLog(state.getLastEntry(), leaderLastEntry) < 0) {
-        LOG.warn("{} refused StartLeaderElectionRequest from {}, because lastEntry:{} less than leaderEntry:{}",
-            getMemberId(), leaderId, leaderLastEntry, state.getLastEntry());
-        return toStartLeaderElectionReplyProto(leaderId, getMemberId(), false);
-      }
-
-      changeToCandidate(true);
-      return toStartLeaderElectionReplyProto(leaderId, getMemberId(), true);
-    }
+    return electionRequestHandler.startLeaderElection(request);
   }
 
   void submitUpdateCommitEvent() {
