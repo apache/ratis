@@ -380,22 +380,19 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     try (RaftClient client = cluster.createClient(leader)) {
 
       // submit some messages
+      final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
       for (int i = 0; i < numMessages; i++) {
         final String s = "" + i;
         LOG.info("sendAsync with ALL_COMMITTED " + s);
-        client.async().send(new SimpleMessage(s), ReplicationLevel.ALL_COMMITTED).whenComplete((reply, exception) -> {
-          if (exception != null) {
-            LOG.error("Failed to send message " + s, exception);
-            // reply should be null in case of exception
-            Assertions.assertNull(reply);
-            return;
-          }
-          Assertions.assertTrue(reply.isSuccess());
-          Assertions.assertNull(reply.getException());
-          // verify that all servers have caught up to log index when the reply is returned
-          reply.getCommitInfos().forEach(commitInfoProto ->
-              Assertions.assertTrue(commitInfoProto.getCommitIndex() >= reply.getLogIndex()));
-        });
+        futures.add(client.async().send(new SimpleMessage(s), ReplicationLevel.ALL_COMMITTED));
+      }
+      for (CompletableFuture<RaftClientReply> f : futures) {
+        final RaftClientReply reply = getWithDefaultTimeout(f);
+        Assertions.assertTrue(reply.isSuccess());
+        Assertions.assertNull(reply.getException());
+        // verify that all servers have caught up to log index when the reply is returned
+        reply.getCommitInfos().forEach(commitInfoProto ->
+            Assertions.assertTrue(commitInfoProto.getCommitIndex() >= reply.getLogIndex()));
       }
     }
   }
