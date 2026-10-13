@@ -96,7 +96,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
   public CompletableFuture<Message> query(Message request) {
     final ReadRequestProto proto;
     try {
-      proto = ReadRequestProto.parseFrom(request.getContent());
+      proto = ReadRequestProto.parseFrom(Message.toByteString(request));
     } catch (InvalidProtocolBufferException e) {
       return FileStoreCommon.completeExceptionally("Failed to parse " + request, e);
     }
@@ -110,7 +110,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
   @Override
   public long transferTo(Message request, WritableByteChannel stream) throws IOException {
     try {
-      final ReadRequestProto proto = ReadRequestProto.parseFrom(request.getContent());
+      final ReadRequestProto proto = ReadRequestProto.parseFrom(Message.toByteString(request));
       if (proto.getIsWatch()) {
         throw new IOException("Watch is not supported for streaming read: " + proto);
       }
@@ -130,7 +130,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
   @Override
   public TransactionContext startTransaction(RaftClientRequest request) throws IOException {
-    final ByteString content = request.getMessage().getContent();
+    final ByteString content = Message.toByteString(request.getMessage());
     final FileStoreRequestProto proto = FileStoreRequestProto.parseFrom(content);
     final TransactionContext.Builder b = TransactionContext.newBuilder()
         .setStateMachine(this)
@@ -247,7 +247,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
   @Override
   public CompletableFuture<DataStream> stream(RaftClientRequest request) {
-    final ByteString reqByteString = request.getMessage().getContent();
+    final ByteString reqByteString = Message.toByteString(request.getMessage());
     final FileStoreRequestProto proto;
     try {
       proto = FileStoreRequestProto.parseFrom(reqByteString);

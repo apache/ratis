@@ -149,7 +149,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Message> query(Message request) {
-    final Expression q = Expression.Utils.bytes2Expression(request.getContent().toByteArray(), 0);
+    final Expression q = Expression.Utils.bytes2Expression(Message.toByteString(request).toByteArray(), 0);
     final Double result;
     try(AutoCloseableLock readLock = readLock()) {
       result = q.evaluate(variables);

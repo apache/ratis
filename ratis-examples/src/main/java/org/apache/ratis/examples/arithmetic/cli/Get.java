@@ -23,6 +23,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.arithmetic.expression.DoubleValue;
 import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.examples.arithmetic.expression.Variable;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 
 import java.io.IOException;
@@ -42,7 +43,7 @@ public class Get extends Client {
     RaftClientReply getValue =
         client.io().sendReadOnly(Expression.Utils.toMessage(new Variable(name)));
     Expression response =
-        Expression.Utils.bytes2Expression(getValue.getMessage().getContent().toByteArray(), 0);
+        Expression.Utils.bytes2Expression(Message.toByteString(getValue.getMessage()).toByteArray(), 0);
     System.out.println(String.format("%s=%s", name, (DoubleValue) response).toString());
   }
 }

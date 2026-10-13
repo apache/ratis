@@ -96,7 +96,7 @@ public class FileStoreClient implements Closeable {
       throw new IOException("Failed to send request " + request, sme);
     }
     Preconditions.assertTrue(reply.isSuccess(), () -> "Failed " + request + ", reply=" + reply);
-    return reply.getMessage().getContent();
+    return Message.toByteString(reply.getMessage());
   }
 
   static CompletableFuture<ByteString> sendAsync(
@@ -107,7 +107,7 @@ public class FileStoreClient implements Closeable {
         throw new CompletionException("Failed to send request " + request, sme);
       }
       Preconditions.assertTrue(reply.isSuccess(), () -> "Failed " + request + ", reply=" + reply);
-      return reply.getMessage().getContent();
+      return Message.toByteString(reply.getMessage());
     });
   }
 

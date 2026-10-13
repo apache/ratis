@@ -24,6 +24,7 @@ import org.apache.ratis.examples.arithmetic.expression.DoubleValue;
 import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.examples.arithmetic.expression.NullValue;
 import org.apache.ratis.examples.arithmetic.expression.Variable;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.Preconditions;
@@ -159,7 +160,7 @@ public class TestArithmetic extends ParameterizedBaseTest {
   static Expression assertRaftClientReply(RaftClientReply reply, Double expected) {
     Assertions.assertTrue(reply.isSuccess());
     final Expression e = Expression.Utils.bytes2Expression(
-        reply.getMessage().getContent().toByteArray(), 0);
+        Message.toByteString(reply.getMessage()).toByteArray(), 0);
     if (expected != null) {
       Assertions.assertEquals(expected, e.evaluate(null));
     }
