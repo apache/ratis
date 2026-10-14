@@ -235,9 +235,8 @@ public class CounterStateMachine extends BaseStateMachine {
    */
   @Override
   public CompletableFuture<Message> query(Message request) {
-    final String command = request.getContent().toStringUtf8();
-    if (!CounterCommand.GET.matches(command)) {
-      return JavaUtils.completeExceptionally(new IllegalArgumentException("Invalid Command: " + command));
+    if (!CounterCommand.GET.matches(request)) {
+      return JavaUtils.completeExceptionally(new IllegalArgumentException("Invalid Command: " + request));
     }
     return CompletableFuture.completedFuture(Message.valueOf(toByteString(counter.get())));
   }
@@ -249,7 +248,7 @@ public class CounterStateMachine extends BaseStateMachine {
   public TransactionContext startTransaction(RaftClientRequest request) throws IOException {
     final TransactionContext transaction = super.startTransaction(request);
     //check if the command is valid
-    final ByteString command = request.getMessage().getContent();
+    final Message command = request.getMessage();
     if (!CounterCommand.INCREMENT.matches(command)) {
       transaction.setException(new IllegalArgumentException("Invalid Command: " + command));
     }

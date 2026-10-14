@@ -135,7 +135,7 @@ public final class CounterClient implements Closeable {
 
     // reply is success
     final TimeDuration readElapsed = readStarted.elapsedTime();
-    final int countValue = reply.getMessage().getContent().asReadOnlyByteBuffer().getInt();
+    final int countValue = reply.getMessage().asReadOnlyByteBuffer().getInt();
     System.out.printf("read from %s and get counter value: %d, time elapsed: %s.%n",
         server, countValue, readElapsed.toString(TimeUnit.SECONDS, 3));
   }
@@ -162,7 +162,7 @@ public final class CounterClient implements Closeable {
 
     //send a GET command and print the reply
     final RaftClientReply reply = client.io().sendReadOnly(CounterCommand.GET.getMessage());
-    final int count = reply.getMessage().getContent().asReadOnlyByteBuffer().getInt();
+    final int count = reply.getMessage().asReadOnlyByteBuffer().getInt();
     System.out.println("Current counter value: " + count);
 
     // using Linearizable Read

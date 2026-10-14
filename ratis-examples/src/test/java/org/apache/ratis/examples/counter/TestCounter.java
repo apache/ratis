@@ -46,17 +46,17 @@ public class TestCounter extends ParameterizedBaseTest {
         client.io().send(Message.valueOf("INCREMENT"));
       }
       RaftClientReply reply1 = client.io().sendReadOnly(Message.valueOf("GET"));
-      Assertions.assertEquals(10, reply1.getMessage().getContent().asReadOnlyByteBuffer().getInt());
+      Assertions.assertEquals(10, reply1.getMessage().asReadOnlyByteBuffer().getInt());
       for (int i = 0; i < 10; i++) {
         client.io().send(Message.valueOf("INCREMENT"));
       }
       RaftClientReply reply2 = client.io().sendReadOnly(Message.valueOf("GET"));
-      Assertions.assertEquals(20, reply2.getMessage().getContent().asReadOnlyByteBuffer().getInt());
+      Assertions.assertEquals(20, reply2.getMessage().asReadOnlyByteBuffer().getInt());
       for (int i = 0; i < 10; i++) {
         client.io().send(Message.valueOf("INCREMENT"));
       }
       RaftClientReply reply3 = client.io().sendReadOnly(Message.valueOf("GET"));
-      Assertions.assertEquals(30, reply3.getMessage().getContent().asReadOnlyByteBuffer().getInt());
+      Assertions.assertEquals(30, reply3.getMessage().asReadOnlyByteBuffer().getInt());
     }
   }
 }
