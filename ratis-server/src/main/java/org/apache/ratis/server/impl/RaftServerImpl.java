@@ -298,6 +298,13 @@ class RaftServerImpl implements RaftServer.Division,
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
         id + "-client");
     this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
+
+    this.closeFuture.whenComplete((v, e) -> {
+      // A division closed before its role is initialized has no role info to report.
+      if (role.getCurrentRole() != null) {
+        stateMachine.event().notifyServerShutdown(getRoleInfoProto(), false);
+      }
+    });
   }
 
   private long getCommitIndex(RaftPeerId id) {
