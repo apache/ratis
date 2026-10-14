@@ -162,11 +162,18 @@ class StateMachineUpdater implements Runnable {
       }
       return;
     }
+    final Timestamp startTime = Timestamp.currentTime();
+    LOG.info("{}: start stopping {}, lastApplied={}, lastCommitted={}", name,
+        JavaUtils.getClassSimpleName(stateMachine.getClass()), stateMachine.getLastAppliedTermIndex(),
+        raftLog.getLastCommittedIndex());
     if (stopIndex.compareAndSet(null, raftLog.getLastCommittedIndex())) {
       notifyUpdater();
       LOG.info("{}: set stopIndex = {}", this, stopIndex);
     }
     updater.join();
+    LOG.info("{}: stopped {} in {}ms, stopIndex={}, lastApplied={}", name,
+        JavaUtils.getClassSimpleName(stateMachine.getClass()), startTime.elapsedTimeMs(),
+        stopIndex.get(), stateMachine.getLastAppliedTermIndex());
   }
 
   void reloadStateMachine() {
