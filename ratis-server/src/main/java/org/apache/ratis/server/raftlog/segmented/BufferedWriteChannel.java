@@ -17,7 +17,9 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
+import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.function.CheckedBiFunction;
 import org.apache.ratis.util.function.CheckedConsumer;
@@ -42,6 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 class BufferedWriteChannel implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(BufferedWriteChannel.class);
+  static final String FILE_CHANNEL_FORCE = JavaUtils.getClassSimpleName(BufferedWriteChannel.class) + ".fileChannelForce";
 
   @SuppressWarnings("java:S2095") // return Closable
   static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer) throws IOException {
@@ -136,7 +139,7 @@ class BufferedWriteChannel implements Closeable {
   void flush() throws IOException {
     flushBuffer();
     if (!forced) {
-      fileChannel.force(false);
+      forceFileChannel();
       forced = true;
     }
   }
@@ -153,11 +156,18 @@ class BufferedWriteChannel implements Closeable {
 
   private Void fileChannelForce() {
     try {
-      fileChannel.force(false);
+      forceFileChannel();
     } catch (IOException e) {
       throw new CompletionException("Failed to force channel " + this, e);
     }
     return null;
+  }
+
+  private void forceFileChannel() throws IOException {
+    if (CodeInjectionForTesting.execute(FILE_CHANNEL_FORCE, this, null)) {
+      throw new IOException("Injected failure");
+    }
+    fileChannel.force(false);
   }
 
   /** Flush the data from the {@link #writeBuffer} to {@link #fileChannel}. */

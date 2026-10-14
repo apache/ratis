@@ -214,6 +214,7 @@ class ServerState {
           .setNotifyTruncatedLogEntry(server::notifyTruncatedLogEntry)
           .setGetTransactionContext(server::getTransactionContext)
           .setSubmitUpdateCommitEvent(server::submitUpdateCommitEvent)
+          .setFailureHandler(server::close)
           .setStorage(storage)
           .setSnapshotIndexSupplier(getSnapshotIndexFromStateMachine)
           .setProperties(prop)
