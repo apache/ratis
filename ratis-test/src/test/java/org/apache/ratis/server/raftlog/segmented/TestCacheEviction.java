@@ -187,9 +187,13 @@ public class TestCacheEviction extends BaseTest {
     raftLog.append(entries).forEach(CompletableFuture::join);
 
     // check the cached segment number again. since the slowest follower is on
-    // index 21, the eviction should happen and evict 3 segments
-    Assertions.assertEquals(maxCachedNum + 1 - 3,
-        raftLog.getRaftLogCache().getCachedSegmentNum());
+    // index 21, the eviction should happen and evict 3 segments.
+    // The eviction runs asynchronously, so wait for it.
+    JavaUtils.attemptRepeatedly(() -> {
+      Assertions.assertEquals(maxCachedNum + 1 - 3,
+          raftLog.getRaftLogCache().getCachedSegmentNum());
+      return null;
+    }, 10, HUNDRED_MILLIS, "checkCachedSegmentNum", LOG);
   }
 
   private List<LogEntryProto> generateEntries(List<SegmentRange> slist) {
