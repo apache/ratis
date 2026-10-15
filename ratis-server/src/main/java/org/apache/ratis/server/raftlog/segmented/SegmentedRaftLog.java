@@ -216,7 +216,8 @@ public final class SegmentedRaftLog extends RaftLogBase {
     this.cache = new SegmentedRaftLogCache(b.memberId, storage, b.properties, getRaftLogMetrics());
     this.cacheEviction = new AwaitToRun(b.memberId + "-cacheEviction", this::checkAndEvictCache).start();
     this.fileLogWorker = new SegmentedRaftLogWorker(b.memberId, stateMachine,
-        b.submitUpdateCommitEvent, b.server, b.failureHandler, storage, b.properties, getRaftLogMetrics());
+        b.submitUpdateCommitEvent, b.server, storage, b.properties, getRaftLogMetrics());
+    this.fileLogWorker.setFailureHandler(b.failureHandler);
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(b.properties);
     this.readLockEnabled = RaftServerConfigKeys.Log.readLockEnabled(b.properties);
   }

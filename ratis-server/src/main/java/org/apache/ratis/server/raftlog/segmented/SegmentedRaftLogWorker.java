@@ -187,7 +187,7 @@ class SegmentedRaftLogWorker {
   private final long segmentMaxSize;
   private final long preallocatedSize;
   private final RaftServer.Division server;
-  private final Consumer<Throwable> failureHandler;
+  private Consumer<Throwable> failureHandler;
 
   private final boolean asyncFlush;
   private final boolean unsafeFlush;
@@ -196,8 +196,7 @@ class SegmentedRaftLogWorker {
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
   SegmentedRaftLogWorker(RaftGroupMemberId memberId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
-                         RaftServer.Division server, Consumer<Throwable> failureHandler, RaftStorage storage,
-                         RaftProperties properties,
+                         RaftServer.Division server, RaftStorage storage, RaftProperties properties,
                          SegmentedRaftLogMetrics metricRegistry) {
     this.name = memberId + "-" + JavaUtils.getClassSimpleName(getClass());
     LOG.info("new {} for {}", name, storage);
@@ -207,7 +206,6 @@ class SegmentedRaftLogWorker {
     this.raftLogMetrics = metricRegistry;
     this.storage = storage;
     this.server = server;
-    this.failureHandler = failureHandler;
     final SizeInBytes queueByteLimit = RaftServerConfigKeys.Log.queueByteLimit(properties);
     final int queueElementLimit = RaftServerConfigKeys.Log.queueElementLimit(properties);
     this.queue =
@@ -244,6 +242,10 @@ class SegmentedRaftLogWorker {
     }
     this.flushExecutor = (!asyncFlush && !unsafeFlush)? null
         : ConcurrentUtils.newSingleThreadExecutor(name + "-flush");
+  }
+
+  void setFailureHandler(Consumer<Throwable> failureHandler) {
+    this.failureHandler = failureHandler;
   }
 
   void start(long latestIndex, long evictIndex, File openSegmentFile) throws IOException {
@@ -420,14 +422,14 @@ class SegmentedRaftLogWorker {
   }
 
   private void asyncFlushOutStream(CompletableFuture<Void> stateMachineFlush) throws IOException {
-    final long flushIndex = lastWrittenIndex;
+    final long scheduledFlushIndex = lastWrittenIndex;
     final Timekeeper.Context logSyncTimerContext = raftLogMetrics.getSyncTimer().time();
     out.asyncFlush(flushExecutor)
         .thenCombine(stateMachineFlush, (async, sm) -> async)
         .whenComplete((v, e) -> {
           logSyncTimerContext.stop();
           if (e == null) {
-            updateFlushedIndexIncreasingly(flushIndex);
+            updateFlushedIndexIncreasingly(scheduledFlushIndex);
           } else if (failureHandler != null) {
             failureHandler.accept(e);
           }

@@ -44,7 +44,8 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 class BufferedWriteChannel implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(BufferedWriteChannel.class);
-  static final String FILE_CHANNEL_FORCE = JavaUtils.getClassSimpleName(BufferedWriteChannel.class) + ".fileChannelForce";
+  static final String FILE_CHANNEL_FORCE =
+      JavaUtils.getClassSimpleName(BufferedWriteChannel.class) + ".fileChannelForce";
 
   @SuppressWarnings("java:S2095") // return Closable
   static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer) throws IOException {
