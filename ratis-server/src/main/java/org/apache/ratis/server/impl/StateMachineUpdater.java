@@ -162,11 +162,20 @@ class StateMachineUpdater implements Runnable {
       }
       return;
     }
+    final Timestamp startTime = Timestamp.currentTime();
+    LOG.info("{}: Initiate stopAndJoin {}", name, JavaUtils.getClassSimpleName(stateMachine.getClass()));
     if (stopIndex.compareAndSet(null, raftLog.getLastCommittedIndex())) {
       notifyUpdater();
-      LOG.info("{}: set stopIndex = {}", this, stopIndex);
+      LOG.info("{}: set stopIndex to {}, waiting for updaterLastApplied (={}) to reach stopIndex",
+              name, stopIndex, getLastAppliedIndex());
+    } else {
+      LOG.info("{}: stopIndex already set at {}, waiting for updaterLastApplied (={}) to reach stopIndex",
+              name, stopIndex, getLastAppliedIndex());
     }
     updater.join();
+    LOG.info("{}: Completed stopAndJoin {} in {}ms, stopIndex={}, lastApplied={}",
+            name, JavaUtils.getClassSimpleName(stateMachine.getClass()), startTime.elapsedTimeMs(),
+            stopIndex.get(), getLastAppliedIndex());
   }
 
   void reloadStateMachine() {
