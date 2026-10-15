@@ -1264,7 +1264,7 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
   private static boolean isDummyRead(RaftClientRequest request) {
-    return request.getMessage() != null && OrderedAsync.DUMMY.getContent().equals(request.getMessage().getContent());
+    return OrderedAsync.DUMMY.equals(request.getMessage());
   }
 
   private RaftClientReply readException2Reply(RaftClientRequest request, Throwable e) {
