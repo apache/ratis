@@ -18,7 +18,6 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.client.impl.OrderedAsync;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
@@ -67,13 +66,10 @@ import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.LeaderSteppingDownException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.RaftException;
-import org.apache.ratis.protocol.exceptions.ReadException;
-import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationInProgressException;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.SetConfigurationException;
-import org.apache.ratis.protocol.exceptions.StaleReadException;
 import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.server.DataStreamMap;
@@ -81,13 +77,11 @@ import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.DivisionProperties;
 import org.apache.ratis.server.RaftConfiguration;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServer.Division.LeadershipStatus;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
 import org.apache.ratis.server.impl.ServerImplUtils.NavigableIndices;
 import org.apache.ratis.server.leader.LeaderState.StepDownReason;
-import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
@@ -146,12 +140,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.apache.ratis.server.impl.LeaderElection.Result.NOT_IN_CONF;
+import static org.apache.ratis.server.impl.ReadRequestHandler.isDummyRead;
 import static org.apache.ratis.server.impl.ServerImplUtils.assertEntries;
 import static org.apache.ratis.server.impl.ServerImplUtils.assertGroup;
 import static org.apache.ratis.server.impl.ServerImplUtils.effectiveCommitIndex;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toAppendEntriesReplyProto;
-import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexReplyProto;
-import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexRequestProto;
 import static org.apache.ratis.server.raftlog.LogProtoUtils.toLogEntryTermIndexString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesReplyString;
 import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesRequestString;
@@ -235,8 +228,6 @@ class RaftServerImpl implements RaftServer.Division,
   private final RoleInfo role;
 
   private final DataStreamMap dataStreamMap;
-  private final RaftServerConfigKeys.Read.Option readOption;
-
   private final TransactionManager transactionManager;
   private final RetryCacheImpl retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
@@ -256,12 +247,11 @@ class RaftServerImpl implements RaftServer.Division,
   private final SnapshotManagementRequestHandler snapshotRequestHandler;
   private final SnapshotInstallationHandler snapshotInstallationHandler;
   private final ElectionRequestHandler electionRequestHandler;
+  private final ReadRequestHandler readRequestHandler;
 
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
   private final ThreadGroup threadGroup;
-
-  private final CompletableFuture<RaftClientReply> dummySuccessReply;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy, RaftStorage.StartupOption option)
       throws IOException {
@@ -282,7 +272,6 @@ class RaftServerImpl implements RaftServer.Division,
     this.state = new ServerState(id, group, stateMachine, this, option, properties);
     this.retryCache = new RetryCacheImpl(properties);
     this.dataStreamMap = new DataStreamMapImpl(id);
-    this.readOption = RaftServerConfigKeys.Read.option(properties);
     this.writeIndexCache = new WriteIndexCache(properties);
     this.transactionManager = new TransactionManager(id);
     TraceUtils.setTracerWhenEnabled(properties);
@@ -296,6 +285,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.snapshotRequestHandler = new SnapshotManagementRequestHandler(this);
     this.snapshotInstallationHandler = new SnapshotInstallationHandler(this, properties);
     this.electionRequestHandler = new ElectionRequestHandler(this);
+    this.readRequestHandler = new ReadRequestHandler(this, properties);
     this.appendLogTermIndices = RaftServerConfigKeys.Log.appendEntriesComposeEnabled(properties) ?
         new NavigableIndices() : null;
 
@@ -308,13 +298,6 @@ class RaftServerImpl implements RaftServer.Division,
         RaftServerConfigKeys.ThreadPool.clientSize(properties),
         id + "-client");
     this.threadGroup = new ThreadGroup(proxy.getThreadGroup(), getMemberId().toString());
-
-    this.dummySuccessReply = CompletableFuture.completedFuture(RaftClientReply.newBuilder()
-        .setClientId(ClientId.emptyClientId())
-        .setServerId(id)
-        .setGroupId(group.getGroupId())
-        .setSuccess()
-        .build());
 
     this.closeFuture.whenComplete((v, e) -> {
       // A division closed before its role is initialized has no role info to report.
@@ -822,7 +805,7 @@ class RaftServerImpl implements RaftServer.Division,
         .build();
   }
 
-  private CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request) {
+  CompletableFuture<RaftClientReply> checkLeaderState(RaftClientRequest request) {
     try {
       assertGroup(getMemberId(), request);
     } catch (GroupMismatchException e) {
@@ -1089,9 +1072,9 @@ class RaftServerImpl implements RaftServer.Division,
     final TypeCase type = request.getType().getTypeCase();
     switch (type) {
       case STALEREAD:
-        return staleReadAsync(request);
+        return readRequestHandler.staleReadAsync(request);
       case READ:
-        return readAsync(request);
+        return readRequestHandler.readAsync(request);
       case WATCH:
         return watchAsync(request);
       case MESSAGESTREAM:
@@ -1163,123 +1146,6 @@ class RaftServerImpl implements RaftServer.Division,
             newExceptionReply(request, newNotLeaderException())));
   }
 
-  private CompletableFuture<RaftClientReply> staleReadAsync(RaftClientRequest request) {
-    final long minIndex = request.getType().getStaleRead().getMinIndex();
-    final long commitIndex = state.getLog().getLastCommittedIndex();
-    LOG.debug("{}: minIndex={}, commitIndex={} from {}", getMemberId(), minIndex, commitIndex, request.getClientId());
-    if (commitIndex < minIndex) {
-      final StaleReadException e = new StaleReadException(
-          "Unable to serve stale-read due to server commit index = " + commitIndex + " < min = " + minIndex);
-      return CompletableFuture.completedFuture(
-          newExceptionReply(request, new StateMachineException(getMemberId(), e)));
-    }
-    return processQueryFuture(stateMachine.queryStale(request.getMessage(), minIndex), request);
-  }
-  ReadException getReadException(String op, long installSnapshot, boolean started) {
-    return installSnapshot == RaftLog.INVALID_LOG_INDEX ? null : new ReadException(getMemberId() + ": Failed to " + op
-        + " readIndex as snapshot (" + installSnapshot + ") installation is " + (started ? "started" : "in progress"));
-  }
-
-  private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync(
-      ClientId clientId, ReadRequestTypeProto readRequestType) {
-    final long installSnapshot = snapshotInstallationHandler.getInProgressInstallSnapshotIndex();
-    if (installSnapshot != RaftLog.INVALID_LOG_INDEX) {
-      return JavaUtils.completeExceptionally(getReadException("get", installSnapshot, false));
-    }
-    final RaftPeerId leaderId = getInfo().getLeaderId();
-    if (leaderId == null) {
-      return JavaUtils.completeExceptionally(new ReadIndexException(getMemberId() + ": Leader is unknown."));
-    }
-    final ReadIndexRequestProto request = toReadIndexRequestProto(clientId, readRequestType, getMemberId(), leaderId);
-    try {
-      return getServerRpc().async().readIndexAsync(request);
-    } catch (IOException e) {
-      return JavaUtils.completeExceptionally(e);
-    }
-  }
-
-  private CompletableFuture<Long> getReadIndex(
-      ClientId clientId, ReadRequestTypeProto readRequestType, LeaderStateImpl leader) {
-    if (leader != null) {
-      return writeIndexCache.getWriteIndexFuture(clientId, readRequestType).thenCompose(leader::getReadIndex);
-    }
-    return sendReadIndexAsync(clientId, readRequestType).thenApply(reply -> {
-      if (reply.getServerReply().getSuccess()) {
-        return reply.getReadIndex();
-      } else {
-        throw new CompletionException(new ReadIndexException(getId()
-                + ": Failed to get read index from the leader: " + reply));
-      }
-    });
-  }
-
-  @Override
-  public CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
-      Message queryMessage) throws IOException {
-    Objects.requireNonNull(clientId, "clientId == null");
-    Objects.requireNonNull(readRequestType, "readRequestType == null");
-    Objects.requireNonNull(queryMessage, "queryMessage == null");
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-    if (readRequestType.getPreferNonLinearizable() || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
-      if (!getInfo().isLeader()) {
-        return JavaUtils.completeExceptionally(newNotLeaderException());
-      }
-      if (!getInfo().isLeaderReady()) {
-        return JavaUtils.completeExceptionally(new LeaderNotReadyException(getMemberId()));
-      }
-      return getStateMachine().query(queryMessage);
-    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
-      final LeaderStateImpl leader = role.getLeaderState().orElse(null);
-      return getReadIndex(clientId, readRequestType, leader)
-          .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
-              () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
-          .thenCompose(readIndex -> getStateMachine().query(queryMessage));
-    } else {
-      throw new IllegalStateException("Unexpected read option: " + readOption);
-    }
-  }
-
-  private CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
-    if (request.getType().getRead().getPreferNonLinearizable()
-        || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
-      final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
-      if (reply != null) {
-        return reply;
-      }
-      return isDummyRead(request) ? CompletableFuture.completedFuture(newSuccessReply(request))
-          : queryStateMachine(request);
-    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
-      final LeaderStateImpl leader = role.getLeaderState().orElse(null);
-      final CompletableFuture<Long> replyFuture;
-      replyFuture = getReadIndex(request.getClientId(), request.getType().getRead(), leader);
-
-      return replyFuture
-          .thenCompose(readIndex -> getState().getReadRequests().waitToAdvance(readIndex,
-              () -> getReadException("add", snapshotInstallationHandler.getInProgressInstallSnapshotIndex(), false)))
-          .thenCompose(readIndex -> isDummyRead(request)
-              ? CompletableFuture.completedFuture(newSuccessReply(request)) : queryStateMachine(request))
-          .exceptionally(e -> readException2Reply(request, e));
-    } else {
-      throw new IllegalStateException("Unexpected read option: " + readOption);
-    }
-  }
-  private static boolean isDummyRead(RaftClientRequest request) {
-    return OrderedAsync.DUMMY.equals(request.getMessage());
-  }
-
-  private RaftClientReply readException2Reply(RaftClientRequest request, Throwable e) {
-    e = JavaUtils.unwrapCompletionException(e);
-    if (e instanceof StateMachineException ) {
-      return newExceptionReply(request, (StateMachineException) e);
-    } else if (e instanceof ReadException) {
-      return newExceptionReply(request, (ReadException) e);
-    } else if (e instanceof ReadIndexException) {
-      return newExceptionReply(request, (ReadIndexException) e);
-    } else {
-      throw new CompletionException(e);
-    }
-  }
-
   private CompletableFuture<RaftClientReply> messageStreamAsync(RaftClientRequest request) throws IOException {
     final CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
     if (reply != null) {
@@ -1307,23 +1173,10 @@ class RaftServerImpl implements RaftServer.Division,
         .orElse(null);
   }
 
-  CompletableFuture<RaftClientReply> queryStateMachine(RaftClientRequest request) {
-    if (request.getType().getRead().getDummy()) {
-      return dummySuccessReply;
-    }
-    return processQueryFuture(stateMachine.query(request.getMessage()), request);
-  }
-
-  CompletableFuture<RaftClientReply> processQueryFuture(
-      CompletableFuture<Message> queryFuture, RaftClientRequest request) {
-    return queryFuture.thenApply(r -> newReplyBuilder(request).setSuccess().setMessage(r).build())
-        .exceptionally(e -> {
-          e = JavaUtils.unwrapCompletionException(e);
-          if (e instanceof StateMachineException) {
-            return newExceptionReply(request, (StateMachineException)e);
-          }
-          throw new CompletionException(e);
-        });
+  @Override
+  public CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
+      Message queryMessage) throws IOException {
+    return readRequestHandler.readOnlyAsync(clientId, readRequestType, queryMessage);
   }
 
   @Override
@@ -1617,32 +1470,7 @@ class RaftServerImpl implements RaftServer.Division,
 
   @Override
   public CompletableFuture<ReadIndexReplyProto> readIndexAsync(ReadIndexRequestProto request) throws IOException {
-    assertLifeCycleState(LifeCycle.States.RUNNING);
-
-    final RaftPeerId peerId = RaftPeerId.valueOf(request.getServerRequest().getRequestorId());
-
-    final LeaderStateImpl leader = role.getLeaderState().orElse(null);
-    if (leader == null) {
-      return CompletableFuture.completedFuture(toReadIndexReplyProto(peerId, getMemberId()));
-    }
-
-    final RaftClientRequest clientRequest = ClientProtoUtils.toRaftClientRequest(request.getClientRequest());
-    return getReadIndex(clientRequest.getClientId(), clientRequest.getType().getRead(), leader)
-        .thenApply(index -> toReadIndexReplyProto(peerId, getMemberId(), true, index))
-        .whenComplete((reply, exception) -> {
-          if (exception == null) {
-            // Leader should try to trigger heartbeat immediately after leader replies the ReadIndex to the follower
-            // so that the follower's commitIndex can be updated to the leader's commitIndex and the follower
-            // can start applying the logs up until the leader's commitIndex (instead of waiting for the next
-            // AppendEntries to happen through heartbeat or new transactions (which might increase the latency
-            // considerably)).
-            // Note that if the follower commitIndex is already equal to the leader's commitIndex, no heartbeat
-            // will be triggered, see GrpcLogAppender#isFollowerCommitBehindLastCommitIndex.
-            RaftPeerId requestorId = RaftPeerId.valueOf(reply.getServerReply().getRequestorId());
-            leader.getLogAppender(requestorId).ifPresent(LogAppender::triggerHeartbeat);
-          }
-        })
-        .exceptionally(throwable -> toReadIndexReplyProto(peerId, getMemberId()));
+    return readRequestHandler.readIndexAsync(request);
   }
 
   static void logAppendEntries(boolean isHeartbeat, Supplier<String> message) {
@@ -1669,6 +1497,18 @@ class RaftServerImpl implements RaftServer.Division,
 
   private long updateCommitInfoCache() {
     return commitInfoCache.update(getId(), state.getLog().getLastCommittedIndex());
+  }
+
+  SnapshotInstallationHandler getSnapshotInstallationHandler() {
+    return snapshotInstallationHandler;
+  }
+
+  ReadRequestHandler getReadRequestHandler() {
+    return readRequestHandler;
+  }
+
+  WriteIndexCache getWriteIndexCache() {
+    return writeIndexCache;
   }
 
   ExecutorService getServerExecutor() {
