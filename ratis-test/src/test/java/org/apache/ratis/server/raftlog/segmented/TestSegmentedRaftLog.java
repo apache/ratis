@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.RetryCache;
@@ -82,8 +83,12 @@ import org.slf4j.event.Level;
 
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
+import static org.apache.ratis.server.raftlog.segmented.BufferedWriteChannel.FILE_CHANNEL_FORCE;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogWorker.RUN_WORKER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -832,10 +837,10 @@ public class TestSegmentedRaftLog extends BaseTest {
       TimeUnit.SECONDS.sleep(1);
       assertIndices(raftLog, flush, next);
       sm.unblockFlushStateMachineData();
-      assertIndicesMultipleAttempts(raftLog, flush + 2, next);
+      // An async flush only advances through the index captured when it was scheduled.
+      final long expectedFlushIndex = useAsyncFlush && !smSyncFlush ? flush + 1 : flush + 2;
+      assertIndicesMultipleAttempts(raftLog, expectedFlushIndex, next);
 
-      // raftLog.appendEntry(entry).get() won't return
-      // until sm.unblockFlushStateMachineData() was called.
       t.join();
     }
   }
@@ -888,6 +893,44 @@ public class TestSegmentedRaftLog extends BaseTest {
     }
     Assertions.assertSame(LifeCycle.State.PAUSED, sm.getLifeCycleState());
     Assertions.assertInstanceOf(TimeoutIOException.class, ex.getCause());
+  }
+
+  @Test
+  public void testAsyncFlushFailure() throws Exception {
+    RaftServerConfigKeys.Log.setAsyncFlushEnabled(properties, true);
+    RaftServerConfigKeys.Log.setForceSyncNum(properties, 1);
+    final AtomicInteger commitUpdates = new AtomicInteger();
+    final RaftServer.Division server = mock(RaftServer.Division.class);
+
+    try (SegmentedRaftLog raftLog = SegmentedRaftLog.newBuilder()
+        .setMemberId(MEMBER_ID)
+        .setServer(server)
+        .setSubmitUpdateCommitEvent(commitUpdates::incrementAndGet)
+        .setStorage(storage)
+        .setProperties(properties)
+        .build()) {
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
+      raftLog.appendEntry(prepareLogEntry(0, 0, null, false));
+      JavaUtils.attemptRepeatedly(() -> {
+        assertEquals(0, raftLog.getFlushIndex());
+        return null;
+      }, 10, HUNDRED_MILLIS, "initial async flush", LOG);
+      commitUpdates.set(0);
+
+      CodeInjectionForTesting.put(FILE_CHANNEL_FORCE, (localId, remoteId, args) -> true);
+      try {
+        raftLog.appendEntry(prepareLogEntry(0, 1, null, false));
+
+        JavaUtils.attemptRepeatedly(() -> {
+          verify(server).close();
+          assertEquals(0, raftLog.getFlushIndex());
+          assertEquals(0, commitUpdates.get());
+          return null;
+        }, 10, HUNDRED_MILLIS, "async flush failure", LOG);
+      } finally {
+        CodeInjectionForTesting.remove(FILE_CHANNEL_FORCE);
+      }
+    }
   }
 
   static Thread startAppendEntryThread(RaftLog raftLog, LogEntryProto entry) {
