@@ -417,12 +417,18 @@ class SegmentedRaftLogWorker {
   }
 
   private void asyncFlushOutStream(CompletableFuture<Void> stateMachineFlush) throws IOException {
+    final long scheduledFlushIndex = lastWrittenIndex;
     final Timekeeper.Context logSyncTimerContext = raftLogMetrics.getSyncTimer().time();
     out.asyncFlush(flushExecutor)
         .thenCombine(stateMachineFlush, (async, sm) -> async)
         .whenComplete((v, e) -> {
-          updateFlushedIndexIncreasingly(lastWrittenIndex);
           logSyncTimerContext.stop();
+          if (e == null) {
+            updateFlushedIndexIncreasingly(scheduledFlushIndex);
+          } else {
+            LOG.error("{} Failed asyncFlush", this, e);
+            server.close();
+          }
         });
   }
 
