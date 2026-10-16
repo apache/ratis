@@ -217,7 +217,6 @@ public final class SegmentedRaftLog extends RaftLogBase {
     this.cacheEviction = new AwaitToRun(b.memberId + "-cacheEviction", this::checkAndEvictCache).start();
     this.fileLogWorker = new SegmentedRaftLogWorker(b.memberId, stateMachine,
         b.submitUpdateCommitEvent, b.server, storage, b.properties, getRaftLogMetrics());
-    this.fileLogWorker.setFailureHandler(b.failureHandler);
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(b.properties);
     this.readLockEnabled = RaftServerConfigKeys.Log.readLockEnabled(b.properties);
   }
@@ -560,7 +559,6 @@ public final class SegmentedRaftLog extends RaftLogBase {
   public static final class Builder {
     private RaftGroupMemberId memberId;
     private RaftServer.Division server;
-    private Consumer<Throwable> failureHandler;
     private StateMachine stateMachine;
     private Consumer<LogEntryProto> notifyTruncatedLogEntry;
     private BiFunction<LogEntryProto, Boolean, TransactionContext> getTransactionContext;
@@ -579,11 +577,6 @@ public final class SegmentedRaftLog extends RaftLogBase {
     public Builder setServer(RaftServer.Division server) {
       this.server = server;
       this.stateMachine = server.getStateMachine();
-      return this;
-    }
-
-    public Builder setFailureHandler(Consumer<Throwable> failureHandler) {
-      this.failureHandler = failureHandler;
       return this;
     }
 

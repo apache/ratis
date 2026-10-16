@@ -187,7 +187,6 @@ class SegmentedRaftLogWorker {
   private final long segmentMaxSize;
   private final long preallocatedSize;
   private final RaftServer.Division server;
-  private Consumer<Throwable> failureHandler;
 
   private final boolean asyncFlush;
   private final boolean unsafeFlush;
@@ -242,10 +241,6 @@ class SegmentedRaftLogWorker {
     }
     this.flushExecutor = (!asyncFlush && !unsafeFlush)? null
         : ConcurrentUtils.newSingleThreadExecutor(name + "-flush");
-  }
-
-  void setFailureHandler(Consumer<Throwable> failureHandler) {
-    this.failureHandler = failureHandler;
   }
 
   void start(long latestIndex, long evictIndex, File openSegmentFile) throws IOException {
@@ -430,8 +425,9 @@ class SegmentedRaftLogWorker {
           logSyncTimerContext.stop();
           if (e == null) {
             updateFlushedIndexIncreasingly(scheduledFlushIndex);
-          } else if (failureHandler != null) {
-            failureHandler.accept(e);
+          } else {
+            LOG.error("{} Failed asyncFlush", this, e);
+            server.close();
           }
         });
   }
