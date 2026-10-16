@@ -21,7 +21,19 @@ on:
       - 'dependabot/**'
     tags:
       - '**'
+    paths-ignore:
+      # ignore .github except this workflow and the ones used transitively
+      - '.github/**'
+      - '!.github/workflows/post-commit.yaml'
+      - '!.github/workflows/ci.yaml'
+      - '!.github/workflows/check.yaml'
   pull_request:
+    paths-ignore:
+      # ignore .github except this workflow and the ones used transitively
+      - '.github/**'
+      - '!.github/workflows/post-commit.yaml'
+      - '!.github/workflows/ci.yaml'
+      - '!.github/workflows/check.yaml'
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || case(github.repository == 'apache/ratis', github.sha, github.ref_name) }}
