@@ -28,6 +28,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.JavaUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
@@ -58,7 +58,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
     public static Map<RaftPeerId, AtomicLong> numTxns = new ConcurrentHashMap<>();
     private final Map<Long, Long> appliedTxns = new ConcurrentHashMap<>();
     private final CompletableFuture<Boolean> shutdownStarted = new CompletableFuture<>();
-    private final CompletableFuture<Boolean> shutdownCompleted = new CompletableFuture<>();
+    private final CompletableFuture<Void> shutdownCompleted = new CompletableFuture<>();
     private final AtomicLong numShutdownStarted = new AtomicLong();
 
     @Override
@@ -69,7 +69,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
 
     @Override
     public void notifyServerShutdown(RaftProtos.RoleInfoProto roleInfo, boolean allServer) {
-      shutdownCompleted.complete(allServer);
+      shutdownCompleted.complete(null);
     }
 
     private synchronized void updateTxns() {
@@ -237,24 +237,26 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
       // The second follower is still blocked in applyTransaction.
       final RaftServer.Division secondFollower = cluster.getFollowers().get(1);
       final StateMachineWithConditionalWait sm = (StateMachineWithConditionalWait) secondFollower.getStateMachine();
+      // The shutdown only waits for the entries committed locally, which may lag behind the watch reply.
+      JavaUtils.attemptUntilTrue(() -> secondFollower.getRaftLog().getLastCommittedIndex() >= logIndex,
+          50, HUNDRED_MILLIS, "wait for " + secondFollower.getId() + " to commit " + logIndex, LOG);
       Assertions.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);
 
-      final Thread t = new Thread(() -> cluster.killServer(secondFollower.getId()));
-      // Daemon so that a failure below cannot leave the JVM hanging on the (still blocked) shutdown.
-      t.setDaemon(true);
-      t.start();
+      final CompletableFuture<Void> killFuture =
+          CompletableFuture.runAsync(() -> cluster.killServer(secondFollower.getId()));
 
       try {
         // The shutdown-started notification must arrive while applyTransaction is still blocked.
-        Assertions.assertTrue(sm.shutdownStarted.get(5, TimeUnit.SECONDS));
+        Assertions.assertTrue(sm.shutdownStarted.get(
+            FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit()));
         Assertions.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);
         Assertions.assertFalse(sm.shutdownCompleted.isDone());
       } finally {
         // The shutdown completes, and notifies, only once the entries have been applied.
         sm.unblockAllTxns();
       }
-      t.join(5000);
-      Assertions.assertTrue(sm.shutdownCompleted.get(5, TimeUnit.SECONDS));
+      sm.shutdownCompleted.get(FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit());
+      killFuture.get(FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit());
       Assertions.assertTrue(logIndex <= secondFollower.getInfo().getLastAppliedIndex());
       // The division is notified exactly once, even though more than one shutdown path may notify it.
       Assertions.assertEquals(1, sm.numShutdownStarted.get());
