@@ -22,6 +22,13 @@ on:
     tags:
       - '**'
     paths-ignore:
+      # ignore files/dirs irrelevant for CI
+      - '.asf.yaml'
+      - '.gitignore'
+      - '.idea'
+      - '**.md'
+      - '**.txt'
+      - '!ratis-test/src/test/resources/ssl/asf_header.txt'
       # ignore .github except this workflow and the ones used transitively
       - '.github/**'
       - '!.github/workflows/post-commit.yaml'
@@ -29,6 +36,13 @@ on:
       - '!.github/workflows/check.yaml'
   pull_request:
     paths-ignore:
+      # ignore files/dirs irrelevant for CI
+      - '.asf.yaml'
+      - '.gitignore'
+      - '.idea'
+      - '**.md'
+      - '**.txt'
+      - '!ratis-test/src/test/resources/ssl/asf_header.txt'
       # ignore .github except this workflow and the ones used transitively
       - '.github/**'
       - '!.github/workflows/post-commit.yaml'
