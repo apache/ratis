@@ -245,6 +245,15 @@ public interface StateMachine extends Closeable {
     default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {}
 
     /**
+     * Notify the {@link StateMachine} that the shutdown of the server for this division has started.
+     * @deprecated please use/override {@link #notifyServerShutdownStarted(RoleInfoProto, boolean)} instead
+     */
+    @Deprecated
+    default void notifyServerShutdownStarted(RoleInfoProto roleInfo) {
+      notifyServerShutdownStarted(roleInfo, false);
+    }
+
+    /**
      * Notify the {@link StateMachine} that the shutdown of either the server for this division
      * or all the servers has started.
      * <p>
