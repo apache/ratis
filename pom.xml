@@ -203,6 +203,7 @@
       -XX:+IgnoreUnrecognizedVMOptions
       --enable-native-access=ALL-UNNAMED
       --sun-misc-unsafe-memory-access=allow
+      -Djava.net.preferIPv4Stack=true
     </extraJavaTestArgs>
   </properties>
 
