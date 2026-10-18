@@ -25,7 +25,7 @@ on:
       # ignore files/dirs irrelevant for CI
       - '.asf.yaml'
       - '.gitignore'
-      - '.idea'
+      - '.idea/**'
       - 'LICENSE'
       - 'NOTICE'
       - '**.md'
@@ -41,7 +41,7 @@ on:
       # ignore files/dirs irrelevant for CI
       - '.asf.yaml'
       - '.gitignore'
-      - '.idea'
+      - '.idea/**'
       - 'LICENSE'
       - 'NOTICE'
       - '**.md'
