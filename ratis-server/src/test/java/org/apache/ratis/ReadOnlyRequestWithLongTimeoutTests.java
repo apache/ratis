@@ -30,6 +30,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRaftCluster>
@@ -77,7 +79,33 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
 
   @Test
   public void testLinearizableReadParallel() throws Exception {
+    // Configure the state machine before creating the cluster so this test can control write application.
+    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        BlockingCounterStateMachine.class, StateMachine.class);
     runWithNewCluster(NUM_SERVERS, this::testLinearizableReadParallelImpl);
+  }
+
+  /** Holds a committed write before updating the counter, without relying on thread scheduling delays. */
+  public static class BlockingCounterStateMachine extends ReadOnlyRequestTests.CounterStateMachine {
+    // Signals that WAIT_AND_INCREMENT has reached state machine application.
+    private final CountDownLatch writeStarted = new CountDownLatch(1);
+    // Released by the test after checking the stale value and initiating the linearizable read.
+    private final CountDownLatch allowWrite = new CountDownLatch(1);
+
+    @Override
+    public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
+      if (WAIT_AND_INCREMENT.equals(trx.getLogEntry().getStateMachineLogEntry().getLogData().toStringUtf8())) {
+        // Notify the test before blocking; the counter still contains the previous value.
+        writeStarted.countDown();
+        try {
+          Assertions.assertTrue(allowWrite.await(10, TimeUnit.SECONDS), "Timed out waiting to release write");
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new IllegalStateException(e);
+        }
+      }
+      return super.applyTransaction(trx);
+    }
   }
 
   private void testLinearizableReadParallelImpl(CLUSTER cluster) throws Exception {
@@ -88,15 +116,25 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
       final RaftClientReply reply = client.io().send(incrementMessage);
       Assertions.assertTrue(reply.isSuccess());
 
-      client.async().send(waitAndIncrementMessage);
-      Thread.sleep(100);
+      final BlockingCounterStateMachine stateMachine =
+          (BlockingCounterStateMachine) cluster.getLeader().getStateMachine();
+      final CompletableFuture<RaftClientReply> write = client.async().send(waitAndIncrementMessage);
+      final CompletableFuture<RaftClientReply> read;
+      try {
+        // Wait until the write is committed, but keep it unapplied while reading the stale value.
+        Assertions.assertTrue(stateMachine.writeStarted.await(10, TimeUnit.SECONDS), "Write did not start");
+        final RaftClientReply staleValueBefore = client.io().sendStaleRead(queryMessage, 0, leaderId);
+        Assertions.assertEquals(1, ReadOnlyRequestTests.retrieve(staleValueBefore));
+        // The write is already committed, so this read must include it even though it is not yet applied.
+        read = client.async().sendReadOnly(queryMessage);
+      } finally {
+        // Also unblock application on assertion failure so cluster shutdown cannot be held up by this latch.
+        stateMachine.allowWrite.countDown();
+      }
 
-      RaftClientReply staleValueBefore = client.io().sendStaleRead(queryMessage, 0, leaderId);
-
-      Assertions.assertEquals(1, ReadOnlyRequestTests.retrieve(staleValueBefore));
-
-      RaftClientReply linearizableReadValue = client.io().sendReadOnly(queryMessage);
+      final RaftClientReply linearizableReadValue = read.get(10, TimeUnit.SECONDS);
       Assertions.assertEquals(2, ReadOnlyRequestTests.retrieve(linearizableReadValue));
+      Assertions.assertTrue(write.get(10, TimeUnit.SECONDS).isSuccess());
     }
   }
 
