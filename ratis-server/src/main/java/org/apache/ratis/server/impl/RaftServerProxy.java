@@ -141,8 +141,7 @@ class RaftServerProxy implements RaftServer {
         LOG.warn("{}: Failed to join the division for {}", getId(), groupId, t);
         return;
       }
-      impl.getStateMachine().event().notifyServerShutdown(impl.getRoleInfoProto(), true,
-              StateMachine.TaskStatus.INITIATED);
+      impl.notifyServerShutdownInitiated(true);
       try {
         impl.close();
       } catch (Throwable t) {

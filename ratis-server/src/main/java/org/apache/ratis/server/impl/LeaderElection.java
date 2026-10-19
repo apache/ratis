@@ -169,8 +169,7 @@ final class LeaderElection implements Runnable {
 
         @Override
         public void shutdown() {
-          server.getStateMachine().event().notifyServerShutdown(server.getRoleInfoProto(), false,
-                  StateMachine.TaskStatus.INITIATED);
+          server.notifyServerShutdownInitiated(false);
           server.close();
           server.getStateMachine().event().notifyServerShutdown(server.getRoleInfoProto(), false,
               StateMachine.TaskStatus.COMPLETED);
