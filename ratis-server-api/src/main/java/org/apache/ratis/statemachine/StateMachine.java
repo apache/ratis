@@ -58,6 +58,11 @@ import java.util.function.Function;
 public interface StateMachine extends Closeable {
   Logger LOG = LoggerFactory.getLogger(StateMachine.class);
 
+  enum TaskStatus {
+    INITIATED,
+    COMPLETED
+  }
+
   /** A registry to support different state machines in multi-raft environment. */
   interface Registry extends Function<RaftGroupId, StateMachine> {
   }
@@ -229,47 +234,39 @@ public interface StateMachine extends Closeable {
     default void notifySnapshotInstalled(InstallSnapshotResult result, long snapshotIndex,  RaftPeer peer) {}
 
     /**
-     * Notify the {@link StateMachine} that the server for this division has been shut down.
-     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean)} instead
+     * The same as notifyServerShutdown(roleInfo, false, TaskStatus.COMPLETED).
+     *
+     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, TaskStatus)} instead
      */
     @Deprecated
     default void notifyServerShutdown(RoleInfoProto roleInfo) {
-      notifyServerShutdown(roleInfo, false);
+      notifyServerShutdown(roleInfo, false, TaskStatus.COMPLETED);
     }
 
     /**
-     * Notify the {@link StateMachine} that either the server for this division or all the servers have been shut down.
-     * @param roleInfo roleInfo this server
-     * @param allServer whether all raft servers will be shutdown at this time
-     */
-    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {}
-
-    /**
-     * Notify the {@link StateMachine} that the shutdown of the server for this division has started.
-     * @deprecated please use/override {@link #notifyServerShutdownStarted(RoleInfoProto, boolean)} instead
+     * The same as notifyServerShutdown(roleInfo, allServer, TaskStatus.COMPLETED).
+     *
+     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, TaskStatus)} instead
      */
     @Deprecated
-    default void notifyServerShutdownStarted(RoleInfoProto roleInfo) {
-      notifyServerShutdownStarted(roleInfo, false);
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {
+      notifyServerShutdown(roleInfo, allServer, TaskStatus.COMPLETED);
     }
 
     /**
-     * Notify the {@link StateMachine} that the shutdown of either the server for this division
-     * or all the servers has started.
+     * Notify the {@link StateMachine} server shutdown.
      * <p>
-     * In contrast to {@link #notifyServerShutdown(RoleInfoProto, boolean)}, which is invoked once the shutdown
-     * has completed, this method is invoked before the shutdown has closed any resources.
-     * In particular, it is invoked before waiting for the committed log entries to be applied to this
-     * {@link StateMachine}, which is unbounded in time.  An application embedding a {@link RaftServer} can use
-     * this notification to react immediately, e.g. to reject incoming requests or to terminate itself,
-     * instead of waiting for the shutdown to complete.
+     * {@link TaskStatus#INITIATED} is notified before the shutdown has closed any resources,
+     * in particular, before waiting for the committed log entries to be applied to this {@link StateMachine},
+     * which is unbounded in time.  An implementation must return promptly for {@link TaskStatus#INITIATED}.
      * <p>
-     * This method is invoked from the shutdown path, so an implementation must return promptly.
+     * {@link TaskStatus#COMPLETED} is notified after the shutdown has completed.
      *
      * @param roleInfo roleInfo this server
      * @param allServer whether all raft servers will be shutdown at this time
+     * @param taskStatus {@link TaskStatus#INITIATED} or {@link TaskStatus#COMPLETED}
      */
-    default void notifyServerShutdownStarted(RoleInfoProto roleInfo, boolean allServer) {}
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer, TaskStatus taskStatus) {}
   }
 
   /**

@@ -242,7 +242,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final AtomicBoolean startComplete = new AtomicBoolean(false);
   private final AtomicBoolean firstElectionSinceStartup = new AtomicBoolean(true);
   private final CompletableFuture<Void> closeFuture = new CompletableFuture<>();
-  private final AtomicBoolean shutdownStartedNotified = new AtomicBoolean();
+  private final AtomicBoolean shutdownInitiatedNotified = new AtomicBoolean();
 
   private final TransferLeadership transferLeadership;
   private final SnapshotManagementRequestHandler snapshotRequestHandler;
@@ -303,7 +303,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.closeFuture.whenComplete((v, e) -> {
       // A division closed before its role is initialized has no role info to report.
       if (role.getCurrentRole() != null) {
-        stateMachine.event().notifyServerShutdown(getRoleInfoProto(), false);
+        stateMachine.event().notifyServerShutdown(getRoleInfoProto(), false, StateMachine.TaskStatus.COMPLETED);
       }
     });
   }
@@ -764,14 +764,14 @@ class RaftServerImpl implements RaftServer.Division,
    * <p>
    * This method may be invoked from more than one shutdown path; the {@link StateMachine} is notified only once.
    */
-  void notifyServerShutdownStarted(boolean allServer) {
-    if (!shutdownStartedNotified.compareAndSet(false, true)) {
+  void notifyServerShutdownInitiated(boolean allServer) {
+    if (!shutdownInitiatedNotified.compareAndSet(false, true)) {
       return;
     }
     try {
-      stateMachine.event().notifyServerShutdownStarted(getRoleInfoProto(), allServer);
+      stateMachine.event().notifyServerShutdown(getRoleInfoProto(), allServer, StateMachine.TaskStatus.INITIATED);
     } catch (Throwable t) {
-      LOG.warn("{}: Failed to notify {} that the shutdown has started",
+      LOG.warn("{}: Failed to notify {} that the shutdown has been initiated",
           getMemberId(), JavaUtils.getClassSimpleName(stateMachine.getClass()), t);
     }
   }

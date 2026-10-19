@@ -203,9 +203,11 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     final AtomicReference<LifeCycle.State> stateWhenNotified = new AtomicReference<>();
     final ShutdownStateMachine stateMachine = new ShutdownStateMachine() {
       @Override
-      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {
-        stateWhenNotified.set(server.get().getInfo().getLifeCycleState());
-        super.notifyServerShutdown(roleInfo, allServer);
+      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer, TaskStatus taskStatus) {
+        if (taskStatus == TaskStatus.COMPLETED) {
+          stateWhenNotified.set(server.get().getInfo().getLifeCycleState());
+        }
+        super.notifyServerShutdown(roleInfo, allServer, taskStatus);
       }
     };
 
@@ -443,10 +445,13 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     final AtomicReference<Throwable> uncaught = new AtomicReference<>();
     final ShutdownStateMachine stateMachine = new ShutdownStateMachine() {
       @Override
-      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {
+      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer, TaskStatus taskStatus) {
+        super.notifyServerShutdown(roleInfo, allServer, taskStatus);
+        if (taskStatus != TaskStatus.COMPLETED) {
+          return;
+        }
         callbackThread.set(Thread.currentThread());
         Thread.currentThread().setUncaughtExceptionHandler((thread, cause) -> uncaught.set(cause));
-        super.notifyServerShutdown(roleInfo, allServer);
         throw new IllegalStateException("Failed shutdown callback");
       }
     };
@@ -573,7 +578,10 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     }
 
     @Override
-    public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {
+    public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer, TaskStatus taskStatus) {
+      if (taskStatus != TaskStatus.COMPLETED) {
+        return;
+      }
       closedWhenNotified = closed;
       shutdownCount.incrementAndGet();
       shutdown.complete(allServer);

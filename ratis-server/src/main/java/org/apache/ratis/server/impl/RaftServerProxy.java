@@ -127,7 +127,7 @@ class RaftServerProxy implements RaftServer {
       isClosed = true;
       // Notify all the state machines upfront: the close tasks submitted below each wait for the committed entries
       // to be applied, so a task queued behind them could otherwise be delayed for an unbounded time.
-      map.values().forEach(f -> f.thenAccept(impl -> impl.notifyServerShutdownStarted(true)));
+      map.values().forEach(f -> f.thenAccept(impl -> impl.notifyServerShutdownInitiated(true)));
       ConcurrentUtils.parallelForEachAsync(map.entrySet(),
           entry -> close(entry.getKey(), entry.getValue()),
           executor.get());
@@ -141,13 +141,14 @@ class RaftServerProxy implements RaftServer {
         LOG.warn("{}: Failed to join the division for {}", getId(), groupId, t);
         return;
       }
-      impl.notifyServerShutdownStarted(true);
+      impl.notifyServerShutdownInitiated(true);
       try {
         impl.close();
       } catch (Throwable t) {
         LOG.warn("{}: Failed to close the division for {}", getId(), groupId, t);
       }
-      impl.getStateMachine().event().notifyServerShutdown(impl.getRoleInfoProto(), true);
+      impl.getStateMachine().event().notifyServerShutdown(impl.getRoleInfoProto(), true,
+          StateMachine.TaskStatus.COMPLETED);
     }
 
     synchronized List<RaftGroupId> getGroupIds() {

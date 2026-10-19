@@ -57,19 +57,18 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
     public static Map<Long, Set<CompletableFuture<Message>>> futures = new ConcurrentHashMap<>();
     public static Map<RaftPeerId, AtomicLong> numTxns = new ConcurrentHashMap<>();
     private final Map<Long, Long> appliedTxns = new ConcurrentHashMap<>();
-    private final CompletableFuture<Boolean> shutdownStarted = new CompletableFuture<>();
+    private final CompletableFuture<Boolean> shutdownInitiated = new CompletableFuture<>();
     private final CompletableFuture<Void> shutdownCompleted = new CompletableFuture<>();
-    private final AtomicLong numShutdownStarted = new AtomicLong();
+    private final AtomicLong numShutdownInitiated = new AtomicLong();
 
     @Override
-    public void notifyServerShutdownStarted(RaftProtos.RoleInfoProto roleInfo, boolean allServer) {
-      numShutdownStarted.incrementAndGet();
-      shutdownStarted.complete(allServer);
-    }
-
-    @Override
-    public void notifyServerShutdown(RaftProtos.RoleInfoProto roleInfo, boolean allServer) {
-      shutdownCompleted.complete(null);
+    public void notifyServerShutdown(RaftProtos.RoleInfoProto roleInfo, boolean allServer, TaskStatus taskStatus) {
+      if (taskStatus == TaskStatus.INITIATED) {
+        numShutdownInitiated.incrementAndGet();
+        shutdownInitiated.complete(allServer);
+      } else {
+        shutdownCompleted.complete(null);
+      }
     }
 
     private synchronized void updateTxns() {
@@ -209,13 +208,12 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
   }
 
   /**
-   * {@link StateMachine.EventApi#notifyServerShutdown(RaftProtos.RoleInfoProto, boolean)} is invoked only after
-   * the shutdown has waited for the committed entries to be applied, which is unbounded in time.
-   * {@link StateMachine.EventApi#notifyServerShutdownStarted(RaftProtos.RoleInfoProto, boolean)} must instead be
-   * invoked before that wait, so that an application embedding a server can react without waiting for it.
+   * {@link StateMachine.TaskStatus#COMPLETED} is notified only after the shutdown has waited for the committed
+   * entries to be applied, which is unbounded in time.  {@link StateMachine.TaskStatus#INITIATED} must instead be
+   * notified before that wait, so that an application embedding a server can react without waiting for it.
    */
   @Test
-  public void testNotifyShutdownStartedBeforeWaitingForApplyTxn() throws Exception {
+  public void testNotifyShutdownInitiatedBeforeWaitingForApplyTxn() throws Exception {
     final RaftProperties prop = getProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         StateMachineWithConditionalWait.class, StateMachine.class);
@@ -246,8 +244,8 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
           CompletableFuture.runAsync(() -> cluster.killServer(secondFollower.getId()));
 
       try {
-        // The shutdown-started notification must arrive while applyTransaction is still blocked.
-        Assertions.assertTrue(sm.shutdownStarted.get(
+        // The shutdown-initiated notification must arrive while applyTransaction is still blocked.
+        Assertions.assertTrue(sm.shutdownInitiated.get(
             FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit()));
         Assertions.assertTrue(secondFollower.getInfo().getLastAppliedIndex() < logIndex);
         Assertions.assertFalse(sm.shutdownCompleted.isDone());
@@ -259,7 +257,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
       killFuture.get(FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit());
       Assertions.assertTrue(logIndex <= secondFollower.getInfo().getLastAppliedIndex());
       // The division is notified exactly once, even though more than one shutdown path may notify it.
-      Assertions.assertEquals(1, sm.numShutdownStarted.get());
+      Assertions.assertEquals(1, sm.numShutdownInitiated.get());
 
       cluster.shutdown();
     }
