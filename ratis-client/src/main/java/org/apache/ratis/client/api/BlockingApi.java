@@ -74,6 +74,16 @@ public interface BlockingApi {
   RaftClientReply sendReadAfterWrite(Message message) throws IOException;
 
   /**
+   * Send the given readonly message to the raft service.
+   * The result reflects all the writes, from any client, already accepted by the leader,
+   * including writes that have not completed yet.
+   * This is an alternative to {@link #sendReadAfterWrite(Message)} and cannot be combined with it.
+   * @param message The request message.
+   * @return the reply.
+   */
+  RaftClientReply sendStrongReadAfterWrite(Message message) throws IOException;
+
+  /**
    * Send the given stale-read message to the given server (not the raft service).
    * If the server commit index is larger than or equal to the given min-index, the request will be processed.
    * Otherwise, the server throws a {@link org.apache.ratis.protocol.exceptions.StaleReadException}.

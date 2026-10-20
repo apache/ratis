@@ -71,6 +71,16 @@ public interface AsyncApi {
 
 
   /**
+   * Send the given readonly message asynchronously to the raft service.
+   * The result reflects all the writes, from any client, already accepted by the leader,
+   * including writes that have not completed yet.
+   * This is an alternative to {@link #sendReadAfterWrite(Message)} and cannot be combined with it.
+   * @param message The request message.
+   * @return the reply.
+   */
+  CompletableFuture<RaftClientReply> sendStrongReadAfterWrite(Message message);
+
+  /**
    * Send the given readonly message asynchronously to the raft service using non-linearizable read.
    * This method is useful when linearizable read is enabled
    * but this client prefers not using it for performance reason.

@@ -977,6 +977,9 @@ class RaftServerImpl implements RaftServer.Division,
         return failWithReply(request, e, cacheEntry, null);
       }
 
+      // for strong read-after-write
+      writeIndexCache.updateLatestWriteIndex(context.getLogEntry().getIndex());
+
       // put the request into the pending queue
       pending = leaderState.addPendingRequest(permit, request, context);
       if (pending == null) {
@@ -1793,6 +1796,9 @@ class RaftServerImpl implements RaftServer.Division,
       Objects.requireNonNull(trx, "trx == null");
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(next.getStateMachineLogEntry());
       writeIndexCache.add(invocationId.getClientId(), ((TransactionContextImpl) trx).getLogIndexFuture());
+
+      // for strong read-after-write
+      writeIndexCache.updateLatestWriteIndex(next.getIndex());
 
       try {
         // Let the StateMachine inject logic for committed transactions in sequential order.

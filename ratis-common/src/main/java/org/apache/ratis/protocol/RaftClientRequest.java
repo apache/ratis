@@ -50,6 +50,7 @@ public class RaftClientRequest extends RaftClientMessage {
   private static final Type READ_DEFAULT = readRequestType(false, false, false);
   private static final Type READ_NONLINEARIZABLE_DEFAULT = readRequestType(true, false, false);
   private static final Type READ_AFTER_WRITE_CONSISTENT_DEFAULT = readRequestType(false, true, false);
+  private static final Type STRONG_READ_AFTER_WRITE_DEFAULT = readRequestType(false, false, false, true);
 
   private static final Type STALE_READ_DEFAULT = new Type(StaleReadRequestTypeProto.getDefaultInstance());
 
@@ -72,7 +73,7 @@ public class RaftClientRequest extends RaftClientMessage {
   }
 
   private static final class ReadTypes {
-    private final Type[] array = new Type[8];
+    private final Type[] array = new Type[16];
 
     private ReadTypes() {
       for (int i = 0; i < array.length; i++) {
@@ -80,30 +81,37 @@ public class RaftClientRequest extends RaftClientMessage {
             .setPreferNonLinearizable((i & 1) != 0)
             .setReadAfterWriteConsistent((i & 2) != 0)
             .setDummy((i & 4) != 0)
+            .setStrongReadAfterWrite((i & 8) != 0)
             .build());
       }
 
       assertArray();
     }
 
-    private Type getImpl(boolean nonLinearizable, boolean readAfterWriteConsistent, boolean dummy) {
+    private Type getImpl(boolean nonLinearizable, boolean readAfterWriteConsistent, boolean dummy,
+        boolean strongReadAfterWrite) {
       final int i = (nonLinearizable ? 1 : 0)
           | (readAfterWriteConsistent ? 2 : 0)
-          | (dummy ? 4 : 0);
+          | (dummy ? 4 : 0)
+          | (strongReadAfterWrite ? 8 : 0);
       return array[i];
     }
 
-    Type get(boolean nonLinearizable, boolean readAfterWriteConsistent, boolean dummy) {
-      if (nonLinearizable && readAfterWriteConsistent) {
-        throw new IllegalArgumentException("Cannot be both nonLinearizable and readAfterWriteConsistent");
+    Type get(boolean nonLinearizable, boolean readAfterWriteConsistent, boolean dummy, boolean strongReadAfterWrite) {
+      if (nonLinearizable && readAfterWriteConsistent || nonLinearizable && strongReadAfterWrite) {
+        final String exceptionMessage = readAfterWriteConsistent? "readAfterWriteConsistent":"strongReadAfterWrite";
+        throw new IllegalArgumentException("Cannot be both nonLinearizable and " + exceptionMessage);
+      } else if (readAfterWriteConsistent && strongReadAfterWrite) {
+        throw new IllegalArgumentException("Cannot be both readAfterWriteConsistent and strongReadAfterWrite");
       }
-      return getImpl(nonLinearizable, readAfterWriteConsistent, dummy);
+      return getImpl(nonLinearizable, readAfterWriteConsistent, dummy, strongReadAfterWrite);
     }
 
     private void assertArray() {
       for (final Type type : array) {
         final ReadRequestTypeProto read = type.getRead();
-        final Type got = getImpl(read.getPreferNonLinearizable(), read.getReadAfterWriteConsistent(), read.getDummy());
+        final Type got = getImpl(read.getPreferNonLinearizable(), read.getReadAfterWriteConsistent(),
+            read.getDummy(), read.getStrongReadAfterWrite());
         Preconditions.assertSame(type, got, "type");
       }
     }
@@ -129,12 +137,21 @@ public class RaftClientRequest extends RaftClientMessage {
         .build());
   }
 
+  public static Type readRequestType(boolean nonLinearizable, boolean readAfterWriteConsistent, boolean dummy,
+      boolean strongReadAfterWrite) {
+    return READ_TYPES.get(nonLinearizable, readAfterWriteConsistent, dummy, strongReadAfterWrite);
+  }
+
   public static Type readRequestType(boolean nonLinearizable, boolean readAfterWriteConsistent, boolean dummy) {
-    return READ_TYPES.get(nonLinearizable, readAfterWriteConsistent, dummy);
+    return READ_TYPES.get(nonLinearizable, readAfterWriteConsistent, dummy, false);
   }
 
   public static Type readAfterWriteConsistentRequestType() {
     return READ_AFTER_WRITE_CONSISTENT_DEFAULT;
+  }
+
+  public static Type strongReadAfterWriteRequestType() {
+    return STRONG_READ_AFTER_WRITE_DEFAULT;
   }
 
   public static Type readRequestType() {
@@ -174,6 +191,7 @@ public class RaftClientRequest extends RaftClientMessage {
     public static Type valueOf(ReadRequestTypeProto read) {
       return read.getPreferNonLinearizable()? READ_NONLINEARIZABLE_DEFAULT
           : read.getReadAfterWriteConsistent()? READ_AFTER_WRITE_CONSISTENT_DEFAULT
+          : read.getStrongReadAfterWrite()? STRONG_READ_AFTER_WRITE_DEFAULT
           : READ_DEFAULT;
     }
 
@@ -321,6 +339,7 @@ public class RaftClientRequest extends RaftClientMessage {
           final ReadRequestTypeProto read = getRead();
           return read.getReadAfterWriteConsistent()? "RaW"
               : read.getPreferNonLinearizable()? "RO(pNL)"
+              : read.getStrongReadAfterWrite()? "SRaW"
               : "RO";
         case STALEREAD:
           return "StaleRead(" + getStaleRead().getMinIndex() + ")";
