@@ -62,8 +62,8 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
     private final AtomicLong numShutdownInitiated = new AtomicLong();
 
     @Override
-    public void notifyServerShutdown(RaftProtos.RoleInfoProto roleInfo, boolean allServers, EventStatus taskStatus) {
-      if (taskStatus == EventStatus.INITIATED) {
+    public void notifyServerShutdown(RaftProtos.RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {
+      if (eventStatus == EventStatus.INITIATED) {
         numShutdownInitiated.incrementAndGet();
         shutdownInitiated.complete(allServers);
       } else {

@@ -203,11 +203,11 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     final AtomicReference<LifeCycle.State> stateWhenNotified = new AtomicReference<>();
     final ShutdownStateMachine stateMachine = new ShutdownStateMachine() {
       @Override
-      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus taskStatus) {
-        if (taskStatus == EventStatus.COMPLETED) {
+      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {
+        if (eventStatus == EventStatus.COMPLETED) {
           stateWhenNotified.set(server.get().getInfo().getLifeCycleState());
         }
-        super.notifyServerShutdown(roleInfo, allServers, taskStatus);
+        super.notifyServerShutdown(roleInfo, allServers, eventStatus);
       }
     };
 
@@ -445,9 +445,9 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     final AtomicReference<Throwable> uncaught = new AtomicReference<>();
     final ShutdownStateMachine stateMachine = new ShutdownStateMachine() {
       @Override
-      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus taskStatus) {
-        super.notifyServerShutdown(roleInfo, allServers, taskStatus);
-        if (taskStatus != EventStatus.COMPLETED) {
+      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {
+        super.notifyServerShutdown(roleInfo, allServers, eventStatus);
+        if (eventStatus != EventStatus.COMPLETED) {
           return;
         }
         callbackThread.set(Thread.currentThread());
@@ -578,8 +578,8 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     }
 
     @Override
-    public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus taskStatus) {
-      if (taskStatus != EventStatus.COMPLETED) {
+    public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {
+      if (eventStatus != EventStatus.COMPLETED) {
         return;
       }
       closedWhenNotified = closed;

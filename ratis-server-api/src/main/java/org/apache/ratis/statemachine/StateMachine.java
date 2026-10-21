@@ -264,9 +264,9 @@ public interface StateMachine extends Closeable {
      *
      * @param roleInfo roleInfo this server
      * @param allServers whether all raft servers will be shutdown at this time
-     * @param taskStatus {@link EventStatus#INITIATED} or {@link EventStatus#COMPLETED}
+     * @param eventStatus {@link EventStatus#INITIATED} or {@link EventStatus#COMPLETED}
      */
-    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus taskStatus) {}
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {}
   }
 
   /**
