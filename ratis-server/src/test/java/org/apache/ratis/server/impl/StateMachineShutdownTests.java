@@ -62,10 +62,10 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
     private final AtomicLong numShutdownInitiated = new AtomicLong();
 
     @Override
-    public void notifyServerShutdown(RaftProtos.RoleInfoProto roleInfo, boolean allServer, TaskStatus taskStatus) {
-      if (taskStatus == TaskStatus.INITIATED) {
+    public void notifyServerShutdown(RaftProtos.RoleInfoProto roleInfo, boolean allServers, EventStatus taskStatus) {
+      if (taskStatus == EventStatus.INITIATED) {
         numShutdownInitiated.incrementAndGet();
-        shutdownInitiated.complete(allServer);
+        shutdownInitiated.complete(allServers);
       } else {
         shutdownCompleted.complete(null);
       }
@@ -208,8 +208,8 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
   }
 
   /**
-   * {@link StateMachine.TaskStatus#COMPLETED} is notified only after the shutdown has waited for the committed
-   * entries to be applied, which is unbounded in time.  {@link StateMachine.TaskStatus#INITIATED} must instead be
+   * {@link StateMachine.EventStatus#COMPLETED} is notified only after the shutdown has waited for the committed
+   * entries to be applied, which is unbounded in time.  {@link StateMachine.EventStatus#INITIATED} must instead be
    * notified before that wait, so that an application embedding a server can react without waiting for it.
    */
   @Test

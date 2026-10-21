@@ -58,7 +58,7 @@ import java.util.function.Function;
 public interface StateMachine extends Closeable {
   Logger LOG = LoggerFactory.getLogger(StateMachine.class);
 
-  enum TaskStatus {
+  enum EventStatus {
     INITIATED,
     COMPLETED
   }
@@ -236,37 +236,37 @@ public interface StateMachine extends Closeable {
     /**
      * The same as notifyServerShutdown(roleInfo, false, TaskStatus.COMPLETED).
      *
-     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, TaskStatus)} instead
+     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, EventStatus)} instead
      */
     @Deprecated
     default void notifyServerShutdown(RoleInfoProto roleInfo) {
-      notifyServerShutdown(roleInfo, false, TaskStatus.COMPLETED);
+      notifyServerShutdown(roleInfo, false, EventStatus.COMPLETED);
     }
 
     /**
-     * The same as notifyServerShutdown(roleInfo, allServer, TaskStatus.COMPLETED).
+     * The same as notifyServerShutdown(roleInfo, allServers, TaskStatus.COMPLETED).
      *
-     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, TaskStatus)} instead
+     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, EventStatus)} instead
      */
     @Deprecated
-    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {
-      notifyServerShutdown(roleInfo, allServer, TaskStatus.COMPLETED);
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers) {
+      notifyServerShutdown(roleInfo, allServers, EventStatus.COMPLETED);
     }
 
     /**
      * Notify the {@link StateMachine} server shutdown.
      * <p>
-     * {@link TaskStatus#INITIATED} is notified before the shutdown has closed any resources,
+     * {@link EventStatus#INITIATED} is notified before the shutdown has closed any resources,
      * in particular, before waiting for the committed log entries to be applied to this {@link StateMachine},
-     * which is unbounded in time.  An implementation must return promptly for {@link TaskStatus#INITIATED}.
+     * which is unbounded in time.  An implementation must return promptly for {@link EventStatus#INITIATED}.
      * <p>
-     * {@link TaskStatus#COMPLETED} is notified after the shutdown has completed.
+     * {@link EventStatus#COMPLETED} is notified after the shutdown has completed.
      *
      * @param roleInfo roleInfo this server
-     * @param allServer whether all raft servers will be shutdown at this time
-     * @param taskStatus {@link TaskStatus#INITIATED} or {@link TaskStatus#COMPLETED}
+     * @param allServers whether all raft servers will be shutdown at this time
+     * @param taskStatus {@link EventStatus#INITIATED} or {@link EventStatus#COMPLETED}
      */
-    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer, TaskStatus taskStatus) {}
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus taskStatus) {}
   }
 
   /**

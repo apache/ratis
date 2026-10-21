@@ -203,11 +203,11 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     final AtomicReference<LifeCycle.State> stateWhenNotified = new AtomicReference<>();
     final ShutdownStateMachine stateMachine = new ShutdownStateMachine() {
       @Override
-      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer, TaskStatus taskStatus) {
-        if (taskStatus == TaskStatus.COMPLETED) {
+      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus taskStatus) {
+        if (taskStatus == EventStatus.COMPLETED) {
           stateWhenNotified.set(server.get().getInfo().getLifeCycleState());
         }
-        super.notifyServerShutdown(roleInfo, allServer, taskStatus);
+        super.notifyServerShutdown(roleInfo, allServers, taskStatus);
       }
     };
 
@@ -445,9 +445,9 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     final AtomicReference<Throwable> uncaught = new AtomicReference<>();
     final ShutdownStateMachine stateMachine = new ShutdownStateMachine() {
       @Override
-      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer, TaskStatus taskStatus) {
-        super.notifyServerShutdown(roleInfo, allServer, taskStatus);
-        if (taskStatus != TaskStatus.COMPLETED) {
+      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus taskStatus) {
+        super.notifyServerShutdown(roleInfo, allServers, taskStatus);
+        if (taskStatus != EventStatus.COMPLETED) {
           return;
         }
         callbackThread.set(Thread.currentThread());
@@ -578,13 +578,13 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     }
 
     @Override
-    public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer, TaskStatus taskStatus) {
-      if (taskStatus != TaskStatus.COMPLETED) {
+    public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus taskStatus) {
+      if (taskStatus != EventStatus.COMPLETED) {
         return;
       }
       closedWhenNotified = closed;
       shutdownCount.incrementAndGet();
-      shutdown.complete(allServer);
+      shutdown.complete(allServers);
     }
   }
 

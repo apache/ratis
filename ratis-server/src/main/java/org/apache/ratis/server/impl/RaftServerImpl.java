@@ -303,7 +303,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.closeFuture.whenComplete((v, e) -> {
       // A division closed before its role is initialized has no role info to report.
       if (role.getCurrentRole() != null) {
-        stateMachine.event().notifyServerShutdown(getRoleInfoProto(), false, StateMachine.TaskStatus.COMPLETED);
+        stateMachine.event().notifyServerShutdown(getRoleInfoProto(), false, StateMachine.EventStatus.COMPLETED);
       }
     });
   }
@@ -769,7 +769,7 @@ class RaftServerImpl implements RaftServer.Division,
       return;
     }
     try {
-      stateMachine.event().notifyServerShutdown(getRoleInfoProto(), allServer, StateMachine.TaskStatus.INITIATED);
+      stateMachine.event().notifyServerShutdown(getRoleInfoProto(), allServer, StateMachine.EventStatus.INITIATED);
     } catch (Throwable t) {
       LOG.warn("{}: Failed to notify {} that the shutdown has been initiated",
           getMemberId(), JavaUtils.getClassSimpleName(stateMachine.getClass()), t);
