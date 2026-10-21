@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
@@ -29,6 +30,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -55,7 +58,14 @@ public class TestLeaderElectionServerInterface extends BaseTest {
   LeaderElection.ServerInterface newServerInterface(boolean expectToPass,
       Map<RaftPeerId, TermIndex> lastEntries) {
     return new LeaderElection.ServerInterface() {
+      // Keep the monitor distinct from the adapter to detect synchronization on the wrong object.
+      private final Object lock = new Object();
       private volatile boolean isAlive = true;
+
+      @Override
+      public Object getLock() {
+        return lock;
+      }
 
       @Override
       public RaftGroupMemberId getMemberId() {
@@ -96,6 +106,7 @@ public class TestLeaderElectionServerInterface extends BaseTest {
 
       @Override
       public LeaderElection.ConfAndTerm initElection(LeaderElection.Phase phase) {
+        assertTrue(Thread.holdsLock(lock), "Election initialization must hold the shared lock");
         return new LeaderElection.ConfAndTerm(conf, getCurrentTerm());
       }
 
@@ -119,6 +130,7 @@ public class TestLeaderElectionServerInterface extends BaseTest {
 
       @Override
       public void rejected(long term, LeaderElection.ResultAndTerm result) {
+        assertTrue(Thread.holdsLock(lock), "Election result handling must hold the shared lock");
         assertFalse(expectToPass);
         isAlive = false;
       }
@@ -151,6 +163,30 @@ public class TestLeaderElectionServerInterface extends BaseTest {
         return threadGroup;
       }
     };
+  }
+
+  @Test
+  public void testAdapterUsesServerLock() {
+    final RaftServerImpl server = Mockito.mock(RaftServerImpl.class);
+    final RaftServerProxy proxy = Mockito.mock(RaftServerProxy.class);
+    Mockito.when(server.getRaftServer()).thenReturn(proxy);
+    Mockito.when(proxy.getProperties()).thenReturn(new RaftProperties());
+    assertSame(server, LeaderElection.ServerInterface.get(server).getLock());
+  }
+
+  @Test
+  public void testElectionSharesServerLock() {
+    final Map<RaftPeerId, TermIndex> lastEntries = new HashMap<>();
+    lastEntries.put(peers.get(0).getId(), TermIndex.valueOf(1, 0));
+    // A higher-term reply exercises the result-handling path that persists metadata when stepping down.
+    lastEntries.put(peers.get(1).getId(), TermIndex.valueOf(2, 0));
+    lastEntries.put(peers.get(2).getId(), TermIndex.valueOf(2, 0));
+    // Normal elections initialize in askForVotes; forced elections initialize in newInstance.
+    for (boolean force : new boolean[] {false, true}) {
+      final LeaderElection.ServerInterface server = newServerInterface(false, lastEntries);
+      LeaderElection.newInstance(server, force).startInForeground();
+      assertFalse(server.isAlive(), "The election must stop after handling the higher term");
+    }
   }
 
   @Test
