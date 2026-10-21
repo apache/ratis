@@ -264,6 +264,12 @@ public class ReadStreamManagement {
           LOG.warn("{}: Failed to send read-only data stream error for {}", this, request, e);
         }
       }
+    } finally {
+      try {
+        stream.close();
+      } catch (IOException e) {
+        LOG.warn("{}: Failed to close read-only data stream for {}", this, request, e);
+      }
     }
   }
 
