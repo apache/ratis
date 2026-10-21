@@ -100,10 +100,10 @@ class TestDataStreamManagement {
     final AtomicReference<WritableByteChannel> streamRef = new AtomicReference<>();
     final DataApi dataApi = new DataApi() {
       @Override
-      public long transferTo(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableByteChannel stream) throws IOException {
         messageRef.set(request);
         streamRef.set(stream);
-        return 0;
+        return stream.write(response.asReadOnlyByteBuffer());
       }
     };
     final ReadStreamManagement management = newReadStreamManagement(serverId, groupId, dataApi);
@@ -115,12 +115,6 @@ class TestDataStreamManagement {
       assertTrue(management.process(readOnlyRequest.request, embeddedChannel.pipeline().firstContext()));
       assertEquals(0, readOnlyRequest.headerBuf.refCnt());
 
-      JavaUtils.attempt(() -> assertNotNull(streamRef.get()), 10,
-          TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "read-only stream", null);
-      final WritableByteChannel stream = streamRef.get();
-      stream.write(response.asReadOnlyByteBuffer());
-      stream.close();
-
       final List<DataStreamReply> replies = new ArrayList<>();
       JavaUtils.attempt(() -> {
         for (Object outbound; (outbound = embeddedChannel.readOutbound()) != null;) {
@@ -130,7 +124,7 @@ class TestDataStreamManagement {
       }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "read-only replies", null);
 
       assertEquals(query, messageRef.get().getContent());
-      assertFalse(streamRef.get().isOpen(), "state machine should close the streaming query channel");
+      assertFalse(streamRef.get().isOpen(), "the streaming query channel should be closed after transferTo");
       assertSuccessReply(Type.STREAM_DATA, response.size(), replies.get(0));
       assertSuccessReply(Type.STREAM_HEADER, 0, replies.get(1));
       assertTrue(ClientProtoUtils.getRaftClientReply(replies.get(1)).isSuccess());
@@ -154,10 +148,10 @@ class TestDataStreamManagement {
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public long transferTo(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableByteChannel stream) throws IOException {
         messageRef.set(request);
         streamRef.set(stream);
-        return 0;
+        return stream.write(response.asReadOnlyByteBuffer());
       }
     };
     final RaftServer server = newRaftServer(serverId, new RaftProperties(), null, null, request -> {
@@ -174,11 +168,6 @@ class TestDataStreamManagement {
     try {
       assertTrue(management.process(readOnlyRequest.request, embeddedChannel.pipeline().firstContext()));
       assertEquals(0, readOnlyRequest.headerBuf.refCnt());
-
-      JavaUtils.attempt(() -> assertNotNull(streamRef.get()), 10,
-          TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "resolved read-only stream", null);
-      streamRef.get().write(response.asReadOnlyByteBuffer());
-      streamRef.get().close();
 
       final List<DataStreamReply> replies = new ArrayList<>();
       JavaUtils.attempt(() -> {
