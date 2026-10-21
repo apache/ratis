@@ -127,9 +127,8 @@ public class TestClientProtoUtils extends BaseTest {
     Assertions.assertEquals(0, Message.getSize((ByteBuffer) null));
     Assertions.assertEquals(0, Message.getSize((ByteString) null));
 
-    Assertions.assertNotEquals(Message.EMPTY, null);
-    Assertions.assertNotEquals(OrderedAsync.DUMMY, null);
-    Assertions.assertNotEquals(OrderedAsync.DUMMY, "DUMMY");
+    Assertions.assertNotNull(Message.EMPTY);
+    Assertions.assertNotNull(OrderedAsync.DUMMY);
 
     final RaftClientRequest request = RaftClientRequest.newBuilder()
         .setClientId(ClientId.randomId())
@@ -141,6 +140,12 @@ public class TestClientProtoUtils extends BaseTest {
         .build();
     Assertions.assertFalse(OrderedAsync.DUMMY.equals(request.getMessage()));
     Assertions.assertFalse(ClientProtoUtils.toRaftClientRequestProto(request).hasMessage());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"DUMMY", ""})
+  public void testMessageNotEqualToString(Object value) {
+    Assertions.assertNotEquals(OrderedAsync.DUMMY, value);
   }
 
   @Test
