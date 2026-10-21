@@ -157,6 +157,7 @@ class RaftServerImpl implements RaftServer.Division,
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
   static final String APPEND_TRANSACTION = CLASS_NAME + ".appendTransaction";
   static final String LOG_SYNC = APPEND_ENTRIES + ".logComplete";
+  static final String APPEND_ENTRIES_BEFORE_APPEND_LOG = APPEND_ENTRIES + ".beforeAppendLog";
   static final String START_LEADER_ELECTION = CLASS_NAME + ".startLeaderElection";
   static final String START_COMPLETE = CLASS_NAME + ".startComplete";
 
@@ -1597,6 +1598,20 @@ class RaftServerImpl implements RaftServer.Division,
       followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
       timer.stop();
     }, getServerExecutor()).thenApply(v -> {
+      // Re-check the term after the asynchronous append completes: this server may have
+      // granted a higher-term vote while the append was in flight. In that case this server
+      // no longer recognizes the requestor as leader, so it must not report SUCCESS, which
+      // the old leader could otherwise count toward committing an entry that the new leader
+      // may not have. Reply NOT_LEADER with the current term so the old leader steps down.
+      final long replyTerm = state.getCurrentTerm();
+      if (replyTerm != leaderTerm) {
+        final AppendEntriesReplyProto reply = toAppendEntriesReplyProto(leaderId, getMemberId(),
+            replyTerm, followerCommit, state.getNextIndex(),
+            AppendResult.NOT_LEADER, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat, appliedIndex);
+        LOG.info("{}: appendEntries* reply {} since term changed from {} to {}",
+            getMemberId(), toAppendEntriesReplyString(reply), leaderTerm, replyTerm);
+        return reply;
+      }
       final boolean updated = state.updateCommitIndex(commitIndex, currentTerm, false);
       if (updated) {
         updateCommitInfoCache();
@@ -1613,7 +1628,10 @@ class RaftServerImpl implements RaftServer.Division,
 
   private CompletableFuture<Void> appendLog(List<LogEntryProto> entries) {
     return CompletableFuture.completedFuture(null)
-        .thenComposeAsync(dummy -> JavaUtils.allOf(state.getLog().append(entries)), serverExecutor);
+        .thenComposeAsync(dummy -> {
+          CodeInjectionForTesting.execute(APPEND_ENTRIES_BEFORE_APPEND_LOG, getId(), null, entries);
+          return JavaUtils.allOf(state.getLog().append(entries));
+        }, serverExecutor);
   }
 
   private long checkInconsistentAppendEntries(TermIndex previous, List<LogEntryProto> entries) {
