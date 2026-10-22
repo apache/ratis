@@ -97,6 +97,15 @@ jobs:
     secrets:
       DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
+  errorprone:
+    uses: $/.github/workflows/check.yaml
+    with:
+      java-version: '17'
+      script: errorprone
+      timeout-minutes: 30
+    secrets:
+      DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+
   unit:
     strategy:
       matrix:

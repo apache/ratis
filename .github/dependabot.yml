@@ -42,6 +42,9 @@ updates:
         versions: [">=4.9.0.0"]
       - dependency-name: "org.mockito:mockito-core"
         versions: [">=5.0.0"]
+      # Error Prone runs on Java 17 in CI
+      - dependency-name: "com.google.errorprone:error_prone_core"
+        versions: [">=2.43.0"]
       # requires Java 17
       - dependency-name: "org.apache.hadoop:*"
         versions: [">=3.5.0"]
