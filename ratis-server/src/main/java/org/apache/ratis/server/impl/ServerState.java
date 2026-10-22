@@ -271,7 +271,7 @@ class ServerState {
     try {
       getLog().persistMetadata(RaftStorageMetadata.valueOf(currentTerm.get(), votedFor));
     } catch (IOException | RuntimeException e) {
-      server.close(e);
+      server.close(e, false);
       throw e;
     }
   }

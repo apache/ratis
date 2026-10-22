@@ -29,7 +29,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.util.ServerStringUtils;
-import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.LifeCycle;
@@ -169,10 +168,7 @@ final class LeaderElection implements Runnable {
 
         @Override
         public void shutdown() {
-          server.notifyServerShutdownInitiated(false);
           server.close();
-          server.getStateMachine().event().notifyServerShutdown(server.getRoleInfoProto(), false,
-              StateMachine.EventStatus.COMPLETED);
         }
 
         @Override

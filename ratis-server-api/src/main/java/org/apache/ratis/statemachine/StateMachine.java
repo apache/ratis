@@ -234,7 +234,7 @@ public interface StateMachine extends Closeable {
     default void notifySnapshotInstalled(InstallSnapshotResult result, long snapshotIndex,  RaftPeer peer) {}
 
     /**
-     * The same as notifyServerShutdown(roleInfo, false, TaskStatus.COMPLETED).
+     * The same as notifyServerShutdown(roleInfo, false, EventStatus.COMPLETED).
      *
      * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, EventStatus)} instead
      */
@@ -244,7 +244,7 @@ public interface StateMachine extends Closeable {
     }
 
     /**
-     * The same as notifyServerShutdown(roleInfo, allServers, TaskStatus.COMPLETED).
+     * The same as notifyServerShutdown(roleInfo, allServers, EventStatus.COMPLETED).
      *
      * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, EventStatus)} instead
      */
