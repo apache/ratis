@@ -248,28 +248,25 @@ public class ReadStreamManagement {
 
   private void transfer(DataStreamApi dataApi, RaftClientRequest request, long streamId,
       ChannelHandlerContext ctx, RaftClientReply terminalReply) {
-    final ReadStream stream = new ReadStream(request, streamId, ctx, terminalReply);
-    try {
-      dataApi.transferTo(request.getMessage(), stream);
-    } catch (Throwable t) {
-      LOG.error("{}: Failed resolved read-only data stream transferTo for {}", this, request, t);
-      if (stream.isOpen()) {
-        final RaftClientReply failure = RaftClientReply.newBuilder()
-            .setRequest(request)
-            .setException(new DataStreamException(server.getId(), t))
-            .build();
-        try {
-          stream.fail(failure);
-        } catch (IOException e) {
-          LOG.warn("{}: Failed to send read-only data stream error for {}", this, request, e);
+    try (ReadStream stream = new ReadStream(request, streamId, ctx, terminalReply)) {
+      try {
+        dataApi.transferTo(request.getMessage(), stream);
+      } catch (Throwable t) {
+        LOG.error("{}: Failed resolved read-only data stream transferTo for {}", this, request, t);
+        if (stream.isOpen()) {
+          final RaftClientReply failure = RaftClientReply.newBuilder()
+              .setRequest(request)
+              .setException(new DataStreamException(server.getId(), t))
+              .build();
+          try {
+            stream.fail(failure);
+          } catch (IOException e) {
+            LOG.warn("{}: Failed to send read-only data stream error for {}", this, request, e);
+          }
         }
       }
-    } finally {
-      try {
-        stream.close();
-      } catch (IOException e) {
-        LOG.warn("{}: Failed to close read-only data stream for {}", this, request, e);
-      }
+    } catch (IOException e) {
+      LOG.warn("{}: Failed to close read-only data stream for {}", this, request, e);
     }
   }
 
