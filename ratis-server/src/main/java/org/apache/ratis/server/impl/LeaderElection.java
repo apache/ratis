@@ -81,6 +81,13 @@ final class LeaderElection implements Runnable {
   public static final Logger LOG = LoggerFactory.getLogger(LeaderElection.class);
 
   interface ServerInterface {
+    /**
+     * The monitor shared with RPC handlers when accessing election state.
+     * The production adapter must return the underlying RaftServerImpl: locking the adapter itself
+     * would allow election initialization and vote handling to persist metadata concurrently.
+     */
+    Object getLock();
+
     default RaftPeerId getId() {
       return getMemberId().getPeerId();
     }
@@ -111,6 +118,11 @@ final class LeaderElection implements Runnable {
       final boolean preVote = RaftServerConfigKeys.LeaderElection.preVote(server.getRaftServer().getProperties());
 
       return new ServerInterface() {
+        @Override
+        public Object getLock() {
+          return server;
+        }
+
         @Override
         public RaftGroupMemberId getMemberId() {
           return server.getMemberId();
@@ -314,8 +326,12 @@ final class LeaderElection implements Runnable {
     String name = ServerStringUtils.generateUnifiedName(server.getMemberId(), LeaderElection.class)
             + COUNT.incrementAndGet();
     try {
-      // increase term of the candidate in advance if it's forced to election
-      final ConfAndTerm round0 = force ? server.initElection(Phase.ELECTION) : null;
+      // A forced election persists its initial term here, before the election thread starts.
+      // It needs the same server lock as initialization in askForVotes.
+      final ConfAndTerm round0;
+      synchronized (server.getLock()) {
+        round0 = force ? server.initElection(Phase.ELECTION) : null;
+      }
       return new LeaderElection(name, server, force, round0);
     } catch (IOException e) {
       throw new IllegalStateException(name + ": Failed to initialize election", e);
@@ -442,7 +458,7 @@ final class LeaderElection implements Runnable {
   private boolean askForVotes(Phase phase, int round) throws InterruptedException, IOException {
     final long electionTerm;
     final RaftConfigurationImpl conf;
-    synchronized (server) {
+    synchronized (server.getLock()) {
       if (!shouldRun()) {
         return false;
       }
@@ -457,7 +473,7 @@ final class LeaderElection implements Runnable {
     final ResultAndTerm r = submitRequestAndWaitResult(phase, conf, electionTerm);
     LOG.info("{} {} round {}: result {}", this, phase, round, r);
 
-    synchronized (server) {
+    synchronized (server.getLock()) {
       if (!shouldRun(electionTerm)) {
         return false; // term already passed or this should not run anymore.
       }
