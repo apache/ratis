@@ -501,21 +501,22 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
       // Make raft-meta.tmp a directory so opening it for writing fails with IOException.
       Files.createDirectory(temporaryMetadataFile.toPath());
       try {
-        Assertions.assertThrows(IOException.class, () -> {
-          switch (op) {
-            case APPEND_ENTRIES:
-              follower.appendEntries(appendEntries(group, 1, 0));
-              break;
-            case REQUEST_VOTE:
-              follower.requestVote(requestVote(group, LEADER, 1));
-              break;
-            case INSTALL_SNAPSHOT:
-              follower.installSnapshot(installSnapshot(group, snapshotChunk));
-              break;
-            default:
-              throw new IllegalArgumentException("Unexpected operation " + op);
-          }
-        });
+        switch (op) {
+          case APPEND_ENTRIES:
+            Assertions.assertThrows(IOException.class,
+                () -> follower.appendEntries(appendEntries(group, 1, 0)));
+            break;
+          case REQUEST_VOTE:
+            Assertions.assertThrows(IOException.class,
+                () -> follower.requestVote(requestVote(group, LEADER, 1)));
+            break;
+          case INSTALL_SNAPSHOT:
+            Assertions.assertThrows(IOException.class,
+                () -> follower.installSnapshot(installSnapshot(group, snapshotChunk)));
+            break;
+          default:
+            throw new IllegalArgumentException("Unexpected operation " + op);
+        }
         Assertions.assertFalse(follower.getInfo().isAlive());
         Assertions.assertEquals(1L, follower.getState().getCurrentTerm());
         Assertions.assertEquals(0L, loadPersistedTerm(follower));

@@ -25,6 +25,7 @@ import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.examples.arithmetic.expression.Variable;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
 import java.io.IOException;
 
@@ -42,8 +43,18 @@ public class Get extends Client {
   protected void operation(RaftClient client) throws IOException {
     RaftClientReply getValue =
         client.io().sendReadOnly(Expression.Utils.toMessage(new Variable(name)));
-    Expression response =
-        Expression.Utils.bytes2Expression(Message.toByteString(getValue.getMessage()).toByteArray(), 0);
+    Expression response = getResponse(getValue);
     System.out.println(String.format("%s=%s", name, (DoubleValue) response).toString());
+  }
+
+  static Expression getResponse(RaftClientReply reply) throws IOException {
+    if (!reply.isSuccess()) {
+      throw new IOException("Failed to get variable value", reply.getException());
+    }
+    final ByteString content = Message.toByteString(reply.getMessage());
+    if (content == null) {
+      throw new IOException("Missing variable value in reply");
+    }
+    return Expression.Utils.bytes2Expression(content.toByteArray(), 0);
   }
 }
