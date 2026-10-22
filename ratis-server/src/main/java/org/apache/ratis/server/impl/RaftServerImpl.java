@@ -532,7 +532,11 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   void close(Throwable cause, boolean allServers) {
-    notifyServerShutdownInitiated(allServers);
+    // A division closed before its role is initialized has no role info to report.
+    if (role.getCurrentRole() != null && shutdownInitiatedNotified.compareAndSet(false, true)) {
+      getStateMachine().event().notifyServerShutdown(getRoleInfoProto(), allServers,
+              StateMachine.EventStatus.INITIATED);
+    }
 
     final State newState = lifeCycle.transition(current -> current.isClosingOrClosed() ? current
         : current == State.NEW ? State.CLOSED : State.CLOSING);
@@ -759,26 +763,6 @@ class RaftServerImpl implements RaftServer.Division,
 
   RoleInfoProto getRoleInfoProto() {
     return role.buildRoleInfoProto(this);
-  }
-
-  /**
-   * Notify the {@link StateMachine} that this division is about to be closed, before {@link #close()} starts
-   * releasing any resources.  Note that {@link #close()} waits for the committed entries to be applied,
-   * which is unbounded in time, so this is the only shutdown notification with a bounded delay.
-   * <p>
-   * {@link #close()} may be invoked more than once; the {@link StateMachine} is notified only once.
-   */
-  private void notifyServerShutdownInitiated(boolean allServers) {
-    // A division closed before its role is initialized has no role info to report.
-    if (role.getCurrentRole() == null || !shutdownInitiatedNotified.compareAndSet(false, true)) {
-      return;
-    }
-    try {
-      stateMachine.event().notifyServerShutdown(getRoleInfoProto(), allServers, StateMachine.EventStatus.INITIATED);
-    } catch (Throwable t) {
-      LOG.warn("{}: Failed to notify {} that the shutdown has been initiated",
-          getMemberId(), JavaUtils.getClassSimpleName(stateMachine.getClass()), t);
-    }
   }
 
   synchronized void changeToCandidate(boolean forceStartLeaderElection) {
