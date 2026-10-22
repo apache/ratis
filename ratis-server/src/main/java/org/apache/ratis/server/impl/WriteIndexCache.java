@@ -21,22 +21,23 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.ReadRequestTypeProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.util.TimeDuration;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Caching the per client write index in order to support read-after-write consistency.
- * Also track the latest write index of all the clients in order to support strong read-after-write consistency.
+ * Also track the latest write index of all the clients in order to support global read-after-write consistency.
  */
 class WriteIndexCache {
   private final Cache<ClientId, AtomicReference<CompletableFuture<Long>>> cache;
-  private final AtomicLong latestWriteIndex;
+  private final AtomicReference<CompletableFuture<Long>> latest
+      = new AtomicReference<>(CompletableFuture.completedFuture(RaftLog.INVALID_LOG_INDEX));
 
   WriteIndexCache(RaftProperties properties) {
     this(RaftServerConfigKeys.Read.ReadAfterWriteConsistent.writeIndexCacheExpiryTime(properties));
@@ -49,10 +50,11 @@ class WriteIndexCache {
     this.cache = CacheBuilder.newBuilder()
         .expireAfterAccess(cacheExpiryTime.getDuration(), cacheExpiryTime.getUnit())
         .build();
-    this.latestWriteIndex = new AtomicLong();
   }
 
   void add(ClientId key, CompletableFuture<Long> current) {
+    latest.updateAndGet(previous -> previous.thenCombine(current, Math::max));
+
     final AtomicReference<CompletableFuture<Long>> ref;
     try {
       ref = cache.get(key, AtomicReference::new);
@@ -63,16 +65,11 @@ class WriteIndexCache {
         : previous.thenCombine(current, Math::max));
   }
 
-  void updateLatestWriteIndex(long index) {
-    latestWriteIndex.updateAndGet(previous -> Math.max(previous, index));
-  }
-
-  long getLatestWriteIndex() {
-    return latestWriteIndex.get();
-  }
-
   CompletableFuture<Long> getWriteIndexFuture(ClientId clientId, ReadRequestTypeProto readRequestType) {
     if (readRequestType.getReadAfterWriteConsistent()) {
+      if (readRequestType.getGlobal()) {
+        return latest.get();
+      }
       final AtomicReference<CompletableFuture<Long>> ref = cache.getIfPresent(clientId);
       if (ref != null) {
         return ref.get();

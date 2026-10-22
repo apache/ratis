@@ -123,10 +123,6 @@ class ReadRequestHandler {
   private CompletableFuture<Long> getReadIndex(
       ClientId clientId, ReadRequestTypeProto readRequestType, LeaderStateImpl leader) {
     if (leader != null) {
-      if (readRequestType.getStrongReadAfterWrite()) {
-        final long latestWriteIndex = server.getWriteIndexCache().getLatestWriteIndex();
-        return leader.getReadIndex(latestWriteIndex);
-      }
       return server.getWriteIndexCache().getWriteIndexFuture(clientId, readRequestType)
           .thenCompose(leader::getReadIndex);
     }

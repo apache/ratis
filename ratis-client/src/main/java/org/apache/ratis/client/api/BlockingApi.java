@@ -18,6 +18,7 @@
 package org.apache.ratis.client.api;
 
 import java.io.IOException;
+
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -67,21 +68,19 @@ public interface BlockingApi {
 
   /**
    * Send the given readonly message to the raft service.
-   * The result will be read-after-write consistent, i.e. reflecting the latest successful write by the same client.
+   * The result is read-after-write consistent individually or globally.
+   *
    * @param message The request message.
+   * @param global When set to false, consistency is maintained within the same client (i.e. read-your-write).
+   *               When set to true, consistency is guaranteed across all clients (i.e. global read-after-write).
    * @return the reply.
    */
-  RaftClientReply sendReadAfterWrite(Message message) throws IOException;
+  RaftClientReply sendReadAfterWrite(Message message, boolean global) throws IOException;
 
-  /**
-   * Send the given readonly message to the raft service.
-   * The result reflects all the writes, from any client, already accepted by the leader,
-   * including writes that have not completed yet.
-   * This is an alternative to {@link #sendReadAfterWrite(Message)} and cannot be combined with it.
-   * @param message The request message.
-   * @return the reply.
-   */
-  RaftClientReply sendStrongReadAfterWrite(Message message) throws IOException;
+  /** The same as sendReadAfterWrite(message, false), i.e. read-your-write consistent. */
+  default RaftClientReply sendReadAfterWrite(Message message) throws IOException {
+    return sendReadAfterWrite(message, false);
+  }
 
   /**
    * Send the given stale-read message to the given server (not the raft service).

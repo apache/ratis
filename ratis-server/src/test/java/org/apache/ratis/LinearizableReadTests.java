@@ -354,25 +354,25 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
-  public void testStrongReadAfterWrite() throws Exception {
+  public void testGlobalReadAfterWrite() throws Exception {
     final boolean isRepliedIndex = readIndexType() == Type.REPLIED_INDEX;
-    runWithNewCluster(cluster -> runTestStrongReadAfterWrite(cluster, isRepliedIndex));
+    runWithNewCluster(cluster -> runTestGlobalReadAfterWrite(cluster, isRepliedIndex));
   }
 
-  static <C extends MiniRaftCluster> void runTestStrongReadAfterWrite(C cluster, boolean isRepliedIndex)
+  static <C extends MiniRaftCluster> void runTestGlobalReadAfterWrite(C cluster, boolean isRepliedIndex)
       throws Exception {
     final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
 
-    // Use two different clients: the strong read-after-write must also see the writes of the other client.
+    // Use two different clients: the global read-after-write must also see the writes of the other client.
     try (RaftClient writer = cluster.createClient(leaderId);
          RaftClient reader = cluster.createClient(leaderId)) {
-      assertReplyExact(0, reader.io().sendStrongReadAfterWrite(QUERY));
+      assertReplyExact(0, reader.io().sendReadAfterWrite(QUERY, true));
 
       assertReplyExact(1, writer.io().send(INCREMENT));
-      assertReplyExact(1, reader.io().sendStrongReadAfterWrite(QUERY));
+      assertReplyExact(1, reader.io().sendReadAfterWrite(QUERY, true));
 
-      // test strong read-after-write with a pending write from the other client
+      // test global read-after-write with a pending write from the other client
       final int n = 5;
       for (int i = 0; i < n; i++) {
         final int count = i + 2;
@@ -386,7 +386,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
           // The pending write is not yet replied, so a read-after-write from the other client does not see it.
           assertReplyExact(count - 1, reader.io().sendReadAfterWrite(QUERY));
         }
-        assertReplyExact(count, reader.io().sendStrongReadAfterWrite(QUERY));
+        assertReplyExact(count, reader.io().sendReadAfterWrite(QUERY, true));
         writeReply.assertExact();
       }
     }
