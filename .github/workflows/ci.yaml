@@ -124,12 +124,12 @@ jobs:
     if: github.event_name != 'pull_request'
     steps:
         - name: Checkout project
-          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+          uses: actions/checkout@v7
           with:
             fetch-depth: 0
             persist-credentials: false
         - name: Cache for maven dependencies
-          uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          uses: actions/cache/restore@v6
           with:
             path: |
               ~/.m2/repository
@@ -138,12 +138,12 @@ jobs:
             restore-keys: |
               maven-repo-
         - name: Setup java 17
-          uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+          uses: actions/setup-java@v6
           with:
             distribution: 'temurin'
             java-version: 17
         - name: Download artifacts
-          uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+          uses: actions/download-artifact@v8
           with:
             path: target/artifacts
         - name: Untar binaries
@@ -159,7 +159,7 @@ jobs:
             SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         - name: Archive build results
-          uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+          uses: actions/upload-artifact@v7
           if: always()
           with:
             name: ${{ github.job }}

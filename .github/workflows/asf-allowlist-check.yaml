@@ -40,10 +40,10 @@ jobs:
     runs-on: ubuntu-slim
     steps:
       - name: Checkout project
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Check actions
-        uses: apache/infrastructure-actions/allowlist-check@47b297bbe90f580139129bee531bd84bd95b7f5d # allowlist-check/v1.0.4
+        uses: apache/infrastructure-actions/allowlist-check@allowlist-check/v1
         with:
           scan-glob: ".github/workflows/*.y*ml"
