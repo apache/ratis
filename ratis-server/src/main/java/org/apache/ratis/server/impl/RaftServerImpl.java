@@ -21,19 +21,16 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
-import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.ReadIndexReplyProto;
 import org.apache.ratis.proto.RaftProtos.ReadIndexRequestProto;
 import org.apache.ratis.proto.RaftProtos.ReadRequestTypeProto;
@@ -54,7 +51,6 @@ import org.apache.ratis.protocol.RaftClientProtocol;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroup;
-import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -80,7 +76,6 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RetryCacheImpl.CacheEntry;
-import org.apache.ratis.server.impl.ServerImplUtils.NavigableIndices;
 import org.apache.ratis.server.leader.LeaderState.StepDownReason;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.metrics.RaftServerMetricsImpl;
@@ -135,19 +130,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.apache.ratis.server.impl.LeaderElection.Result.NOT_IN_CONF;
 import static org.apache.ratis.server.impl.ReadRequestHandler.isDummyRead;
-import static org.apache.ratis.server.impl.ServerImplUtils.assertEntries;
 import static org.apache.ratis.server.impl.ServerImplUtils.assertGroup;
-import static org.apache.ratis.server.impl.ServerImplUtils.effectiveCommitIndex;
-import static org.apache.ratis.server.impl.ServerProtoUtils.toAppendEntriesReplyProto;
-import static org.apache.ratis.server.raftlog.LogProtoUtils.toLogEntryTermIndexString;
-import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesReplyString;
-import static org.apache.ratis.server.util.ServerStringUtils.toAppendEntriesRequestString;
 class RaftServerImpl implements RaftServer.Division,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
@@ -233,7 +221,6 @@ class RaftServerImpl implements RaftServer.Division,
   private final RetryCacheImpl retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
   private final WriteIndexCache writeIndexCache;
-  private final NavigableIndices appendLogTermIndices;
 
   private final RaftServerJmxAdapter jmxAdapter = new RaftServerJmxAdapter(this);
   private final LeaderElectionMetrics leaderElectionMetrics;
@@ -249,6 +236,7 @@ class RaftServerImpl implements RaftServer.Division,
   private final SnapshotInstallationHandler snapshotInstallationHandler;
   private final ElectionRequestHandler electionRequestHandler;
   private final ReadRequestHandler readRequestHandler;
+  private final AppendEntriesHandler appendEntriesHandler;
 
   private final ExecutorService serverExecutor;
   private final ExecutorService clientExecutor;
@@ -287,8 +275,7 @@ class RaftServerImpl implements RaftServer.Division,
     this.snapshotInstallationHandler = new SnapshotInstallationHandler(this, properties);
     this.electionRequestHandler = new ElectionRequestHandler(this);
     this.readRequestHandler = new ReadRequestHandler(this, properties);
-    this.appendLogTermIndices = RaftServerConfigKeys.Log.appendEntriesComposeEnabled(properties) ?
-        new NavigableIndices() : null;
+    this.appendEntriesHandler = new AppendEntriesHandler(this, properties);
 
     this.serverExecutor = ConcurrentUtils.newThreadPoolWithMax(
         RaftServerConfigKeys.ThreadPool.serverCached(properties),
@@ -1447,43 +1434,12 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto r)
       throws IOException {
-    final RaftRpcRequestProto request = r.getServerRequest();
-    final TermIndex previous = r.hasPreviousLog()? TermIndex.valueOf(r.getPreviousLog()) : null;
-    try {
-      final RaftPeerId leaderId = RaftPeerId.valueOf(request.getRequestorId());
-      final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(request.getRaftGroupId());
-      CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(), leaderId, previous, r);
-
-      assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
-      if (!startComplete.get()) {
-        throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
-      }
-      assertGroup(getMemberId(), leaderId, leaderGroupId);
-      assertEntries(r, previous, state);
-      return TraceServer.traceAppendEntriesAsync(() -> appendEntriesAsync(leaderId, request.getCallId(), previous, r),
-          r, getMemberId().toString());
-    } catch(Exception t) {
-      LOG.error("{}: Failed appendEntries* {}", getMemberId(),
-          toAppendEntriesRequestString(r, stateMachine::toStateMachineLogEntryString), t);
-      throw IOUtils.asIOException(t);
-    }
+    return appendEntriesHandler.appendEntriesAsync(r);
   }
 
   @Override
   public CompletableFuture<ReadIndexReplyProto> readIndexAsync(ReadIndexRequestProto request) throws IOException {
     return readRequestHandler.readIndexAsync(request);
-  }
-
-  static void logAppendEntries(boolean isHeartbeat, Supplier<String> message) {
-    if (isHeartbeat) {
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("HEARTBEAT: {}", message.get());
-      }
-    } else {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug(message.get());
-      }
-    }
   }
 
   Optional<FollowerState> updateLastRpcTime(FollowerState.UpdateType updateType) {
@@ -1496,8 +1452,23 @@ class RaftServerImpl implements RaftServer.Division,
     }
   }
 
-  private long updateCommitInfoCache() {
+  long updateCommitInfoCache() {
     return commitInfoCache.update(getId(), state.getLog().getLastCommittedIndex());
+  }
+
+  CommitInfoCache getCommitInfoCache() {
+    return commitInfoCache;
+  }
+
+  boolean isStartComplete() {
+    return startComplete.get();
+  }
+
+  /** If the life cycle is STARTING, transition it to RUNNING and start the follower state. */
+  void startFollowerStateIfStarting(Object reason) {
+    if (lifeCycle.compareAndTransition(State.STARTING, State.RUNNING)) {
+      role.startFollowerState(this, reason);
+    }
   }
 
   SnapshotInstallationHandler getSnapshotInstallationHandler() {
@@ -1514,159 +1485,6 @@ class RaftServerImpl implements RaftServer.Division,
 
   ExecutorService getServerExecutor() {
     return serverExecutor;
-  }
-
-  private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(RaftPeerId leaderId, long callId,
-      TermIndex previous, AppendEntriesRequestProto proto) throws IOException {
-    final List<LogEntryProto> entries = proto.getEntriesList();
-    final boolean isHeartbeat = entries.isEmpty();
-    logAppendEntries(isHeartbeat, () -> getMemberId() + ": appendEntries* "
-        + toAppendEntriesRequestString(proto, stateMachine::toStateMachineLogEntryString));
-
-    final long leaderTerm = proto.getLeaderTerm();
-    final long currentTerm;
-    final long followerCommit = state.getLog().getLastCommittedIndex();
-    final long appliedIndex = state.getLastAppliedIndex();
-    final Optional<FollowerState> followerState;
-    final Timekeeper.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
-    final CompletableFuture<Void> future;
-    synchronized (this) {
-      // Check life cycle state again to avoid the PAUSING/PAUSED state.
-      assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
-      currentTerm = state.getCurrentTerm();
-      final boolean recognized = state.recognizeLeader(Op.APPEND_ENTRIES, leaderId, leaderTerm);
-      if (!recognized) {
-        return CompletableFuture.completedFuture(toAppendEntriesReplyProto(
-            leaderId, getMemberId(), currentTerm, followerCommit, state.getNextIndex(),
-            AppendResult.NOT_LEADER, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat, appliedIndex));
-      }
-      try {
-        future = changeToFollowerAndPersistMetadata(leaderTerm, true, Op.APPEND_ENTRIES);
-      } catch (IOException e) {
-        return JavaUtils.completeExceptionally(e);
-      }
-      state.setLeader(leaderId, Op.APPEND_ENTRIES);
-
-      if (!proto.getInitializing() && lifeCycle.compareAndTransition(State.STARTING, State.RUNNING)) {
-        role.startFollowerState(this, Op.APPEND_ENTRIES);
-      }
-      followerState = updateLastRpcTime(FollowerState.UpdateType.APPEND_START);
-
-      // Check that the append entries are not inconsistent. There are 3
-      // scenarios which can result in inconsistency:
-      //      1. There is a snapshot installation in progress
-      //      2. There is an overlap between the snapshot index and the entries
-      //      3. There is a gap between the local log and the entries
-      // In any of these scenarios, we should return an INCONSISTENCY reply
-      // back to leader so that the leader can update this follower's next index.
-      final long inconsistencyReplyNextIndex = checkInconsistentAppendEntries(previous, entries);
-      if (inconsistencyReplyNextIndex > RaftLog.INVALID_LOG_INDEX) {
-        final AppendEntriesReplyProto reply = toAppendEntriesReplyProto(
-            leaderId, getMemberId(), currentTerm, followerCommit, inconsistencyReplyNextIndex,
-            AppendResult.INCONSISTENCY, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat, appliedIndex);
-        LOG.info("{}: appendEntries* reply {}", getMemberId(), toAppendEntriesReplyString(reply));
-        followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
-        return future.thenApply(dummy -> reply);
-      }
-
-      state.updateConfiguration(entries);
-    }
-    future.join();
-    final CompletableFuture<Void> appendFuture = entries.isEmpty()? CompletableFuture.completedFuture(null)
-        : appendLogTermIndices != null ? appendLogTermIndices.append(entries, this::appendLog)
-        : JavaUtils.allOf(state.getLog().append(entries));
-
-    proto.getCommitInfosList().forEach(commitInfoCache::update);
-
-    CodeInjectionForTesting.execute(LOG_SYNC, getId(), null);
-    if (!isHeartbeat) {
-      final long installedIndex = snapshotInstallationHandler.getInstalledIndex();
-      if (installedIndex >= RaftLog.LEAST_VALID_LOG_INDEX) {
-        LOG.info("{}: Follower has completed install the snapshot {}.", this, installedIndex);
-        stateMachine.event().notifySnapshotInstalled(InstallSnapshotResult.SUCCESS, installedIndex, getPeer());
-      }
-    }
-
-    final long commitIndex = effectiveCommitIndex(proto.getLeaderCommit(), previous, entries.size());
-    final long matchIndex = isHeartbeat? RaftLog.INVALID_LOG_INDEX: entries.get(entries.size() - 1).getIndex();
-    return appendFuture.whenCompleteAsync((r, t) -> {
-      if  (t != null) {
-        LOG.warn("{}: appendEntries* failed: {}", getMemberId(), toLogEntryTermIndexString(entries), t);
-      } else if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: appendEntries* succeeded: {}", getMemberId(), toLogEntryTermIndexString(entries));
-      }
-      followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
-      timer.stop();
-    }, getServerExecutor()).thenApply(v -> {
-      // Re-check the term after the asynchronous append completes: this server may have
-      // granted a higher-term vote while the append was in flight. In that case this server
-      // no longer recognizes the requestor as leader, so it must not report SUCCESS, which
-      // the old leader could otherwise count toward committing an entry that the new leader
-      // may not have. Reply NOT_LEADER with the current term so the old leader steps down.
-      final long replyTerm = state.getCurrentTerm();
-      if (replyTerm != leaderTerm) {
-        final AppendEntriesReplyProto reply = toAppendEntriesReplyProto(leaderId, getMemberId(),
-            replyTerm, followerCommit, state.getNextIndex(),
-            AppendResult.NOT_LEADER, callId, RaftLog.INVALID_LOG_INDEX, isHeartbeat, appliedIndex);
-        LOG.info("{}: appendEntries* reply {} since term changed from {} to {}",
-            getMemberId(), toAppendEntriesReplyString(reply), leaderTerm, replyTerm);
-        return reply;
-      }
-      final boolean updated = state.updateCommitIndex(commitIndex, currentTerm, false);
-      if (updated) {
-        updateCommitInfoCache();
-      }
-      final long nextIndex = isHeartbeat? state.getNextIndex(): matchIndex + 1;
-      final AppendEntriesReplyProto reply = toAppendEntriesReplyProto(leaderId, getMemberId(),
-          currentTerm, updated? commitIndex : state.getLog().getLastCommittedIndex(),
-          nextIndex, AppendResult.SUCCESS, callId, matchIndex, isHeartbeat, appliedIndex);
-      logAppendEntries(isHeartbeat, () -> getMemberId()
-          + ": appendEntries* reply " + toAppendEntriesReplyString(reply));
-      return reply;
-    });
-  }
-
-  private CompletableFuture<Void> appendLog(List<LogEntryProto> entries) {
-    return CompletableFuture.completedFuture(null)
-        .thenComposeAsync(dummy -> {
-          CodeInjectionForTesting.execute(APPEND_ENTRIES_BEFORE_APPEND_LOG, getId(), null, entries);
-          return JavaUtils.allOf(state.getLog().append(entries));
-        }, serverExecutor);
-  }
-
-  private long checkInconsistentAppendEntries(TermIndex previous, List<LogEntryProto> entries) {
-    // Check if a snapshot installation through state machine is in progress.
-    final long installSnapshot = snapshotInstallationHandler.getInProgressInstallSnapshotIndex();
-    if (installSnapshot != RaftLog.INVALID_LOG_INDEX) {
-      LOG.info("{}: Failed appendEntries as snapshot ({}) installation is in progress", getMemberId(), installSnapshot);
-      return state.getNextIndex();
-    }
-
-    // Check that the first log entry is greater than the snapshot index in the latest snapshot and follower's last
-    // committed index. If not, reply to the leader the new next index.
-    if (entries != null && !entries.isEmpty()) {
-      final long firstEntryIndex = entries.get(0).getIndex();
-      final long snapshotIndex = state.getSnapshotIndex();
-      final long commitIndex =  state.getLog().getLastCommittedIndex();
-      final long nextIndex = Math.max(snapshotIndex, commitIndex);
-      if (nextIndex > RaftLog.INVALID_LOG_INDEX && nextIndex >= firstEntryIndex) {
-        LOG.info("{}: Failed appendEntries as the first entry (index {})" +
-                " already exists (snapshotIndex: {}, commitIndex: {})",
-            getMemberId(), firstEntryIndex, snapshotIndex, commitIndex);
-        return nextIndex + 1;
-      }
-    }
-
-    // Check if "previous" is contained in current state.
-    if (previous != null
-        && !(appendLogTermIndices != null && appendLogTermIndices.contains(previous))
-        && !state.containsTermIndex(previous)) {
-      final long replyNextIndex = Math.min(state.getNextIndex(), previous.getIndex());
-      LOG.info("{}: Failed appendEntries, previous log entry {} not found", getMemberId(), previous);
-      return replyNextIndex;
-    }
-
-    return RaftLog.INVALID_LOG_INDEX;
   }
 
   @Override
