@@ -30,6 +30,28 @@ $ mvn clean package -DskipTests
 Note: subsequent builds could be faster with skiping shading/protobuf compile steps.
 See the next section for more info.
 
+## Error Prone
+
+Run [Error Prone](https://errorprone.info/) static analysis with JDK 17 or 21:
+
+```
+$ dev-support/checks/errorprone.sh
+```
+
+The check compiles main and test sources without running tests. Reports are written to
+`target/errorprone`: `output.log` contains the complete build output, `diagnostics.txt`
+contains compiler diagnostics, and `summary.txt` contains errors. Warnings do not fail the check.
+Generated sources are excluded from Error Prone analysis.
+
+The Maven profile can also be used directly:
+
+```
+$ mvn clean test-compile -Perrorprone -DskipTests
+```
+
+Normal builds do not enable Error Prone and continue to support Java 8.
+To test the check script's report handling, run `bash dev-support/tests/test-errorprone.sh`.
+
 # Thirdparty
 
 All bundled thirdparty dependencies are centralized in the *ratis-thirdparty* module
