@@ -54,8 +54,8 @@ class AsyncImpl implements AsyncRpcApi {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> sendReadAfterWrite(Message message) {
-    return send(RaftClientRequest.readAfterWriteConsistentRequestType(), message, null);
+  public CompletableFuture<RaftClientReply> sendReadAfterWrite(Message message, boolean global) {
+    return send(RaftClientRequest.readAfterWriteConsistentRequestType(global), message, null);
   }
 
   @Override

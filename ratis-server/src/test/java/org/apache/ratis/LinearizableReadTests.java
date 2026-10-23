@@ -352,4 +352,43 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
       assertReplyAtLeast(2, asyncReply.join());
     }
   }
+
+  @Test
+  public void testGlobalReadAfterWrite() throws Exception {
+    final boolean isRepliedIndex = readIndexType() == Type.REPLIED_INDEX;
+    runWithNewCluster(cluster -> runTestGlobalReadAfterWrite(cluster, isRepliedIndex));
+  }
+
+  static <C extends MiniRaftCluster> void runTestGlobalReadAfterWrite(C cluster, boolean isRepliedIndex)
+      throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId leaderId = leader.getId();
+
+    // Use two different clients: the global read-after-write must also see the writes of the other client.
+    try (RaftClient writer = cluster.createClient(leaderId);
+         RaftClient reader = cluster.createClient(leaderId)) {
+      assertReplyExact(0, reader.io().sendReadAfterWrite(QUERY, true));
+
+      assertReplyExact(1, writer.io().send(INCREMENT));
+      assertReplyExact(1, reader.io().sendReadAfterWrite(QUERY, true));
+
+      // test global read-after-write with a pending write from the other client
+      final int n = 5;
+      for (int i = 0; i < n; i++) {
+        final int count = i + 2;
+        final long nextIndex = leader.getRaftLog().getNextIndex();
+        final Reply writeReply = new Reply(count, writer.async().send(WAIT_AND_INCREMENT));
+        // wait until the write is appended to the leader log
+        JavaUtils.attemptRepeatedly(() -> getLogEntryIndex(leader, WAIT_AND_INCREMENT, nextIndex),
+            10, HUNDRED_MILLIS, "WAIT_AND_INCREMENT entry", null);
+
+        if (isRepliedIndex) {
+          // The pending write is not yet replied, so a read-after-write from the other client does not see it.
+          assertReplyExact(count - 1, reader.io().sendReadAfterWrite(QUERY));
+        }
+        assertReplyExact(count, reader.io().sendReadAfterWrite(QUERY, true));
+        writeReply.assertExact();
+      }
+    }
+  }
 }

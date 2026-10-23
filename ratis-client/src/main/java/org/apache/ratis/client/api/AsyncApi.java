@@ -63,12 +63,19 @@ public interface AsyncApi {
 
   /**
    * Send the given readonly message asynchronously to the raft service.
-   * The result will be read-after-write consistent, i.e. reflecting the latest successful write by the same client.
+   * The result is read-after-write consistent individually or globally.
+   *
    * @param message The request message.
+   * @param global When set to false, consistency is maintained within the same client (i.e. read-your-write).
+   *               When set to true, consistency is guaranteed across all clients (i.e. global read-after-write).
    * @return the reply.
    */
-  CompletableFuture<RaftClientReply> sendReadAfterWrite(Message message);
+  CompletableFuture<RaftClientReply> sendReadAfterWrite(Message message, boolean global);
 
+  /** The same as sendReadAfterWrite(message, false), i.e. read-your-write consistent. */
+  default CompletableFuture<RaftClientReply> sendReadAfterWrite(Message message) {
+    return sendReadAfterWrite(message, false);
+  }
 
   /**
    * Send the given readonly message asynchronously to the raft service using non-linearizable read.

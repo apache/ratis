@@ -171,6 +171,8 @@ which offer better performance but may return stale data.
 * Use `sendStaleRead()` to specify the minimum log index that the server must have applied.
 * Use `sendReadAfterWrite()` to ensure the read reflects the latest successful write by the
 same client, for **read-after-write consistency**.
+* Use `sendReadAfterWrite(message, true)` to ensure the read reflects all the writes, from any client,
+already accepted by the leader, for **global read-after-write consistency**.
 
 Note that all of these operations may be performing as blocking or async operations. See
 [Client API Patterns](integration.md#client-api-patterns) for more information.
