@@ -44,3 +44,5 @@ Applications may use them to build `RaftServer`/`RaftClient` objects for establi
 | `raft.grpc.admin.tls.conf`              | gRPC admin TLS conf               |
 | `raft.netty.dataStream.server.tls.conf` | Netty data stream server TLS conf |
 | `raft.netty.dataStream.client.tls.conf` | Netty data stream client TLS conf |
+| `raft.netty.server.tls.conf`            | Netty RPC server TLS conf         |
+| `raft.netty.client.tls.conf`            | Netty RPC client TLS conf         |
