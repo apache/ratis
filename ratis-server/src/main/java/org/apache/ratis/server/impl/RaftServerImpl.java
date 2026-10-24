@@ -1434,6 +1434,9 @@ class RaftServerImpl implements RaftServer.Division,
   @Override
   public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto r)
       throws IOException {
+    if (!startComplete.get()) {
+      throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
+    }
     return appendEntriesHandler.appendEntriesAsync(r);
   }
 
@@ -1456,18 +1459,14 @@ class RaftServerImpl implements RaftServer.Division,
     return commitInfoCache.update(getId(), state.getLog().getLastCommittedIndex());
   }
 
-  CommitInfoCache getCommitInfoCache() {
-    return commitInfoCache;
+  void updateCommitInfoCache(List<CommitInfoProto> commitInfos) {
+    commitInfos.forEach(commitInfoCache::update);
   }
 
-  boolean isStartComplete() {
-    return startComplete.get();
-  }
-
-  /** If the life cycle is STARTING, transition it to RUNNING and start the follower state. */
-  void startFollowerStateIfStarting(Object reason) {
-    if (lifeCycle.compareAndTransition(State.STARTING, State.RUNNING)) {
-      role.startFollowerState(this, reason);
+  void startFollowerState(boolean isFollowerInitializing) {
+    if (!isFollowerInitializing && lifeCycle.compareAndTransition(State.STARTING, State.RUNNING)) {
+      // the follower has caught up (i.e. not initializing).  If it is not already RUNNING, start it up.
+      role.startFollowerState(this, Op.APPEND_ENTRIES);
     }
   }
 

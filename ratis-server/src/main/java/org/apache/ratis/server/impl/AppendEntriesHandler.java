@@ -28,7 +28,6 @@ import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.ServerImplUtils.NavigableIndices;
 import org.apache.ratis.server.protocol.RaftServerProtocol.Op;
@@ -100,9 +99,6 @@ class AppendEntriesHandler {
       CodeInjectionForTesting.execute(RaftServerImpl.APPEND_ENTRIES, server.getId(), leaderId, previous, r);
 
       server.assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
-      if (!server.isStartComplete()) {
-        throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
-      }
       assertGroup(getMemberId(), leaderId, leaderGroupId);
       assertEntries(r, previous, state);
       return TraceServer.traceAppendEntriesAsync(() -> appendEntriesAsync(leaderId, request.getCallId(), previous, r),
@@ -145,9 +141,7 @@ class AppendEntriesHandler {
       }
       state.setLeader(leaderId, Op.APPEND_ENTRIES);
 
-      if (!proto.getInitializing()) {
-        server.startFollowerStateIfStarting(Op.APPEND_ENTRIES);
-      }
+      server.startFollowerState(proto.getInitializing());
       followerState = server.updateLastRpcTime(FollowerState.UpdateType.APPEND_START);
 
       // Check that the append entries are not inconsistent. There are 3
@@ -174,7 +168,7 @@ class AppendEntriesHandler {
         : appendLogTermIndices != null ? appendLogTermIndices.append(entries, this::appendLog)
         : JavaUtils.allOf(state.getLog().append(entries));
 
-    proto.getCommitInfosList().forEach(server.getCommitInfoCache()::update);
+    server.updateCommitInfoCache(proto.getCommitInfosList());
 
     CodeInjectionForTesting.execute(RaftServerImpl.LOG_SYNC, server.getId(), null);
     if (!isHeartbeat) {
