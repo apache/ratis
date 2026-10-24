@@ -244,14 +244,12 @@ public interface StateMachine extends Closeable {
     }
 
     /**
-     * The same as notifyServerShutdown(roleInfo, allServers, EventStatus.COMPLETED).
+     * Notify the {@link StateMachine} that either the server for this division or all the servers have been shut down.
      *
      * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, EventStatus)} instead
      */
     @Deprecated
-    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers) {
-      notifyServerShutdown(roleInfo, allServers, EventStatus.COMPLETED);
-    }
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers) {}
 
     /**
      * Notify the {@link StateMachine} server shutdown.
@@ -266,7 +264,12 @@ public interface StateMachine extends Closeable {
      * @param allServers whether all raft servers will be shutdown at this time
      * @param eventStatus {@link EventStatus#INITIATED} or {@link EventStatus#COMPLETED}
      */
-    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {}
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {
+      // preserve the behavior prior to Ratis 3.4.0.
+      if (eventStatus == EventStatus.COMPLETED) {
+        notifyServerShutdown(roleInfo, allServers);
+      }
+    }
   }
 
   /**

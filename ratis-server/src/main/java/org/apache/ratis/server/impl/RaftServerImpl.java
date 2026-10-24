@@ -489,8 +489,7 @@ class RaftServerImpl implements RaftServer.Division,
       closeFuture.get();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      LOG.warn("{}: Waiting closing interrupted, will not continue to remove group locally", getMemberId());
-      return;
+      throw new CompletionException(getMemberId() + ": Interrupted groupRemove", e);
     } catch (ExecutionException e) {
       throw new CompletionException(getMemberId() + ": Failed to close this division", e);
     }
@@ -610,7 +609,11 @@ class RaftServerImpl implements RaftServer.Division,
         LOG.warn("{}: Failed to shutdown serverExecutor", getMemberId(), e);
       }
     } catch (RuntimeException | Error e) {
-      failure = e;
+      if (failure == null) {
+        failure = e;
+      } else {
+        failure.addSuppressed(e);
+      }
       throw e;
     } finally {
       completeClose(failure, allServers);
