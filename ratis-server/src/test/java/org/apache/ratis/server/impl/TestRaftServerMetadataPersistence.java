@@ -185,7 +185,7 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
         stateMachine, false)) {
       follower.start();
       final IllegalStateException failure = new IllegalStateException("Unexpected division failure");
-      follower.close(failure);
+      follower.close(failure, false);
       assertStopped(follower, group, stateMachine);
       final ExecutionException thrown = Assertions.assertThrows(ExecutionException.class,
           () -> closeFuture(follower).get(5, TimeUnit.SECONDS));
@@ -203,9 +203,11 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     final AtomicReference<LifeCycle.State> stateWhenNotified = new AtomicReference<>();
     final ShutdownStateMachine stateMachine = new ShutdownStateMachine() {
       @Override
-      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {
-        stateWhenNotified.set(server.get().getInfo().getLifeCycleState());
-        super.notifyServerShutdown(roleInfo, allServer);
+      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {
+        if (eventStatus == EventStatus.COMPLETED) {
+          stateWhenNotified.set(server.get().getInfo().getLifeCycleState());
+        }
+        super.notifyServerShutdown(roleInfo, allServers, eventStatus);
       }
     };
 
@@ -215,7 +217,7 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
       follower.start();
       follower.close();
       Assertions.assertTrue(closeFuture(follower).isDone());
-      Assertions.assertNull(closeFuture(follower).get(5, TimeUnit.SECONDS));
+      Assertions.assertFalse(closeFuture(follower).get(5, TimeUnit.SECONDS));
       Assertions.assertEquals(LifeCycle.State.CLOSED, stateWhenNotified.get());
       assertStopped(follower, group, stateMachine);
     }
@@ -233,7 +235,7 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
       follower.close();
       Assertions.assertEquals(LifeCycle.State.CLOSED, follower.getInfo().getLifeCycleState());
       Assertions.assertTrue(closeFuture(follower).isDone());
-      Assertions.assertNull(closeFuture(follower).get(5, TimeUnit.SECONDS));
+      Assertions.assertFalse(closeFuture(follower).get(5, TimeUnit.SECONDS));
       Assertions.assertFalse(stateMachine.shutdown.isDone());
       Assertions.assertEquals(0, stateMachine.shutdownCount.get());
     }
@@ -443,10 +445,13 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     final AtomicReference<Throwable> uncaught = new AtomicReference<>();
     final ShutdownStateMachine stateMachine = new ShutdownStateMachine() {
       @Override
-      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {
+      public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {
+        super.notifyServerShutdown(roleInfo, allServers, eventStatus);
+        if (eventStatus != EventStatus.COMPLETED) {
+          return;
+        }
         callbackThread.set(Thread.currentThread());
         Thread.currentThread().setUncaughtExceptionHandler((thread, cause) -> uncaught.set(cause));
-        super.notifyServerShutdown(roleInfo, allServer);
         throw new IllegalStateException("Failed shutdown callback");
       }
     };
@@ -574,16 +579,19 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
     }
 
     @Override
-    public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {
+    public void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {
+      if (eventStatus != EventStatus.COMPLETED) {
+        return;
+      }
       closedWhenNotified = closed;
       shutdownCount.incrementAndGet();
-      shutdown.complete(allServer);
+      shutdown.complete(allServers);
     }
   }
 
   @SuppressWarnings("unchecked")
-  private static CompletableFuture<Void> closeFuture(RaftServerImpl server) {
-    return (CompletableFuture<Void>) RaftTestUtil.getDeclaredField(server, "closeFuture");
+  private static CompletableFuture<Boolean> closeFuture(RaftServerImpl server) {
+    return (CompletableFuture<Boolean>) RaftTestUtil.getDeclaredField(server, "closeFuture");
   }
 
   @SuppressWarnings("unchecked")

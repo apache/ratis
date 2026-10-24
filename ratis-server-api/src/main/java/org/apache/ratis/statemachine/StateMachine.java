@@ -58,6 +58,11 @@ import java.util.function.Function;
 public interface StateMachine extends Closeable {
   Logger LOG = LoggerFactory.getLogger(StateMachine.class);
 
+  enum EventStatus {
+    INITIATED,
+    COMPLETED
+  }
+
   /** A registry to support different state machines in multi-raft environment. */
   interface Registry extends Function<RaftGroupId, StateMachine> {
   }
@@ -229,20 +234,42 @@ public interface StateMachine extends Closeable {
     default void notifySnapshotInstalled(InstallSnapshotResult result, long snapshotIndex,  RaftPeer peer) {}
 
     /**
-     * Notify the {@link StateMachine} that the server for this division has been shut down.
-     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean)} instead
+     * The same as notifyServerShutdown(roleInfo, false, EventStatus.COMPLETED).
+     *
+     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, EventStatus)} instead
      */
     @Deprecated
     default void notifyServerShutdown(RoleInfoProto roleInfo) {
-      notifyServerShutdown(roleInfo, false);
+      notifyServerShutdown(roleInfo, false, EventStatus.COMPLETED);
     }
 
     /**
      * Notify the {@link StateMachine} that either the server for this division or all the servers have been shut down.
-     * @param roleInfo roleInfo this server
-     * @param allServer whether all raft servers will be shutdown at this time
+     *
+     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, EventStatus)} instead
      */
-    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServer) {}
+    @Deprecated
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers) {}
+
+    /**
+     * Notify the {@link StateMachine} server shutdown.
+     * <p>
+     * {@link EventStatus#INITIATED} is notified before the shutdown has closed any resources,
+     * in particular, before waiting for the committed log entries to be applied to this {@link StateMachine},
+     * which is unbounded in time.  An implementation must return promptly for {@link EventStatus#INITIATED}.
+     * <p>
+     * {@link EventStatus#COMPLETED} is notified after the shutdown has completed.
+     *
+     * @param roleInfo roleInfo this server
+     * @param allServers whether all raft servers will be shutdown at this time
+     * @param eventStatus {@link EventStatus#INITIATED} or {@link EventStatus#COMPLETED}
+     */
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers, EventStatus eventStatus) {
+      // preserve the behavior prior to Ratis 3.4.0.
+      if (eventStatus == EventStatus.COMPLETED) {
+        notifyServerShutdown(roleInfo, allServers);
+      }
+    }
   }
 
   /**
