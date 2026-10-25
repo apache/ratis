@@ -239,17 +239,17 @@ public interface StateMachine extends Closeable {
      * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, EventStatus)} instead
      */
     @Deprecated
-    default void notifyServerShutdown(RoleInfoProto roleInfo) {
-      notifyServerShutdown(roleInfo, false, EventStatus.COMPLETED);
-    }
+    default void notifyServerShutdown(RoleInfoProto roleInfo) {}
 
     /**
      * Notify the {@link StateMachine} that either the server for this division or all the servers have been shut down.
      *
-     * @deprecated please use/override {@link #notifyServerShutdown(RoleInfoProto, boolean, EventStatus)} instead
+     * @deprecated please override {@link #notifyServerShutdown(RoleInfoProto, boolean, EventStatus)} instead
      */
     @Deprecated
-    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers) {}
+    default void notifyServerShutdown(RoleInfoProto roleInfo, boolean allServers) {
+      notifyServerShutdown(roleInfo);
+    }
 
     /**
      * Notify the {@link StateMachine} server shutdown.
