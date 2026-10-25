@@ -191,7 +191,7 @@ public final class RaftServerTestUtil {
   public static void assertLeaderLease(RaftServer.Division leader, boolean hasLease) {
     final LeaderStateImpl l = getLeaderState(leader).orElse(null);
     Assertions.assertNotNull(l);
-    Assertions.assertEquals(l.hasLease(), hasLease);
+    Assertions.assertEquals(hasLease, l.hasLease());
   }
 
   public static void restartLogAppenders(RaftServer.Division server) {

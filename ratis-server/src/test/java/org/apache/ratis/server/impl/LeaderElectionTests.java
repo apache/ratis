@@ -771,7 +771,9 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
       assertTrue(leader.getInfo().isLeader());
       assertTrue(leader.getInfo().isLeaderReady());
-      RaftServerTestUtil.assertLeaderLease(leader, true);
+      // A completed write does not guarantee that the lease is still valid when the client returns.
+      JavaUtils.attempt(() -> RaftServerTestUtil.assertLeaderLease(leader, true),
+          20, HUNDRED_MILLIS, "wait for leader lease", LOG);
 
       RaftTestUtil.isolate(cluster, leader.getId());
       Thread.sleep(leaseTimeoutMs);
@@ -799,7 +801,9 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
       assertTrue(leader.getInfo().isLeader());
       assertTrue(leader.getInfo().isLeaderReady());
-      RaftServerTestUtil.assertLeaderLease(leader, true);
+      // A completed write does not guarantee that the lease is still valid when the client returns.
+      JavaUtils.attempt(() -> RaftServerTestUtil.assertLeaderLease(leader, true),
+          20, HUNDRED_MILLIS, "wait for leader lease", LOG);
 
       final List<RaftServer.Division> followers = cluster.getFollowers();
       final PeerChanges changes = cluster.addNewPeers(2, true);
