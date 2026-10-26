@@ -37,10 +37,12 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.DataStreamMap;
 import org.apache.ratis.server.RaftConfiguration;
+import org.apache.ratis.server.api.DataStreamApi.WritableChannel;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataChannel;
@@ -85,6 +87,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestDataStreamManagement {
@@ -97,10 +100,10 @@ class TestDataStreamManagement {
     final ByteString response = ByteString.copyFromUtf8("response");
 
     final AtomicReference<Message> messageRef = new AtomicReference<>();
-    final AtomicReference<WritableByteChannel> streamRef = new AtomicReference<>();
+    final AtomicReference<WritableChannel> streamRef = new AtomicReference<>();
     final DataApi dataApi = new DataApi() {
       @Override
-      public long transferTo(Message request, WritableByteChannel stream) throws IOException {
+      public long transferTo(Message request, WritableChannel stream) throws IOException {
         messageRef.set(request);
         streamRef.set(stream);
         return stream.write(response.asReadOnlyByteBuffer());
@@ -124,7 +127,8 @@ class TestDataStreamManagement {
       }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "read-only replies", null);
 
       assertEquals(query, messageRef.get().getContent());
-      assertFalse(streamRef.get().isOpen(), "the streaming query channel should be closed after transferTo");
+      assertThrows(AlreadyClosedException.class, () -> streamRef.get().write(response.asReadOnlyByteBuffer()),
+          "the streaming query channel should be closed by Ratis after transferTo");
       assertSuccessReply(Type.STREAM_DATA, response.size(), replies.get(0));
       assertSuccessReply(Type.STREAM_HEADER, 0, replies.get(1));
       assertTrue(ClientProtoUtils.getRaftClientReply(replies.get(1)).isSuccess());
@@ -144,11 +148,11 @@ class TestDataStreamManagement {
     final AtomicBoolean readCheckSubmitted = new AtomicBoolean();
     final AtomicReference<RaftClientRequest> resolvedRequest = new AtomicReference<>();
     final AtomicReference<Message> messageRef = new AtomicReference<>();
-    final AtomicReference<WritableByteChannel> streamRef = new AtomicReference<>();
+    final AtomicReference<WritableChannel> streamRef = new AtomicReference<>();
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public long transferTo(Message request, WritableByteChannel stream) throws IOException {
+      public long transferTo(Message request, WritableChannel stream) throws IOException {
         messageRef.set(request);
         streamRef.set(stream);
         return stream.write(response.asReadOnlyByteBuffer());
@@ -196,11 +200,11 @@ class TestDataStreamManagement {
     final RaftGroupId groupId = RaftGroupId.randomId();
     final AtomicBoolean resolverCalled = new AtomicBoolean();
     final AtomicReference<RaftClientRequest> submittedReadCheck = new AtomicReference<>();
-    final AtomicReference<WritableByteChannel> streamRef = new AtomicReference<>();
+    final AtomicReference<WritableChannel> streamRef = new AtomicReference<>();
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public long transferTo(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableChannel stream) {
         streamRef.set(stream);
         return 0;
       }
@@ -231,7 +235,6 @@ class TestDataStreamManagement {
 
       assertTrue(resolverCalled.get());
       assertEquals(OrderedAsync.DUMMY.getContent(), submittedReadCheck.get().getMessage().getContent());
-      streamRef.get().close();
     } finally {
       embeddedChannel.finishAndReleaseAll();
       management.shutdown();
@@ -271,7 +274,7 @@ class TestDataStreamManagement {
     final RaftGroupId groupId = RaftGroupId.randomId();
     final DataApi dataApi = new DataApi() {
       @Override
-      public long transferTo(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableChannel stream) {
         throw new IllegalStateException("query failed");
       }
     };
@@ -301,6 +304,89 @@ class TestDataStreamManagement {
   }
 
   @Test
+  void legacyTransferToSucceeds() throws Exception {
+    final RaftPeerId serverId = RaftPeerId.valueOf("s1");
+    final ByteString response = ByteString.copyFromUtf8("response");
+    final AtomicReference<WritableByteChannel> streamRef = new AtomicReference<>();
+    final DataApi dataApi = new DataApi() {
+      @Override
+      public long transferTo(Message request, WritableByteChannel stream) throws IOException {
+        streamRef.set(stream);
+        return stream.write(response.asReadOnlyByteBuffer());
+      }
+    };
+    final RaftServer server = newRaftServer(serverId, new RaftProperties());
+    final ReadStreamManagement management = new ReadStreamManagement(server, request -> dataApi);
+    final EmbeddedChannel embeddedChannel = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
+    final ReadOnlyRequest readOnlyRequest = newReadOnlyRequest(
+        ClientId.randomId(), serverId, RaftGroupId.randomId(), 1L, ByteString.copyFromUtf8("query"));
+
+    try {
+      assertTrue(management.process(readOnlyRequest.request, embeddedChannel.pipeline().firstContext()));
+      final List<DataStreamReply> replies = drainReadReplies(embeddedChannel, 2);
+      assertSuccessReply(Type.STREAM_DATA, response.size(), replies.get(0));
+      assertSuccessReply(Type.STREAM_HEADER, 0, replies.get(1));
+      assertTrue(ClientProtoUtils.getRaftClientReply(replies.get(1)).isSuccess());
+      assertThrows(AlreadyClosedException.class, () -> streamRef.get().write(response.asReadOnlyByteBuffer()),
+          "the legacy stream view should not be usable after Ratis closes the stream");
+    } finally {
+      embeddedChannel.finishAndReleaseAll();
+      management.shutdown();
+    }
+  }
+
+  @Test
+  void writableChannelTransferToTakesPrecedenceOverLegacy() throws Exception {
+    final RaftPeerId serverId = RaftPeerId.valueOf("s1");
+    final ByteString response = ByteString.copyFromUtf8("response");
+    final AtomicBoolean legacyCalled = new AtomicBoolean();
+    final DataApi dataApi = new DataApi() {
+      @Override
+      public long transferTo(Message request, WritableByteChannel stream) {
+        legacyCalled.set(true);
+        return 0;
+      }
+
+      @Override
+      public long transferTo(Message request, WritableChannel channel) throws IOException {
+        channel.write(response.asReadOnlyByteBuffer());
+        throw new IOException("query failed");
+      }
+    };
+    final RaftServer server = newRaftServer(serverId, new RaftProperties());
+    final ReadStreamManagement management = new ReadStreamManagement(server, request -> dataApi);
+    final EmbeddedChannel embeddedChannel = new EmbeddedChannel(new ChannelInboundHandlerAdapter());
+    final ReadOnlyRequest readOnlyRequest = newReadOnlyRequest(
+        ClientId.randomId(), serverId, RaftGroupId.randomId(), 1L, ByteString.copyFromUtf8("query"));
+
+    try {
+      assertTrue(management.process(readOnlyRequest.request, embeddedChannel.pipeline().firstContext()));
+      final List<DataStreamReply> replies = drainReadReplies(embeddedChannel, 2);
+      assertSuccessReply(Type.STREAM_DATA, response.size(), replies.get(0));
+      final DataStreamReply terminal = replies.get(1);
+      assertEquals(Type.STREAM_HEADER, terminal.getType());
+      assertFalse(terminal.isSuccess());
+      assertNotNull(ClientProtoUtils.getRaftClientReply(terminal).getDataStreamException());
+      assertFalse(legacyCalled.get(), "the legacy transferTo should not be called");
+    } finally {
+      embeddedChannel.finishAndReleaseAll();
+      management.shutdown();
+    }
+  }
+
+  private static List<DataStreamReply> drainReadReplies(EmbeddedChannel channel, int expectedCount)
+      throws Exception {
+    final List<DataStreamReply> replies = new ArrayList<>();
+    JavaUtils.attempt(() -> {
+      for (Object outbound; (outbound = channel.readOutbound()) != null;) {
+        replies.add((DataStreamReply) outbound);
+      }
+      assertEquals(expectedCount, replies.size());
+    }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "read-only replies", null);
+    return replies;
+  }
+
+  @Test
   void readOnlyRequestWaitsForLinearizableCheck() throws Exception {
     final RaftPeerId serverId = RaftPeerId.valueOf("s1");
     final ClientId clientId = ClientId.randomId();
@@ -309,11 +395,11 @@ class TestDataStreamManagement {
     final CompletableFuture<RaftClientReply> readOnlyCheck = new CompletableFuture<>();
     final AtomicReference<RaftClientRequest> submittedReadOnlyCheck = new AtomicReference<>();
     final AtomicReference<Message> messageRef = new AtomicReference<>();
-    final AtomicReference<WritableByteChannel> streamRef = new AtomicReference<>();
+    final AtomicReference<WritableChannel> streamRef = new AtomicReference<>();
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public long transferTo(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableChannel stream) {
         messageRef.set(request);
         streamRef.set(stream);
         return 0;
@@ -355,7 +441,7 @@ class TestDataStreamManagement {
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public long transferTo(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableChannel stream) {
         queryCalled.set(true);
         return 0;
       }
@@ -409,7 +495,7 @@ class TestDataStreamManagement {
 
     final DataApi dataApi = new DataApi() {
       @Override
-      public long transferTo(Message request, WritableByteChannel stream) {
+      public long transferTo(Message request, WritableChannel stream) {
         queryInEventLoop.set(eventLoop.inEventLoop());
         queryDone.countDown();
         return 0;
