@@ -64,7 +64,7 @@ public final class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtoc
     final int workerGroupSize = GrpcConfigKeys.Client.workerGroupSize(properties);
     final MemoizedSupplier<EventLoopGroup> eventLoopGroup = workerGroupSize > 0 ? MemoizedSupplier.valueOf(
         () -> NettyUtils.newEventLoopGroup(
-            clientId + "-client-workers", workerGroupSize, GrpcConfigKeys.useEpoll(properties))) : null;
+            clientId + "-client-workers", workerGroupSize, GrpcConfigKeys.useEpoll(properties), true)) : null;
     return new GrpcClientRpc(clientId, properties, adminSslContext, clientSslContext, eventLoopGroup);
   }
 
