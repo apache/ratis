@@ -40,6 +40,7 @@ import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.ReflectionUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +52,6 @@ import java.io.IOException;
 import java.security.Provider;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -238,11 +238,23 @@ public interface GrpcUtil {
    * graceful shutdown times out.
    */
   static void shutdownManagedChannel(ManagedChannel managedChannel) {
+    shutdownManagedChannel(managedChannel, GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
+        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
+  }
+
+  /**
+   * Shut down the given channel gracefully, waiting up to the graceful timeout for its calls to finish,
+   * and then forcefully, cancelling the remaining calls, if it has not terminated.
+   *
+   * @param gracefulTimeout zero skips the graceful shutdown.
+   */
+  static void shutdownManagedChannel(ManagedChannel managedChannel,
+      TimeDuration gracefulTimeout, TimeDuration forcefulTimeout) {
     // Close the gRPC managed-channel if not shut down already.
-    if (!managedChannel.isShutdown()) {
+    if (!managedChannel.isShutdown() && gracefulTimeout.isPositive()) {
       try {
         managedChannel.shutdown();
-        if (!managedChannel.awaitTermination(3, TimeUnit.SECONDS)) {
+        if (!managedChannel.awaitTermination(gracefulTimeout.getDuration(), gracefulTimeout.getUnit())) {
           LOG.warn("Timed out gracefully shutting down connection: {}. ", managedChannel);
         }
       } catch (InterruptedException e) {
@@ -256,7 +268,7 @@ public interface GrpcUtil {
     if (!managedChannel.isTerminated()) {
       try {
         managedChannel.shutdownNow();
-        if (!managedChannel.awaitTermination(2, TimeUnit.SECONDS)) {
+        if (!managedChannel.awaitTermination(forcefulTimeout.getDuration(), forcefulTimeout.getUnit())) {
           LOG.warn("Timed out forcefully shutting down connection: {}. ", managedChannel);
         }
       } catch (InterruptedException e) {
