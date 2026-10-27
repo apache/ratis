@@ -18,16 +18,12 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.util.AtomicFileOutputStream;
+import org.apache.ratis.util.DirectoryLock;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.lang.management.ManagementFactory;
-import java.nio.channels.FileLock;
-import java.nio.channels.OverlappingFileLockException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,11 +33,9 @@ import static java.nio.file.Files.newDirectoryStream;
 
 class RaftStorageDirectoryImpl implements RaftStorageDirectory {
 
-  private static final String IN_USE_LOCK_NAME = "in_use.lock";
   private static final String META_FILE_NAME = "raft-meta";
   private static final String CONF_EXTENSION = ".conf";
   private static final String BOOTSTRAP_CONF_EXTENSION = ".bootstrap";
-  private static final String JVM_NAME = ManagementFactory.getRuntimeMXBean().getName();
 
   enum StorageState {
     UNINITIALIZED,
@@ -52,7 +46,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   }
 
   private final File root; // root directory
-  private FileLock lock;   // storage lock
+  private final DirectoryLock lock; // storage lock
   private final SizeInBytes freeSpaceMin;
 
   /**
@@ -61,7 +55,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
    */
   RaftStorageDirectoryImpl(File dir, SizeInBytes freeSpaceMin) {
     this.root = dir;
-    this.lock = null;
+    this.lock = new DirectoryLock(dir);
     this.freeSpaceMin = freeSpaceMin;
   }
 
@@ -185,85 +179,18 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   /**
    * Lock storage to provide exclusive access.
    *
-   * <p> Locking is not supported by all file systems.
-   * E.g., NFS does not consistently support exclusive locks.
-   *
-   * <p> If locking is supported we guarantee exclusive access to the
-   * storage directory. Otherwise, no guarantee is given.
-   *
    * @throws IOException if locking fails
+   * @see DirectoryLock#lock()
    */
   void lock() throws IOException {
-    final File lockF = new File(root, IN_USE_LOCK_NAME);
-    final FileLock newLock = FileUtils.attempt(() -> tryLock(lockF), () -> "tryLock " + lockF);
-    if (newLock == null) {
-      String msg = "Cannot lock storage " + this.root
-          + ". The directory is already locked";
-      LOG.info(msg);
-      throw new IOException(msg);
-    }
-    // Don't overwrite lock until success - this way if we accidentally
-    // call lock twice, the internal state won't be cleared by the second
-    // (failed) lock attempt
-    lock = newLock;
-  }
-
-  /**
-   * Attempts to acquire an exclusive lock on the storage.
-   *
-   * @return A lock object representing the newly-acquired lock or
-   * <code>null</code> if storage is already locked.
-   * @throws IOException if locking fails.
-   */
-  @SuppressWarnings({"squid:S2095"}) // Suppress closeable  warning
-  private FileLock tryLock(File lockF) throws IOException {
-    boolean deletionHookAdded = false;
-    if (!lockF.exists()) {
-      lockF.deleteOnExit();
-      deletionHookAdded = true;
-    }
-    RandomAccessFile file = new RandomAccessFile(lockF, "rws");
-    FileLock res;
-    try {
-      res = file.getChannel().tryLock();
-      if (null == res) {
-        LOG.error("Unable to acquire file lock on path {}", lockF);
-        throw new OverlappingFileLockException();
-      }
-      file.write(JVM_NAME.getBytes(StandardCharsets.UTF_8));
-      LOG.info("Lock on {} acquired by nodename {}", lockF, JVM_NAME);
-    } catch (OverlappingFileLockException oe) {
-      // Cannot read from the locked file on Windows.
-      LOG.error("It appears that another process "
-          + "has already locked the storage directory: " + root, oe);
-      file.close();
-      throw new IOException("Failed to lock storage " + this.root + ". The directory is already locked", oe);
-    } catch(IOException e) {
-      LOG.error("Failed to acquire lock on " + lockF
-          + ". If this storage directory is mounted via NFS, "
-          + "ensure that the appropriate nfs lock services are running.", e);
-      file.close();
-      throw e;
-    }
-    if (!deletionHookAdded) {
-      // If the file existed prior to our startup, we didn't
-      // call deleteOnExit above. But since we successfully locked
-      // the dir, we can take care of cleaning it up.
-      lockF.deleteOnExit();
-    }
-    return res;
+    lock.lock();
   }
 
   /**
    * Unlock storage.
    */
   void unlock() throws IOException {
-    if (this.lock == null) {
-      return;
-    }
-    this.lock.release();
-    lock.channel().close();
-    lock = null;
+    lock.unlock();
   }
 
   @Override
