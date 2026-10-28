@@ -238,8 +238,8 @@ public interface GrpcUtil {
    * graceful shutdown times out.
    */
   static void shutdownManagedChannel(ManagedChannel managedChannel) {
-    shutdownManagedChannel(managedChannel, GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
-        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
+    shutdownManagedChannel(managedChannel, GrpcConfigKeys.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
+        GrpcConfigKeys.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
   }
 
   /**
