@@ -89,6 +89,8 @@ public class GrpcClientProtocolClient implements Closeable {
   private final SizeInBytes maxMessageSize;
   private final TimeDuration requestTimeoutDuration;
   private final TimeDuration watchRequestTimeoutDuration;
+  private final TimeDuration channelShutdownGracefulTimeout;
+  private final TimeDuration channelShutdownForcefulTimeout;
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
 
   private final RaftClientProtocolServiceStub asyncStub;
@@ -125,6 +127,8 @@ public class GrpcClientProtocolClient implements Closeable {
     this.requestTimeoutDuration = RaftClientConfigKeys.Rpc.requestTimeout(properties);
     this.watchRequestTimeoutDuration =
         RaftClientConfigKeys.Rpc.watchRequestTimeout(properties);
+    this.channelShutdownGracefulTimeout = GrpcConfigKeys.Client.channelShutdownGracefulTimeout(properties);
+    this.channelShutdownForcefulTimeout = GrpcConfigKeys.Client.channelShutdownForcefulTimeout(properties);
   }
 
   private ManagedChannel buildChannel(String address, SslContext sslContext,
@@ -161,9 +165,9 @@ public class GrpcClientProtocolClient implements Closeable {
   public void close() {
     Optional.ofNullable(orderedStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
     Optional.ofNullable(unorderedStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
-    GrpcUtil.shutdownManagedChannel(clientChannel);
+    GrpcUtil.shutdownManagedChannel(clientChannel, channelShutdownGracefulTimeout, channelShutdownForcefulTimeout);
     if (clientChannel != adminChannel) {
-      GrpcUtil.shutdownManagedChannel(adminChannel);
+      GrpcUtil.shutdownManagedChannel(adminChannel, channelShutdownGracefulTimeout, channelShutdownForcefulTimeout);
     }
     metricClientInterceptor.close();
   }

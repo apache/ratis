@@ -175,6 +175,34 @@ public interface GrpcConfigKeys {
     static void setWorkerGroupSize(RaftProperties properties, int size) {
       setInt(properties::setInt, WORKER_GROUP_SIZE_KEY, size);
     }
+
+    /**
+     * How long closing a client waits for each of its channels to terminate after a graceful shutdown,
+     * which waits for the calls on the channel to finish.  Zero skips the graceful shutdown.
+     */
+    String CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_KEY = PREFIX + ".channel.shutdown.graceful.timeout";
+    TimeDuration CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT = TimeDuration.valueOf(3, TimeUnit.SECONDS);
+    static TimeDuration channelShutdownGracefulTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT.getUnit()),
+          CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_KEY, CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT, getDefaultLog());
+    }
+    static void setChannelShutdownGracefulTimeout(RaftProperties properties, TimeDuration timeout) {
+      setTimeDuration(properties::setTimeDuration, CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_KEY, timeout);
+    }
+
+    /**
+     * How long closing a client waits for each of its channels to terminate after a forceful shutdown,
+     * which cancels the calls on the channel.
+     */
+    String CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_KEY = PREFIX + ".channel.shutdown.forceful.timeout";
+    TimeDuration CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT = TimeDuration.valueOf(2, TimeUnit.SECONDS);
+    static TimeDuration channelShutdownForcefulTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT.getUnit()),
+          CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_KEY, CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT, getDefaultLog());
+    }
+    static void setChannelShutdownForcefulTimeout(RaftProperties properties, TimeDuration timeout) {
+      setTimeDuration(properties::setTimeDuration, CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_KEY, timeout);
+    }
   }
 
   interface Server {
