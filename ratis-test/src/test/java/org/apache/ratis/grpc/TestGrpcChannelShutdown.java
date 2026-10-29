@@ -199,6 +199,26 @@ public class TestGrpcChannelShutdown extends BaseTest {
     GrpcConfigKeys.Client.setChannelShutdownForcefulTimeout(properties, forceful);
     Assertions.assertEquals(0, millis(GrpcConfigKeys.Client.channelShutdownGracefulTimeout(properties)));
     Assertions.assertEquals(100, millis(GrpcConfigKeys.Client.channelShutdownForcefulTimeout(properties)));
+
+    // the server keys are separate from the client keys but share their defaults
+    Assertions.assertSame(GrpcConfigKeys.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
+        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT);
+    Assertions.assertSame(GrpcConfigKeys.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
+        GrpcConfigKeys.Server.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT);
+    Assertions.assertSame(GrpcConfigKeys.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT,
+        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
+    Assertions.assertSame(GrpcConfigKeys.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT,
+        GrpcConfigKeys.Server.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
+    Assertions.assertEquals(3000, millis(GrpcConfigKeys.Server.channelShutdownGracefulTimeout(properties)));
+    Assertions.assertEquals(2000, millis(GrpcConfigKeys.Server.channelShutdownForcefulTimeout(properties)));
+
+    GrpcConfigKeys.Server.setChannelShutdownGracefulTimeout(properties, TimeDuration.ONE_SECOND);
+    GrpcConfigKeys.Server.setChannelShutdownForcefulTimeout(properties,
+        TimeDuration.valueOf(200, TimeUnit.MILLISECONDS));
+    Assertions.assertEquals(1000, millis(GrpcConfigKeys.Server.channelShutdownGracefulTimeout(properties)));
+    Assertions.assertEquals(200, millis(GrpcConfigKeys.Server.channelShutdownForcefulTimeout(properties)));
+    Assertions.assertEquals(0, millis(GrpcConfigKeys.Client.channelShutdownGracefulTimeout(properties)));
+    Assertions.assertEquals(100, millis(GrpcConfigKeys.Client.channelShutdownForcefulTimeout(properties)));
   }
 
   private static long millis(TimeDuration duration) {
