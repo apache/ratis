@@ -460,7 +460,8 @@ public class SegmentedRaftLogCache {
   }
 
   long getOpenSegmentSizeInBytes() {
-    return openSegment == null ? 0 : openSegment.getTotalFileSize();
+    final LogSegment open = this.openSegment;
+    return open == null ? 0 : open.getTotalFileSize();
   }
 
   boolean shouldEvict() {
