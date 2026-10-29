@@ -225,6 +225,8 @@ public class CounterStateMachine extends BaseStateMachine {
 
     //update state
     updateState(last, counterValue);
+    // fileIn is independently managed by try-with-resources, including object-stream construction failures.
+    // @infer-ignore PULSE_RESOURCE_LEAK
   }
 
   /**
