@@ -37,27 +37,22 @@ import java.util.Objects;
  * If locking is supported, it guarantees exclusive access to the directory.
  * Otherwise, no guarantee is given.
  */
-public final class DirectoryLock implements AutoCloseable {
-  static final Logger LOG = LoggerFactory.getLogger(DirectoryLock.class);
+public final class ExclusiveFileLock implements AutoCloseable {
+  static final Logger LOG = LoggerFactory.getLogger(ExclusiveFileLock.class);
 
   public static final String DEFAULT_LOCK_FILE_NAME = "in_use.lock";
   static final String JVM_NAME = ManagementFactory.getRuntimeMXBean().getName();
 
-  private final File dir;
   private final File lockFile;
   private FileLock lock;
 
-  public DirectoryLock(File dir) {
+  public ExclusiveFileLock(File dir) {
     this(dir, DEFAULT_LOCK_FILE_NAME);
   }
 
-  public DirectoryLock(File dir, String lockFileName) {
-    this.dir = Objects.requireNonNull(dir, "dir == null");
+  public ExclusiveFileLock(File dir, String lockFileName) {
+    Objects.requireNonNull(dir, "dir == null");
     this.lockFile = new File(dir, Objects.requireNonNull(lockFileName, "lockFileName == null"));
-  }
-
-  public File getDirectory() {
-    return dir;
   }
 
   public File getLockFile() {
@@ -78,7 +73,7 @@ public final class DirectoryLock implements AutoCloseable {
   public synchronized void lock() throws IOException {
     final FileLock newLock = FileUtils.attempt(this::tryLock, () -> "tryLock " + lockFile);
     if (newLock == null) {
-      final String msg = "Cannot lock " + dir + ". The directory is already locked";
+      final String msg = "Cannot lock " + this.lockFile + ". The directory is already locked";
       LOG.info(msg);
       throw new IOException(msg);
     }
@@ -115,9 +110,9 @@ public final class DirectoryLock implements AutoCloseable {
       LOG.info("Lock on {} acquired by nodename {}", lockFile, JVM_NAME);
     } catch (OverlappingFileLockException oe) {
       // Cannot read from the locked file on Windows.
-      LOG.error("It appears that another process has already locked the directory: " + dir, oe);
+      LOG.error("It appears that another process has already locked the directory: " + this.lockFile, oe);
       file.close();
-      throw new IOException("Failed to lock " + dir + ". The directory is already locked", oe);
+      throw new IOException("Failed to lock " + this.lockFile + ". The directory is already locked", oe);
     } catch(IOException e) {
       LOG.error("Failed to acquire lock on " + lockFile
           + ". If this directory is mounted via NFS, "

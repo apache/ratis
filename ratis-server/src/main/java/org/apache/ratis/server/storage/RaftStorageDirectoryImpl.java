@@ -18,7 +18,7 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.util.AtomicFileOutputStream;
-import org.apache.ratis.util.DirectoryLock;
+import org.apache.ratis.util.ExclusiveFileLock;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.SizeInBytes;
 
@@ -46,7 +46,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
   }
 
   private final File root; // root directory
-  private final DirectoryLock lock; // storage lock
+  private final ExclusiveFileLock lock; // storage lock
   private final SizeInBytes freeSpaceMin;
 
   /**
@@ -55,7 +55,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
    */
   RaftStorageDirectoryImpl(File dir, SizeInBytes freeSpaceMin) {
     this.root = dir;
-    this.lock = new DirectoryLock(dir);
+    this.lock = new ExclusiveFileLock(dir);
     this.freeSpaceMin = freeSpaceMin;
   }
 
@@ -180,7 +180,7 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
    * Lock storage to provide exclusive access.
    *
    * @throws IOException if locking fails
-   * @see DirectoryLock#lock()
+   * @see ExclusiveFileLock#lock()
    */
   void lock() throws IOException {
     lock.lock();

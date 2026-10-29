@@ -42,7 +42,7 @@ public class TestDirectoryLock extends BaseTest {
     return dir;
   }
 
-  static String readLockFile(DirectoryLock lock) throws IOException {
+  static String readLockFile(ExclusiveFileLock lock) throws IOException {
     return new String(Files.readAllBytes(lock.getLockFile().toPath()), StandardCharsets.UTF_8);
   }
 
@@ -50,16 +50,16 @@ public class TestDirectoryLock extends BaseTest {
   public void testLockUnlock() throws Exception {
     final File dir = newTestDir();
 
-    final DirectoryLock lock = new DirectoryLock(dir);
+    final ExclusiveFileLock lock = new ExclusiveFileLock(dir);
     Assertions.assertFalse(lock.isLocked());
-    Assertions.assertEquals(new File(dir, DirectoryLock.DEFAULT_LOCK_FILE_NAME), lock.getLockFile());
+    Assertions.assertEquals(new File(dir, ExclusiveFileLock.DEFAULT_LOCK_FILE_NAME), lock.getLockFile());
 
     lock.lock();
     Assertions.assertTrue(lock.isLocked());
     Assertions.assertTrue(lock.getLockFile().exists());
 
     // the same directory cannot be locked again
-    final DirectoryLock another = new DirectoryLock(dir);
+    final ExclusiveFileLock another = new ExclusiveFileLock(dir);
     final IOException e = Assertions.assertThrows(IOException.class, another::lock);
     Assertions.assertTrue(e.getMessage().contains("directory is already locked"), e::getMessage);
     Assertions.assertFalse(another.isLocked());
@@ -72,7 +72,7 @@ public class TestDirectoryLock extends BaseTest {
     // unlock is idempotent
     lock.unlock();
 
-    try (DirectoryLock ignored = another) {
+    try (ExclusiveFileLock ignored = another) {
       another.lock();
       Assertions.assertTrue(another.isLocked());
     }
@@ -83,8 +83,8 @@ public class TestDirectoryLock extends BaseTest {
   public void testCustomLockFileName() throws Exception {
     final File dir = newTestDir();
 
-    try (DirectoryLock a = new DirectoryLock(dir, "a.lock");
-         DirectoryLock b = new DirectoryLock(dir, "b.lock")) {
+    try (ExclusiveFileLock a = new ExclusiveFileLock(dir, "a.lock");
+         ExclusiveFileLock b = new ExclusiveFileLock(dir, "b.lock")) {
       a.lock();
       b.lock();
       Assertions.assertTrue(a.isLocked());
@@ -94,7 +94,7 @@ public class TestDirectoryLock extends BaseTest {
 
   @Test
   public void testTryLockNewFile() throws Exception {
-    final DirectoryLock lock = new DirectoryLock(newTestDir());
+    final ExclusiveFileLock lock = new ExclusiveFileLock(newTestDir());
     Assertions.assertFalse(lock.getLockFile().exists());
 
     final FileLock fileLock = lock.tryLock();
@@ -102,7 +102,7 @@ public class TestDirectoryLock extends BaseTest {
       Assertions.assertNotNull(fileLock);
       Assertions.assertTrue(fileLock.isValid());
       Assertions.assertFalse(fileLock.isShared());
-      Assertions.assertEquals(DirectoryLock.JVM_NAME, readLockFile(lock));
+      Assertions.assertEquals(ExclusiveFileLock.JVM_NAME, readLockFile(lock));
     } finally {
       fileLock.channel().close();
     }
@@ -111,13 +111,13 @@ public class TestDirectoryLock extends BaseTest {
 
   @Test
   public void testTryLockExistingFile() throws Exception {
-    final DirectoryLock lock = new DirectoryLock(newTestDir());
+    final ExclusiveFileLock lock = new ExclusiveFileLock(newTestDir());
     Assertions.assertTrue(lock.getLockFile().createNewFile());
 
     final FileLock fileLock = lock.tryLock();
     try {
       Assertions.assertTrue(fileLock.isValid());
-      Assertions.assertEquals(DirectoryLock.JVM_NAME, readLockFile(lock));
+      Assertions.assertEquals(ExclusiveFileLock.JVM_NAME, readLockFile(lock));
     } finally {
       fileLock.channel().close();
     }
@@ -126,10 +126,10 @@ public class TestDirectoryLock extends BaseTest {
   @Test
   public void testTryLockOverlappingInSameJvm() throws Exception {
     final File dir = newTestDir();
-    final DirectoryLock lock = new DirectoryLock(dir);
+    final ExclusiveFileLock lock = new ExclusiveFileLock(dir);
     final FileLock fileLock = lock.tryLock();
     try {
-      final IOException e = Assertions.assertThrows(IOException.class, new DirectoryLock(dir)::tryLock);
+      final IOException e = Assertions.assertThrows(IOException.class, new ExclusiveFileLock(dir)::tryLock);
       Assertions.assertInstanceOf(OverlappingFileLockException.class, e.getCause());
       Assertions.assertTrue(e.getMessage().contains("directory is already locked"), e::getMessage);
       // the existing lock is not affected
@@ -146,7 +146,7 @@ public class TestDirectoryLock extends BaseTest {
 
   @Test
   public void testTryLockNonExistentDirectory() {
-    final DirectoryLock lock = new DirectoryLock(new File(getTestDir(), "nonExistent"));
+    final ExclusiveFileLock lock = new ExclusiveFileLock(new File(getTestDir(), "nonExistent"));
     Assertions.assertThrows(FileNotFoundException.class, lock::tryLock);
     Assertions.assertFalse(lock.isLocked());
   }
@@ -168,7 +168,7 @@ public class TestDirectoryLock extends BaseTest {
           Assertions.assertNotNull(line, "The child process exited before locking " + dir);
         }
 
-        final DirectoryLock lock = new DirectoryLock(dir);
+        final ExclusiveFileLock lock = new ExclusiveFileLock(dir);
         final IOException e = Assertions.assertThrows(IOException.class, lock::tryLock);
         Assertions.assertInstanceOf(OverlappingFileLockException.class, e.getCause());
         Assertions.assertFalse(lock.isLocked());
@@ -189,7 +189,7 @@ public class TestDirectoryLock extends BaseTest {
 
   /** Lock the given directory, print {@link #LOCKED} and then hold the lock until stdin is closed. */
   public static void main(String[] args) throws IOException {
-    try (DirectoryLock lock = new DirectoryLock(new File(args[0]))) {
+    try (ExclusiveFileLock lock = new ExclusiveFileLock(new File(args[0]))) {
       lock.lock();
       System.out.println(LOCKED);
       System.out.flush();
