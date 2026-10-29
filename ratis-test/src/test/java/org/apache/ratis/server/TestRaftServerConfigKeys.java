@@ -117,6 +117,24 @@ public class TestRaftServerConfigKeys {
   }
 
   @Test
+  public void testLeaderTransferAppliedIndexGap() {
+    final RaftProperties properties = new RaftProperties();
+    Assertions.assertEquals(RaftServerConfigKeys.LeaderElection.LEADER_TRANSFER_APPLIED_INDEX_GAP_DEFAULT,
+        RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties));
+    for (String value : new String[] {"2048", "0x800", "0"}) {
+      properties.set(RaftServerConfigKeys.LeaderElection.LEADER_TRANSFER_APPLIED_INDEX_GAP_KEY, value);
+      Assertions.assertEquals("0".equals(value) ? 0L : 2048L,
+          RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties));
+    }
+    properties.set(RaftServerConfigKeys.LeaderElection.LEADER_TRANSFER_APPLIED_INDEX_GAP_KEY, "invalid");
+    Assertions.assertThrows(NumberFormatException.class,
+        () -> RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties));
+    properties.set(RaftServerConfigKeys.LeaderElection.LEADER_TRANSFER_APPLIED_INDEX_GAP_KEY, "-1");
+    Assertions.assertThrows(IllegalArgumentException.class,
+        () -> RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties));
+  }
+
+  @Test
   public void testLongProperties() {
     final RaftProperties properties = new RaftProperties();
     Assertions.assertEquals(RaftServerConfigKeys.Log.PURGE_PRESERVATION_LOG_NUM_DEFAULT,
