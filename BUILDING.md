@@ -68,7 +68,9 @@ The check performs a clean Maven build with compilation caches disabled, without
 Test and generated sources are excluded from analysis. Reports and diagnostics are written to
 `target/infer`, including `report.txt`, `report.json`, `captured-sources.txt`, `output.log`,
 and `summary.txt`. CI archives this directory without the large Infer databases in `infer-out`.
-Findings are informational; installation, build, capture, and reporting failures fail the check.
+Any unsuppressed, uncensored finding fails the check, regardless of severity. Installation, build,
+capture, and reporting failures also fail the check. Suppressed findings remain in the JSON report
+for review but do not count as failures. There is no baseline allowance for existing findings.
 
 To test the check script's report handling, run `bash dev-support/tests/test-infer.sh`.
 

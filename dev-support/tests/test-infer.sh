@@ -98,10 +98,16 @@ grep -qx -- '--java-version-reset' "${TEST_DIR}/infer-args"
 grep -qx -- '--skip-analysis-in-path' "${TEST_DIR}/infer-args"
 
 export INFER_JSON='[{"severity":"ERROR"},{"severity":"WARNING"},{"suppressed":true},{"censored_reason":"filtered"}]'
-run_check 0
+run_check 1
 [[ $(cat "${OUTPUT_DIR}/failures") -eq 2 ]]
 grep -qx 'Infer analysis complete. Found 2 issues.' "${OUTPUT_DIR}/summary.txt"
+! grep -q 'Infer check failed' "${OUTPUT_DIR}/summary.txt"
 cmp "${TEST_DIR}/project/infer-out/report.json" "${OUTPUT_DIR}/report.json"
+
+export INFER_JSON='[{"suppressed":true},{"censored_reason":"filtered"}]'
+run_check 0
+[[ $(cat "${OUTPUT_DIR}/failures") -eq 0 ]]
+grep -qx 'Infer analysis complete. Found 0 issues.' "${OUTPUT_DIR}/summary.txt"
 unset INFER_JSON
 
 export INFER_EXIT_CODE=5

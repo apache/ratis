@@ -24,12 +24,16 @@ source "${DIR}/../find_maven.sh"
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/infer"}
 REPORT_FILE="$REPORT_DIR/summary.txt"
 OUTPUT_LOG=$(mktemp) || exit 1
+analysis_complete=false
 
 save_results() {
   local rc=$?
   mkdir -p "$REPORT_DIR" || exit 1
-  mv "$OUTPUT_LOG" "${REPORT_DIR}/output.log" || rc=1
-  if [[ ${rc} -ne 0 ]]; then
+  if ! mv "$OUTPUT_LOG" "${REPORT_DIR}/output.log"; then
+    rc=1
+    analysis_complete=false
+  fi
+  if [[ ${rc} -ne 0 && "$analysis_complete" != true ]]; then
     echo "Infer check failed. See output.log for details." >> "$REPORT_FILE"
     echo 1 > "${REPORT_DIR}/failures"
   fi
@@ -97,5 +101,6 @@ issue_count=$(jq -es '
 echo "Infer analysis complete. Found ${issue_count} issues." | tee "$REPORT_FILE" || exit 1
 echo "${issue_count}" > "${REPORT_DIR}/failures" || exit 1
 
-# Findings are informational; execution and reporting failures are not.
-exit 0
+analysis_complete=true
+# Suppressed and censored findings are excluded above; every remaining finding blocks CI.
+[[ ${issue_count} -eq 0 ]]
