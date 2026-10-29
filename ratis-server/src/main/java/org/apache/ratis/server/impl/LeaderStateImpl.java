@@ -460,15 +460,20 @@ class LeaderStateImpl implements LeaderState {
   }
 
   CompletableFuture<Void> stop() {
-    if (!isStopped.compareAndSet(false, true)) {
-      LOG.info("{} is already stopped", this);
-      return CompletableFuture.completedFuture(null);
+    // Wait for in-flight reconfiguration registration and event processing before draining pending requests.
+    synchronized (server) {
+      if (!isStopped.compareAndSet(false, true)) {
+        LOG.info("{} is already stopped", this);
+        return CompletableFuture.completedFuture(null);
+      }
     }
     // do not interrupt event processor since it may be in the middle of logSync
     final CompletableFuture<Void> f = senders.stopAll();
     final NotLeaderException nle = server.newNotLeaderException();
     final Collection<CommitInfoProto> commitInfos = server.getCommitInfos();
     try {
+      // The server-lock barrier above waits for registration; isStopped prevents later registration and events.
+      // @infer-ignore THREAD_SAFETY_VIOLATION
       final Collection<TransactionContext> transactions = pendingRequests.sendNotLeaderResponses(nle, commitInfos);
       server.getStateMachine().leaderEvent().notifyNotLeader(transactions);
       watchRequests.failWatches(nle);
