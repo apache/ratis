@@ -18,11 +18,25 @@
 package org.apache.ratis.conf;
 
 
+import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 public class TestRaftProperties {
+  @Test
+  public void testRpcTypeDefaultAndOverride() {
+    final RaftProperties properties = new RaftProperties();
+    Assertions.assertEquals(SupportedRpcType.GRPC, RaftConfigKeys.Rpc.type(properties, null));
+    properties.set(RaftConfigKeys.Rpc.TYPE_KEY, "netty");
+    Assertions.assertEquals(SupportedRpcType.NETTY, RaftConfigKeys.Rpc.type(properties, null));
+    properties.unset(RaftConfigKeys.Rpc.TYPE_KEY);
+    Assertions.assertEquals(SupportedRpcType.GRPC, RaftConfigKeys.Rpc.type(properties, null));
+    properties.set(RaftConfigKeys.Rpc.TYPE_KEY, "invalid-rpc-type");
+    Assertions.assertThrows(IllegalArgumentException.class, () -> RaftConfigKeys.Rpc.type(properties, null));
+  }
+
   enum Type {APPEND_ENTRIES}
 
   static class Request_Vote {

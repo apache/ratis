@@ -108,6 +108,8 @@ public interface RaftClient extends Closeable {
       }
       if (properties != null) {
         if (clientRpc == null) {
+          // RaftProperties uses the non-null GRPC default when the RPC type is absent.
+          // @infer-ignore NULLPTR_DEREFERENCE
           final RpcType rpcType = RaftConfigKeys.Rpc.type(properties, LOG::debug);
           final ClientFactory factory = ClientFactory.cast(rpcType.newFactory(parameters));
           clientRpc = factory.newRaftClientRpc(clientId, properties);

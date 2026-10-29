@@ -187,6 +187,8 @@ public final class ServerImplUtils {
     if (group != null && !group.getPeers().isEmpty()) {
       Objects.requireNonNull(group.getPeer(id), () -> "RaftPeerId " + id + " is not in RaftGroup " + group);
     }
+    // RPC type resolution uses the non-null GRPC default; invalid configured types throw instead of returning null.
+    // @infer-ignore NULLPTR_DEREFERENCE
     final RaftServerProxy proxy = newRaftServer(id, stateMachineRegistry, threadGroup, properties, parameters);
     proxy.initGroups(group, option);
     return proxy;
