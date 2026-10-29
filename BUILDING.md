@@ -72,6 +72,17 @@ Findings are informational; installation, build, capture, and reporting failures
 
 To test the check script's report handling, run `bash dev-support/tests/test-infer.sh`.
 
+### Handling Infer findings
+
+Validate each finding against its trace and the implementation before classifying it as a false positive.
+For a confirmed false positive, explain the invariant in a comment and add
+`// @infer-ignore ISSUE_TYPE` immediately before the reported line, using the exact issue type from the report.
+Add focused tests for the invariant where practical. Do not suppress an entire file or issue type to hide individual findings.
+
+Rerun the check after adding a suppression. Verify that the finding is absent from `report.txt`
+and retained in `report.json` with `"suppressed": true`; the summary count excludes suppressed findings.
+Leave unconfirmed findings visible and address confirmed bugs separately.
+
 # Thirdparty
 
 All bundled thirdparty dependencies are centralized in the *ratis-thirdparty* module
