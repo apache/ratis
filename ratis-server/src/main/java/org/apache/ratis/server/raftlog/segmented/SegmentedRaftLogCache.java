@@ -207,7 +207,8 @@ public class SegmentedRaftLogCache {
     private final Object name;
     private final List<LogSegment> segments = new CopyOnWriteArrayList<>();
     private final AutoCloseableReadWriteLock lock;
-    private long sizeInBytes;
+    // Updated under the list write lock and read by metrics without locking.
+    private volatile long sizeInBytes;
 
     LogSegmentList(Object name) {
       this.name = name;
