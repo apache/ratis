@@ -145,6 +145,8 @@ public class FileStore implements Closeable {
     final List<File> dirs = ConfUtils.getFiles(properties::getFiles, FileStoreCommon.STATEMACHINE_DIR_KEY,
         null, LOG::info);
     Objects.requireNonNull(dirs, FileStoreCommon.STATEMACHINE_DIR_KEY + " is not set.");
+    // The preceding requireNonNull check guarantees dirs is non-null.
+    // @infer-ignore NULLPTR_DEREFERENCE
     for (File dir : dirs) {
       this.rootSuppliers.add(
           JavaUtils.memoize(() -> dir.toPath().resolve(getId().toString()).normalize().toAbsolutePath()));
