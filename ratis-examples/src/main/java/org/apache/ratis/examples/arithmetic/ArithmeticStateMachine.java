@@ -139,6 +139,8 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException("Failed to load " + snapshot, e);
     }
+    // fileIn is independently managed by try-with-resources, including object-stream construction failures.
+    // @infer-ignore PULSE_RESOURCE_LEAK
     return last.getIndex();
   }
 
