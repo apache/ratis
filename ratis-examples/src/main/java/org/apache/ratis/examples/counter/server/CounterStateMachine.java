@@ -178,8 +178,8 @@ public class CounterStateMachine extends BaseStateMachine {
 
   void saveSnapshot(CounterState state, File snapshotFile) throws IOException {
     //write the counter value into the snapshot file
-    try (ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(
-        Files.newOutputStream(snapshotFile.toPath())))) {
+    try (BufferedOutputStream buffered = new BufferedOutputStream(Files.newOutputStream(snapshotFile.toPath()));
+        ObjectOutputStream out = new ObjectOutputStream(buffered)) {
       out.writeInt(state.getCounter());
     }
 
