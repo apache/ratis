@@ -455,6 +455,8 @@ public interface RaftServerConfigKeys {
     String PURGE_PRESERVATION_LOG_NUM_KEY = PREFIX + ".purge.preservation.log.num";
     long PURGE_PRESERVATION_LOG_NUM_DEFAULT = 0L;
     static long purgePreservationLogNum(RaftProperties properties) {
+      // RaftProperties.getLong returns a parsed long or the non-null default.
+      // @infer-ignore NULLPTR_DEREFERENCE
       return getLong(properties::getLong, PURGE_PRESERVATION_LOG_NUM_KEY,
               PURGE_PRESERVATION_LOG_NUM_DEFAULT, getDefaultLog());
     }
@@ -777,6 +779,8 @@ public interface RaftServerConfigKeys {
     String CREATION_GAP_KEY = PREFIX + ".creation.gap";
     long CREATION_GAP_DEFAULT = 1024;
     static long creationGap(RaftProperties properties) {
+      // RaftProperties.getLong returns a parsed long or the non-null default.
+      // @infer-ignore NULLPTR_DEREFERENCE
       return getLong(
           properties::getLong, CREATION_GAP_KEY, CREATION_GAP_DEFAULT,
           getDefaultLog(), requireMin(1L));
@@ -789,6 +793,8 @@ public interface RaftServerConfigKeys {
     String AUTO_TRIGGER_THRESHOLD_KEY = PREFIX + ".auto.trigger.threshold";
     long AUTO_TRIGGER_THRESHOLD_DEFAULT = 400000L;
     static long autoTriggerThreshold(RaftProperties properties) {
+      // RaftProperties.getLong returns a parsed long or the non-null default.
+      // @infer-ignore NULLPTR_DEREFERENCE
       return getLong(properties::getLong,
           AUTO_TRIGGER_THRESHOLD_KEY, AUTO_TRIGGER_THRESHOLD_DEFAULT, getDefaultLog(), requireMin(0L));
     }

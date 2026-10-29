@@ -96,6 +96,8 @@ public abstract class RaftLogBase implements RaftLog {
     this.state = new OpenCloseState(getName());
     this.getSnapshotIndexFromStateMachine = getSnapshotIndexFromStateMachine;
     this.stateMachineDataReadTimeout = RaftServerConfigKeys.Log.StateMachineData.readTimeout(properties);
+    // purgePreservationLogNum uses RaftProperties.getLong with a non-null default.
+    // @infer-ignore NULLPTR_DEREFERENCE
     this.purgePreservation = RaftServerConfigKeys.Log.purgePreservationLogNum(properties);
   }
 
