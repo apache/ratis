@@ -268,10 +268,14 @@ public final class RaftServerMetricsImpl extends RatisMetrics implements RaftSer
   }
 
   public void onWatchRequestQueueLimitHit(ReplicationLevel replicationLevel) {
+    // newCounterMap initializes every ReplicationLevel and returns an unmodifiable map.
+    // @infer-ignore NULLPTR_DEREFERENCE
     numWatchRequestQueueLimitHits.get(replicationLevel).inc();
   }
 
   public void onWatchRequestTimeout(ReplicationLevel replicationLevel) {
+    // newCounterMap initializes every ReplicationLevel and returns an unmodifiable map.
+    // @infer-ignore NULLPTR_DEREFERENCE
     numWatchRequestsTimeout.get(replicationLevel).inc();
   }
 
