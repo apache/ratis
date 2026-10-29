@@ -59,7 +59,6 @@ import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -73,8 +72,10 @@ public class TestLeaderStepDown extends BaseTest {
   private static final RaftPeerId OTHER = RaftPeerId.valueOf("s3");
 
   @ParameterizedTest
-  @CsvSource({"false, false", "true, false", "false, true", "true, true"})
-  public void testHigherTermBypassesPendingStepDown(boolean dequeued, boolean cleanupFails) throws Exception {
+  @CsvSource({"false, false, false", "true, false, false", "false, true, false", "true, true, false",
+      "true, false, true", "true, true, true"})
+  public void testHigherTermBypassesPendingStepDown(boolean processorStarted, boolean cleanupFails,
+      boolean updateCommitFirst) throws Exception {
     final RaftGroup group = newGroup();
     final File storageVolume = new File(getTestDir(), "storage");
     FileUtils.deleteFully(storageVolume);
@@ -84,10 +85,8 @@ public class TestLeaderStepDown extends BaseTest {
       server.start();
       final LeaderStateImpl leader = becomeLeader(server);
       final FollowerInfo follower = leader.getLogAppenders().findFirst().orElseThrow(AssertionError::new).getFollower();
-      final Object eventQueue = RaftTestUtil.getDeclaredField(leader, "eventQueue");
-      final BlockingQueue<?> queue = (BlockingQueue<?>) RaftTestUtil.getDeclaredField(eventQueue, "queue");
       final Thread processor = (Thread) RaftTestUtil.getDeclaredField(leader, "processor");
-      if (dequeued) {
+      if (processorStarted) {
         leader.start();
         // prepare() also takes the server lock; let it finish before blocking event execution.
         RaftTestUtil.waitFor(() -> processor.getState() == Thread.State.TIMED_WAITING, 10, 5000);
@@ -97,11 +96,17 @@ public class TestLeaderStepDown extends BaseTest {
         final CompletableFuture<RaftClientReply> reply = CompletableFuture.supplyAsync(() -> {
           synchronized (server) {
             try {
+              if (updateCommitFirst) {
+                // A startup flush may put UPDATE_COMMIT ahead of the local step-down request.
+                leader.submitUpdateCommitEvent();
+                RaftTestUtil.waitFor(() -> isBlockedOnServer(processor, server), 10, 5000);
+              }
               final CompletableFuture<RaftClientReply> pending = leader.submitStepDownRequestAsync(
                   new TransferLeadershipRequest(ClientId.randomId(), LEADER, group.getGroupId(), 1, null, 20000));
-              if (dequeued) {
-                // STEP_DOWN is dequeued but cannot execute while this callback holds the server monitor.
-                RaftTestUtil.waitFor(() -> queue.isEmpty() && isBlockedOnServer(processor, server), 10, 5000);
+              if (processorStarted) {
+                // The processor cannot execute its polled event while this callback holds the server monitor.
+                // Other events, including STEP_DOWN, may still be queued behind that event.
+                RaftTestUtil.waitFor(() -> isBlockedOnServer(processor, server), 10, 5000);
               }
               Assertions.assertEquals(1L, server.getState().getCurrentTerm());
               Assertions.assertTrue(server.getInfo().isLeader(), "FORCE must remain queued");
@@ -139,7 +144,7 @@ public class TestLeaderStepDown extends BaseTest {
       } finally {
         // Release cleanup before closing the division, including after an assertion fails.
         stopped.complete(null);
-        if (dequeued) {
+        if (processorStarted) {
           processor.join(5000);
           Assertions.assertFalse(processor.isAlive(), "step-down event processor did not stop");
         }
