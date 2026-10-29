@@ -52,6 +52,26 @@ $ mvn clean test-compile -Perrorprone -DskipTests
 Normal builds do not enable Error Prone and continue to support Java 8.
 To test the check script's report handling, run `bash dev-support/tests/test-errorprone.sh`.
 
+## Infer
+
+Run [Infer](https://fbinfer.com/docs/getting-started) static analysis with JDK 21:
+
+```
+$ dev-support/checks/infer.sh
+```
+
+The check installs Infer 1.3.0 in `.dev-tools` if `infer` is not already on `PATH`.
+Automatic installation supports Linux x86_64 and macOS arm64. The check also requires
+`jq` to read Infer's JSON report.
+
+The check performs a clean Maven build with compilation caches disabled, without running tests.
+Test and generated sources are excluded from analysis. Reports and diagnostics are written to
+`target/infer`, including `report.txt`, `report.json`, `captured-sources.txt`, `output.log`,
+and `summary.txt`. CI archives this directory without the large Infer databases in `infer-out`.
+Findings are informational; installation, build, capture, and reporting failures fail the check.
+
+To test the check script's report handling, run `bash dev-support/tests/test-infer.sh`.
+
 # Thirdparty
 
 All bundled thirdparty dependencies are centralized in the *ratis-thirdparty* module
