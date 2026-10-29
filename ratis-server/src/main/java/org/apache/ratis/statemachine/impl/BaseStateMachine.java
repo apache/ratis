@@ -101,10 +101,14 @@ public class BaseStateMachine implements StateMachine, StateMachine.DataApi,
 
   @Override
   public void pause() {
+    lifeCycle.transitionIfValid(LifeCycle.State.PAUSING);
+    lifeCycle.transitionIfValid(LifeCycle.State.PAUSED);
   }
 
   @Override
   public void reinitialize() throws IOException {
+    lifeCycle.transitionIfValid(LifeCycle.State.STARTING);
+    lifeCycle.transitionIfValid(LifeCycle.State.RUNNING);
   }
 
   @Override
