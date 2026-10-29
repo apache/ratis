@@ -213,6 +213,8 @@ class WatchRequests {
 
   void update(ReplicationLevel replication, final long newIndex) {
     final WatchQueue queue = queues.get(replication);
+    // The constructor initializes a queue for every ReplicationLevel, and queues are never removed.
+    // @infer-ignore NULLPTR_DEREFERENCE
     if (newIndex > queue.getIndex()) { // compare without synchronization
       queue.updateIndex(newIndex);
     }
