@@ -17,6 +17,7 @@
  */
 package org.apache.ratis;
 
+import org.apache.ratis.ReadOnlyRequestWithLongTimeoutTests.BlockingCounterStateMachine;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -50,6 +51,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
@@ -131,6 +133,50 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
         Assertions.assertNotNull(timeoutReply.getException());
         Assertions.assertInstanceOf(ReadException.class, timeoutReply.getException());
       });
+    }
+  }
+
+  @Test
+  public void testFailFastLinearizableReads() throws Exception {
+    final RaftProperties p = getProperties();
+    final RaftServerConfigKeys.Read.Option option = RaftServerConfigKeys.Read.option(p);
+    final boolean failFastEnabled = RaftServerConfigKeys.Read.failFastLinearizableReadGapEnabled(p);
+    RaftServerConfigKeys.Read.setOption(p, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
+    RaftServerConfigKeys.Read.setFailFastLinearizableReadGapEnabled(p, true);
+    p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, BlockingCounterStateMachine.class, StateMachine.class);
+    try {
+      runWithNewCluster(NUM_SERVERS, ReadOnlyRequestTests::runTestFailFastLinearizableReads);
+    } finally {
+      // The properties are shared across the tests.
+      RaftServerConfigKeys.Read.setOption(p, option);
+      RaftServerConfigKeys.Read.setFailFastLinearizableReadGapEnabled(p, failFastEnabled);
+    }
+  }
+
+  static <C extends MiniRaftCluster> void runTestFailFastLinearizableReads(C cluster) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final BlockingCounterStateMachine stateMachine = (BlockingCounterStateMachine) leader.getStateMachine();
+
+    try (RaftClient client = cluster.createClient(leader.getId(), RetryPolicies.noRetry())) {
+      assertReplyExact(1, client.io().send(INCREMENT));
+
+      final CompletableFuture<RaftClientReply> writeReply = client.async().send(WAIT_AND_INCREMENT);
+      try {
+        // The write is committed but not yet applied, so the read index is ahead of the applied index.
+        Assertions.assertTrue(stateMachine.writeStarted.await(10, TimeUnit.SECONDS), "Write did not start");
+        final ReadException e = Assertions.assertThrows(ReadException.class,
+            () -> client.io().sendReadOnly(QUERY));
+        Assertions.assertTrue(e.getMessage().contains("Failed fast"), () -> "Unexpected exception: " + e);
+      } finally {
+        // Unblock all the servers so that the cluster can make progress and shut down.
+        for (RaftServer.Division server : cluster.iterateDivisions()) {
+          ((BlockingCounterStateMachine) server.getStateMachine()).allowWrite.countDown();
+        }
+      }
+
+      // Once the write is applied, the read no longer needs to wait.
+      assertReplyExact(2, writeReply.get(10, TimeUnit.SECONDS));
+      assertReplyExact(2, client.io().sendReadOnly(QUERY));
     }
   }
 
