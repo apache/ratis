@@ -130,7 +130,9 @@ public interface StateMachine extends Closeable {
      * @param request the client request
      * @param stream the output stream to send the results
      * @return the number of bytes transferred
+     * @deprecated use {@link #transferTo(Message, WritableChannel)}, which does not expose the stream lifecycle.
      */
+    @Deprecated
     @Override
     default long transferTo(Message request, WritableByteChannel stream) throws IOException {
       return 0;
