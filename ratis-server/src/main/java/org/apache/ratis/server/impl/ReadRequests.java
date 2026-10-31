@@ -141,8 +141,8 @@ class ReadRequests {
 
   ReadRequests(long appliedIndex, RaftProperties properties) {
     this.readIndexQueue = new ReadIndexQueue(appliedIndex, RaftServerConfigKeys.Read.timeout(properties),
-        RaftServerConfigKeys.Read.failFastLinearizableReadGap(properties),
-        RaftServerConfigKeys.Read.failFastLinearizableReadGapEnabled(properties));
+        RaftServerConfigKeys.Read.linearizableFailFastGap(properties),
+        RaftServerConfigKeys.Read.linearizableFailFastGapEnabled(properties));
   }
 
   LongConsumer getAppliedIndexConsumer() {

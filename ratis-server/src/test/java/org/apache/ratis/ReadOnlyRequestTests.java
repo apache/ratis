@@ -140,16 +140,16 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   public void testFailFastLinearizableReads() throws Exception {
     final RaftProperties p = getProperties();
     final RaftServerConfigKeys.Read.Option option = RaftServerConfigKeys.Read.option(p);
-    final boolean failFastEnabled = RaftServerConfigKeys.Read.failFastLinearizableReadGapEnabled(p);
+    final boolean failFastEnabled = RaftServerConfigKeys.Read.linearizableFailFastGapEnabled(p);
     RaftServerConfigKeys.Read.setOption(p, RaftServerConfigKeys.Read.Option.LINEARIZABLE);
-    RaftServerConfigKeys.Read.setFailFastLinearizableReadGapEnabled(p, true);
+    RaftServerConfigKeys.Read.setLinearizableFailFastGapEnabled(p, true);
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, BlockingCounterStateMachine.class, StateMachine.class);
     try {
       runWithNewCluster(NUM_SERVERS, ReadOnlyRequestTests::runTestFailFastLinearizableReads);
     } finally {
       // The properties are shared across the tests.
       RaftServerConfigKeys.Read.setOption(p, option);
-      RaftServerConfigKeys.Read.setFailFastLinearizableReadGapEnabled(p, failFastEnabled);
+      RaftServerConfigKeys.Read.setLinearizableFailFastGapEnabled(p, failFastEnabled);
     }
   }
 
