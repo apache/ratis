@@ -510,7 +510,7 @@ class LeaderStateImpl implements LeaderState {
   @Override
   public boolean onFollowerTerm(FollowerInfo follower, long followerTerm) {
     if (isCaughtUp(follower) && followerTerm > getCurrentTerm()) {
-      submitStepDownEvent(followerTerm, StepDownReason.HIGHER_TERM);
+      stepDown(followerTerm, StepDownReason.HIGHER_TERM);
       return true;
     }
     return false;
@@ -744,19 +744,22 @@ class LeaderStateImpl implements LeaderState {
   }
 
   void submitStepDownEvent(StepDownReason reason) {
-    submitStepDownEvent(currentTerm, reason);
-  }
-
-  void submitStepDownEvent(long term, StepDownReason reason) {
-    eventQueue.submit(new StateUpdateEvent(StateUpdateEvent.Type.STEP_DOWN, () -> stepDown(term, reason)));
+    eventQueue.submit(new StateUpdateEvent(StateUpdateEvent.Type.STEP_DOWN, () -> stepDown(currentTerm, reason)));
   }
 
   private void stepDown(long term, StepDownReason reason) {
     try {
       lease.getAndSetEnabled(false);
+      // The caller may be an appender that is being stopped; do not wait for appender cleanup here.
       server.changeToFollowerAndPersistMetadata(term, false, reason)
-          .get(5, TimeUnit.SECONDS);
-      pendingStepDown.complete(server::newSuccessReply);
+          .whenComplete((ignored, exception) -> {
+            if (exception == null) {
+              pendingStepDown.complete(server::newSuccessReply);
+            } else {
+              pendingStepDown.completeExceptionally(new CompletionException(exception));
+              LOG.warn("{}: Failed to step down for term {}", this, term, exception);
+            }
+          });
     } catch(Exception e) {
       pendingStepDown.completeExceptionally(e);
       final String s = this + ": Failed to step down for term " + term;

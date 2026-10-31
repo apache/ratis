@@ -113,7 +113,8 @@ class LogAppenderDaemon {
 
   public CompletableFuture<State> tryToClose() {
     final State state = lifeCycle.transition(TRY_TO_CLOSE);
-    if (state == CLOSING) {
+    // An appender stopping itself may still need to persist metadata for a higher-term reply.
+    if (state == CLOSING && Thread.currentThread() != daemon) {
       daemon.interrupt();
     } else if (state == CLOSED) {
       closeFuture.complete(state);
