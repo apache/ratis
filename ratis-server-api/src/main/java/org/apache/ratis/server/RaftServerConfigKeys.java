@@ -239,6 +239,31 @@ public interface RaftServerConfigKeys {
       set(properties::setEnum, OPTION_KEY, option);
     }
 
+    /**
+     * When enabled, a linearizable read fails immediately, instead of waiting,
+     * if its read index is ahead of the applied index by at least the fail-fast gap.
+     */
+    String LINEARIZABLE_FAIL_FAST_GAP_ENABLED_KEY = PREFIX + ".linearizable.fail-fast.gap.enabled";
+    boolean LINEARIZABLE_FAIL_FAST_GAP_ENABLED_DEFAULT = false;
+    static boolean linearizableFailFastGapEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, LINEARIZABLE_FAIL_FAST_GAP_ENABLED_KEY,
+          LINEARIZABLE_FAIL_FAST_GAP_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setLinearizableFailFastGapEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, LINEARIZABLE_FAIL_FAST_GAP_ENABLED_KEY, enabled);
+    }
+
+    String LINEARIZABLE_FAIL_FAST_GAP_KEY = PREFIX + ".linearizable.fail-fast.gap";
+    /** 1 means failing any read that would otherwise wait. */
+    long LINEARIZABLE_FAIL_FAST_GAP_DEFAULT = 1L;
+    static long linearizableFailFastGap(RaftProperties properties) {
+      return getLong(properties::getLong, LINEARIZABLE_FAIL_FAST_GAP_KEY,
+          LINEARIZABLE_FAIL_FAST_GAP_DEFAULT, getDefaultLog(), requireMin(1L));
+    }
+    static void setLinearizableFailFastGap(RaftProperties properties, long gap) {
+      setLong(properties::setLong, LINEARIZABLE_FAIL_FAST_GAP_KEY, gap, requireMin(1L));
+    }
+
     String LEADER_LEASE_ENABLED_KEY = PREFIX + ".leader.lease.enabled";
     boolean LEADER_LEASE_ENABLED_DEFAULT = false;
     static boolean leaderLeaseEnabled(RaftProperties properties) {
