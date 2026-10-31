@@ -74,16 +74,25 @@ public interface NettyUtils {
   }
 
   static EventLoopGroup newEventLoopGroup(String name, int size, boolean useEpoll) {
+    return newEventLoopGroup(name, size, useEpoll, false);
+  }
+
+  /**
+   * @param daemon use daemon threads?  If not, a thread inherits the daemon status of the thread starting it,
+   *               which, for an event loop, is the thread that first submits a task to it, such as a connect.
+   *               Client groups should use daemon threads, so that an unclosed client does not keep a JVM alive.
+   */
+  static EventLoopGroup newEventLoopGroup(String name, int size, boolean useEpoll, boolean daemon) {
     if (useEpoll) {
       if (Epoll.isAvailable()) {
         LOG.info("Create EpollEventLoopGroup for {}; Thread size is {}.", name, size);
-        return new EpollEventLoopGroup(size, ConcurrentUtils.newThreadFactory(name + "-"));
+        return new EpollEventLoopGroup(size, ConcurrentUtils.newThreadFactory(name + "-", daemon));
       } else {
         Print.epollUnavailability("Failed to create EpollEventLoopGroup for " + name
             + "; fall back on NioEventLoopGroup.");
       }
     }
-    return new NioEventLoopGroup(size, ConcurrentUtils.newThreadFactory(name + "-"));
+    return new NioEventLoopGroup(size, ConcurrentUtils.newThreadFactory(name + "-", daemon));
   }
 
   static void shutdownGracefully(EventLoopGroup... groups) {
