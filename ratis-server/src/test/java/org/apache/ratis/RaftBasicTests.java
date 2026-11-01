@@ -398,7 +398,8 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
       @Override
       public void run() {
-        final int last = lastStep.get();
+        // The leader-change counter can stay unchanged while clients are making progress.
+        final int last = clients.stream().mapToInt(c -> c.step.get()).sum();
         if (last != previousLastStep.get()) {
           previousLastStep.set(last);
         } else {
