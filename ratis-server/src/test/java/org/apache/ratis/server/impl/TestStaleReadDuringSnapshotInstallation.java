@@ -80,15 +80,25 @@ public class TestStaleReadDuringSnapshotInstallation {
           ((RaftServerImpl) follower).getSnapshotInstallationHandler();
       final Message message = Message.valueOf("m4");
 
+      // send() only guarantees that the leader has committed; the follower applies asynchronously.
+      // Wait until the follower has applied m4, otherwise a stale read may hit the state machine
+      // before the queried entry is applied (see SimpleStateMachine4Testing#query).
+      final long m4Index = cluster.getLeader().getRaftLog().getLastCommittedIndex();
+      for (int i = 0; follower.getInfo().getLastAppliedIndex() < m4Index; i++) {
+        Assertions.assertTrue(i < 100, () -> follower.getId() + ": fails to catch up, lastAppliedIndex="
+            + follower.getInfo().getLastAppliedIndex() + " < " + m4Index);
+        Thread.sleep(100);
+      }
+
       // Regression guard: a stale read on a healthy follower still succeeds.
-      final RaftClientReply before = client.io().sendStaleRead(message, 0, follower.getId());
+      final RaftClientReply before = client.io().sendStaleRead(message, m4Index, follower.getId());
       Assertions.assertTrue(before.isSuccess());
 
       // Simulate a snapshot installation in progress on the follower.
       handler.setInProgressInstallSnapshotIndex(1);
       try {
         final IOException e = Assertions.assertThrows(IOException.class,
-            () -> client.io().sendStaleRead(message, 0, follower.getId()));
+            () -> client.io().sendStaleRead(message, m4Index, follower.getId()));
         // The gate rejects with a retriable StateMachineException, not a success and not a crash.
         Assertions.assertTrue(e instanceof StateMachineException, () -> "Unexpected exception: " + e);
         Assertions.assertTrue(e.getMessage().contains("stale read"), () -> e.getMessage());
@@ -98,7 +108,7 @@ public class TestStaleReadDuringSnapshotInstallation {
       }
 
       // After the (simulated) installation completed: stale reads work again.
-      final RaftClientReply after = client.io().sendStaleRead(message, 0, follower.getId());
+      final RaftClientReply after = client.io().sendStaleRead(message, m4Index, follower.getId());
       Assertions.assertTrue(after.isSuccess());
     }
   }
