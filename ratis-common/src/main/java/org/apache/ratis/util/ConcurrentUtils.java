@@ -72,11 +72,26 @@ public interface ConcurrentUtils {
    * @return a new {@link ThreadFactory}.
    */
   static ThreadFactory newThreadFactory(String namePrefix) {
+    return newThreadFactory(namePrefix, false);
+  }
+
+  /**
+   * Creates a {@link ThreadFactory} so that the threads created by the factory are named with the given name prefix.
+   *
+   * @param namePrefix the prefix used in the name of the threads created.
+   * @param daemon create daemon threads?
+   *               If not, a thread inherits the daemon status of the thread creating it.
+   * @return a new {@link ThreadFactory}.
+   */
+  static ThreadFactory newThreadFactory(String namePrefix, boolean daemon) {
     final AtomicInteger numThread = new AtomicInteger();
     return runnable -> {
       final int id = numThread.incrementAndGet();
       final Thread t = new Thread(runnable);
       t.setName(namePrefix + "-thread" + id);
+      if (daemon) {
+        t.setDaemon(true);
+      }
       return t;
     };
   }
