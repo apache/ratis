@@ -43,6 +43,7 @@ import org.apache.ratis.util.BatchLogger;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
@@ -104,6 +105,11 @@ class SnapshotInstallationHandler {
 
   long getInProgressInstallSnapshotIndex() {
     return inProgressInstallSnapshotIndex.get();
+  }
+
+  @VisibleForTesting
+  void setInProgressInstallSnapshotIndex(long index) {
+    inProgressInstallSnapshotIndex.set(index);
   }
 
   InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException {

@@ -81,6 +81,12 @@ class ReadRequestHandler {
   }
 
   CompletableFuture<RaftClientReply> staleReadAsync(RaftClientRequest request) {
+    final long installSnapshot = server.getSnapshotInstallationHandler().getInProgressInstallSnapshotIndex();
+    final ReadException ex = getReadException("stale read", installSnapshot, false);
+    if (ex != null) {
+      return CompletableFuture.completedFuture(
+          server.newExceptionReply(request, new StateMachineException(getMemberId(), ex)));
+    }
     final long minIndex = request.getType().getStaleRead().getMinIndex();
     final long commitIndex = state.getLog().getLastCommittedIndex();
     LOG.debug("{}: minIndex={}, commitIndex={} from {}", getMemberId(), minIndex, commitIndex, request.getClientId());
