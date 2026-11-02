@@ -52,13 +52,10 @@ class ReadRequests {
 
     private final long failFastGap;
 
-    private final boolean failFastGapEnabled;
-
-    ReadIndexQueue(long lastAppliedIndex, TimeDuration readTimeout, long failFastGap, boolean failFastGapEnabled) {
+    ReadIndexQueue(long lastAppliedIndex, TimeDuration readTimeout, long failFastGap) {
       this.lastAppliedIndex = lastAppliedIndex;
       this.readTimeout = readTimeout;
       this.failFastGap = failFastGap;
-      this.failFastGapEnabled = failFastGapEnabled;
     }
 
     CompletableFuture<Long> add(long readIndex, Supplier<ReadException> checkReadException) {
@@ -73,7 +70,7 @@ class ReadRequests {
           return CompletableFuture.completedFuture(lastAppliedIndex);
         }
 
-        if (failFastGapEnabled) {
+        if (failFastGap > 0) {
           final long readIndexGap = readIndex - lastAppliedIndex;
           if (readIndexGap >= failFastGap) {
             return JavaUtils.completeExceptionally(new ReadException("Failed fast: readIndex " + readIndex
@@ -141,8 +138,7 @@ class ReadRequests {
 
   ReadRequests(long appliedIndex, RaftProperties properties) {
     this.readIndexQueue = new ReadIndexQueue(appliedIndex, RaftServerConfigKeys.Read.timeout(properties),
-        RaftServerConfigKeys.Read.linearizableFailFastGap(properties),
-        RaftServerConfigKeys.Read.linearizableFailFastGapEnabled(properties));
+        RaftServerConfigKeys.Read.ReadIndex.gap(properties));
   }
 
   LongConsumer getAppliedIndexConsumer() {
