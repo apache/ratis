@@ -56,7 +56,7 @@ public class PendingStepDown {
       replyFuture.complete(newSuccessReply.apply(request));
     }
 
-    void completeExceptionally(Exception e) {
+    void completeExceptionally(Throwable e) {
       replyFuture.completeExceptionally(e);
     }
 
@@ -109,7 +109,7 @@ public class PendingStepDown {
     pending.getAndSetNull().ifPresent(p -> p.complete(newSuccessReply));
   }
 
-  void completeExceptionally(Exception e) {
+  void completeExceptionally(Throwable e) {
     pending.getAndSetNull().ifPresent(p -> p.completeExceptionally(e));
   }
 

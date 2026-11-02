@@ -441,7 +441,7 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
         Arrays.asList(peer(LEADER), peer(FOLLOWER), peer(OTHER)));
     final File storageVolume = new File(getTestDir(), "storage");
     FileUtils.deleteFully(storageVolume);
-    final AtomicReference<Thread> callbackThread = new AtomicReference<>();
+    final CompletableFuture<Thread> callbackThread = new CompletableFuture<>();
     final AtomicReference<Throwable> uncaught = new AtomicReference<>();
     final ShutdownStateMachine stateMachine = new ShutdownStateMachine() {
       @Override
@@ -450,7 +450,7 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
         if (eventStatus != EventStatus.COMPLETED) {
           return;
         }
-        callbackThread.set(Thread.currentThread());
+        callbackThread.complete(Thread.currentThread());
         Thread.currentThread().setUncaughtExceptionHandler((thread, cause) -> uncaught.set(cause));
         throw new IllegalStateException("Failed shutdown callback");
       }
@@ -465,8 +465,10 @@ public class TestRaftServerMetadataPersistence extends BaseTest {
           () -> follower.appendEntries(appendEntries(group, 1, 0))));
 
       assertStopped(follower, group, stateMachine);
-      callbackThread.get().join(5000);
-      Assertions.assertFalse(callbackThread.get().isAlive());
+      // The superclass signals shutdown before this callback records its thread.
+      final Thread thread = callbackThread.get(5, TimeUnit.SECONDS);
+      thread.join(5000);
+      Assertions.assertFalse(thread.isAlive());
       Assertions.assertNull(uncaught.get());
     }
   }
