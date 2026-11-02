@@ -20,8 +20,10 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.grpc.util.StreamObserverWithTimeout;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
@@ -39,6 +41,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * This is a RaftClient implementation that supports streaming data to the raft
@@ -52,6 +57,9 @@ class GrpcServerProtocolClient implements Closeable {
   private ManagedChannel hbChannel;
   private RaftServerProtocolServiceStub hbAsyncStub;
   private final RaftServerProtocolServiceStub asyncStub;
+  // Channels and stubs for appendEntries, each group always using the same one; the first is the main channel
+  private final List<ManagedChannel> appendEntriesChannels;
+  private final List<RaftServerProtocolServiceStub> appendEntriesStubs;
   private final RaftServerProtocolServiceBlockingStub blockingStub;
   private final boolean useSeparateHBChannel;
 
@@ -61,7 +69,7 @@ class GrpcServerProtocolClient implements Closeable {
   private final RaftPeerId raftPeerId;
   private final EventLoopGroup eventLoopGroup;
 
-  GrpcServerProtocolClient(RaftPeer target, int connections, int flowControlWindow,
+  GrpcServerProtocolClient(RaftPeer target, int connections, int appendEntriesConnections, int flowControlWindow,
       TimeDuration requestTimeout, SslContext sslContext, boolean separateHBChannel,
       EventLoopGroup eventLoopGroup) {
     raftPeerId = target.getId();
@@ -71,6 +79,17 @@ class GrpcServerProtocolClient implements Closeable {
     channel = buildChannel(target, flowControlWindow, sslContext);
     blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
+    final List<ManagedChannel> channels = new ArrayList<>(appendEntriesConnections);
+    final List<RaftServerProtocolServiceStub> stubs = new ArrayList<>(appendEntriesConnections);
+    channels.add(channel);
+    stubs.add(asyncStub);
+    for (int i = 1; i < appendEntriesConnections; i++) {
+      final ManagedChannel c = buildChannel(target, flowControlWindow, sslContext);
+      channels.add(c);
+      stubs.add(RaftServerProtocolServiceGrpc.newStub(c));
+    }
+    appendEntriesChannels = Collections.unmodifiableList(channels);
+    appendEntriesStubs = Collections.unmodifiableList(stubs);
     if (useSeparateHBChannel) {
       hbChannel = buildChannel(target, flowControlWindow, sslContext);
       hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
@@ -109,7 +128,8 @@ class GrpcServerProtocolClient implements Closeable {
     if (useSeparateHBChannel) {
       GrpcUtil.shutdownManagedChannel(hbChannel);
     }
-    GrpcUtil.shutdownManagedChannel(channel);
+    // the first one is the main channel
+    appendEntriesChannels.forEach(GrpcUtil::shutdownManagedChannel);
     if (pool != null) {
       pool.close();
     }
@@ -171,13 +191,29 @@ class GrpcServerProtocolClient implements Closeable {
     }
   }
 
-  CallStreamObserver<AppendEntriesRequestProto> appendEntries(
+  CallStreamObserver<AppendEntriesRequestProto> appendEntries(RaftGroupId groupId,
       StreamObserver<AppendEntriesReplyProto> responseHandler, boolean isHeartbeat) {
     if (isHeartbeat && useSeparateHBChannel) {
       return (CallStreamObserver<AppendEntriesRequestProto>) hbAsyncStub.appendEntries(responseHandler);
     } else {
-      return (CallStreamObserver<AppendEntriesRequestProto>) asyncStub.appendEntries(responseHandler);
+      final RaftServerProtocolServiceStub stub = appendEntriesStubs.get(getAppendEntriesIndex(groupId));
+      return (CallStreamObserver<AppendEntriesRequestProto>) stub.appendEntries(responseHandler);
     }
+  }
+
+  /** @return the index of the appendEntries channel for the given group, always the same one for a group. */
+  int getAppendEntriesIndex(RaftGroupId groupId) {
+    return Math.floorMod(groupId.hashCode(), appendEntriesStubs.size());
+  }
+
+  @VisibleForTesting
+  List<ManagedChannel> getAppendEntriesChannels() {
+    return appendEntriesChannels;
+  }
+
+  @VisibleForTesting
+  ManagedChannel getMainChannel() {
+    return channel;
   }
 
   StreamObserver<InstallSnapshotRequestProto> installSnapshot(
@@ -191,6 +227,7 @@ class GrpcServerProtocolClient implements Closeable {
     if (useSeparateHBChannel) {
       hbChannel.resetConnectBackoff();
     }
-    channel.resetConnectBackoff();
+    // the first one is the main channel
+    appendEntriesChannels.forEach(ManagedChannel::resetConnectBackoff);
   }
 }

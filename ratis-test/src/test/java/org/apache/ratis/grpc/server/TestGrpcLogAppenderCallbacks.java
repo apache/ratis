@@ -188,7 +188,7 @@ public class TestGrpcLogAppenderCallbacks {
       when(serverRpc.getProxies().getProxy(destination)).thenThrow(error);
     } else {
       error = new IllegalStateException("Failed to create append stream");
-      when(client.appendEntries(any(), eq(false))).thenThrow(error);
+      when(client.appendEntries(any(), any(), eq(false))).thenThrow(error);
     }
     Assertions.assertSame(error, Assertions.assertThrows(Exception.class, () -> appender.appendLog(false)));
     final InOrder order = inOrder(appendEntries);

@@ -24,6 +24,7 @@ import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.metrics.Timekeeper;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotResult;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
@@ -389,10 +390,10 @@ public class GrpcLogAppender extends LogAppenderBase {
     private final TimeDuration waitForReady;
     private volatile boolean running = true;
 
-    StreamObservers(GrpcServerProtocolClient client, AppendLogResponseHandler handler, boolean separateHeartbeat,
-        TimeDuration waitTimeMin) {
-      this.appendLog = client.appendEntries(handler, false);
-      this.heartbeat = separateHeartbeat? client.appendEntries(handler, true): null;
+    StreamObservers(GrpcServerProtocolClient client, RaftGroupId groupId, AppendLogResponseHandler handler,
+        boolean separateHeartbeat, TimeDuration waitTimeMin) {
+      this.appendLog = client.appendEntries(groupId, handler, false);
+      this.heartbeat = separateHeartbeat? client.appendEntries(groupId, handler, true): null;
       this.waitForReady = waitTimeMin.isPositive()? waitTimeMin: TimeDuration.ONE_MILLISECOND;
     }
 
@@ -448,8 +449,8 @@ public class GrpcLogAppender extends LogAppenderBase {
         notifyAppendEntriesListener(l -> l.onRequest(pending));
         increaseNextIndex(pending);
         if (appendLogRequestObserver == null) {
-          appendLogRequestObserver = new StreamObservers(
-              getClient(), new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin());
+          appendLogRequestObserver = new StreamObservers(getClient(), getServer().getMemberId().getGroupId(),
+              new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin());
         }
       }
 
