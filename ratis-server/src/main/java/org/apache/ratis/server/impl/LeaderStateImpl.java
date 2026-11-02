@@ -756,7 +756,7 @@ class LeaderStateImpl implements LeaderState {
             if (exception == null) {
               pendingStepDown.complete(server::newSuccessReply);
             } else {
-              pendingStepDown.completeExceptionally(new CompletionException(exception));
+              pendingStepDown.completeExceptionally(exception);
               LOG.warn("{}: Failed to step down for term {}", this, term, exception);
             }
           });

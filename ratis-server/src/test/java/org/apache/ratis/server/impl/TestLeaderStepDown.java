@@ -132,11 +132,7 @@ public class TestLeaderStepDown extends BaseTest {
           stopped.completeExceptionally(failure);
           final ExecutionException thrown = Assertions.assertThrows(ExecutionException.class,
               () -> reply.get(5, TimeUnit.SECONDS));
-          Throwable cause = thrown.getCause();
-          while (cause.getCause() != null) {
-            cause = cause.getCause();
-          }
-          Assertions.assertSame(failure, cause);
+          Assertions.assertSame(failure, thrown.getCause().getCause());
         } else {
           stopped.complete(null);
           Assertions.assertTrue(reply.get(5, TimeUnit.SECONDS).isSuccess());
