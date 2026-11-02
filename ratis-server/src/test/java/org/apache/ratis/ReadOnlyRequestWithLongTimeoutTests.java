@@ -88,9 +88,9 @@ public abstract class ReadOnlyRequestWithLongTimeoutTests<CLUSTER extends MiniRa
   /** Holds a committed write before updating the counter, without relying on thread scheduling delays. */
   public static class BlockingCounterStateMachine extends ReadOnlyRequestTests.CounterStateMachine {
     // Signals that WAIT_AND_INCREMENT has reached state machine application.
-    private final CountDownLatch writeStarted = new CountDownLatch(1);
+    final CountDownLatch writeStarted = new CountDownLatch(1);
     // Released by the test after checking the stale value and initiating the linearizable read.
-    private final CountDownLatch allowWrite = new CountDownLatch(1);
+    final CountDownLatch allowWrite = new CountDownLatch(1);
 
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {

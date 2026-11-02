@@ -50,9 +50,12 @@ class ReadRequests {
 
     private final TimeDuration readTimeout;
 
-    ReadIndexQueue(long lastAppliedIndex, TimeDuration readTimeout) {
+    private final long failFastGap;
+
+    ReadIndexQueue(long lastAppliedIndex, TimeDuration readTimeout, long failFastGap) {
       this.lastAppliedIndex = lastAppliedIndex;
       this.readTimeout = readTimeout;
+      this.failFastGap = failFastGap;
     }
 
     CompletableFuture<Long> add(long readIndex, Supplier<ReadException> checkReadException) {
@@ -66,6 +69,16 @@ class ReadRequests {
         if (readIndex <= lastAppliedIndex) {
           return CompletableFuture.completedFuture(lastAppliedIndex);
         }
+
+        if (failFastGap > 0) {
+          final long readIndexGap = readIndex - lastAppliedIndex;
+          if (readIndexGap >= failFastGap) {
+            return JavaUtils.completeExceptionally(new ReadException("Failed fast: readIndex " + readIndex
+                + " is " + readIndexGap + " ahead of appliedIndex " + lastAppliedIndex
+                + " (threshold " + failFastGap + ")"));
+          }
+        }
+
         // The same as computeIfAbsent except that it also tells if a new value is created.
         final CompletableFuture<Long> existing = sorted.get(readIndex);
         create = existing == null;
@@ -124,7 +137,8 @@ class ReadRequests {
   private final ReadIndexQueue readIndexQueue;
 
   ReadRequests(long appliedIndex, RaftProperties properties) {
-    this.readIndexQueue = new ReadIndexQueue(appliedIndex, RaftServerConfigKeys.Read.timeout(properties));
+    this.readIndexQueue = new ReadIndexQueue(appliedIndex, RaftServerConfigKeys.Read.timeout(properties),
+        RaftServerConfigKeys.Read.ReadIndex.gap(properties));
   }
 
   LongConsumer getAppliedIndexConsumer() {

@@ -321,6 +321,20 @@ public interface RaftServerConfigKeys {
       static void setRepliedIndexBatchInterval(RaftProperties properties, TimeDuration interval) {
         setTimeDuration(properties::setTimeDuration, REPLIED_INDEX_BATCH_INTERVAL_KEY, interval);
       }
+
+      /**
+       * A linearizable read fails immediately, instead of waiting,
+       * if its read index is ahead of the applied index by at least this gap.
+       */
+      String GAP_KEY = PREFIX + ".gap";
+      /** 0 means disabled. */
+      long GAP_DEFAULT = 0L;
+      static long gap(RaftProperties properties) {
+        return getLong(properties::getLong, GAP_KEY, GAP_DEFAULT, getDefaultLog(), requireMin(0L));
+      }
+      static void setGap(RaftProperties properties, long gap) {
+        setLong(properties::setLong, GAP_KEY, gap, requireMin(0L));
+      }
     }
   }
 
