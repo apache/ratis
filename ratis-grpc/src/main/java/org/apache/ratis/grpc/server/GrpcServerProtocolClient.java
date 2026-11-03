@@ -69,6 +69,7 @@ class GrpcServerProtocolClient implements Closeable {
   private final RaftPeerId raftPeerId;
   private final EventLoopGroup eventLoopGroup;
 
+  @SuppressWarnings("checkstyle:ParameterNumber")
   GrpcServerProtocolClient(RaftPeer target, int connections, int appendEntriesConnections, int flowControlWindow,
       TimeDuration requestTimeout, SslContext sslContext, boolean separateHBChannel,
       EventLoopGroup eventLoopGroup) {
