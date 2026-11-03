@@ -113,6 +113,7 @@ public final class GrpcServicesImpl
     private SslContext serverSslContextForServer;
     private SslContext serverSslContextForClient;
     private int serverStubPoolSize;
+    private boolean zeroCopyAppendEntries;
 
     private SizeInBytes messageSizeMax;
     private SizeInBytes flowControlWindow;
@@ -140,6 +141,13 @@ public final class GrpcServicesImpl
       this.requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(properties);
       this.separateHeartbeatChannel = GrpcConfigKeys.Server.heartbeatChannel(properties);
       this.serverStubPoolSize = GrpcConfigKeys.Server.stubPoolSize(properties);
+      this.zeroCopyAppendEntries = GrpcConfigKeys.Server.zeroCopyAppendEntriesEnabled(properties);
+      if (zeroCopyAppendEntries && !RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties)) {
+        LOG.warn("Ignoring {} = true: it requires {} = true, so that the log cache doesn't keep the state machine"
+                + " data", GrpcConfigKeys.Server.ZERO_COPY_APPEND_ENTRIES_ENABLED_KEY,
+            RaftServerConfigKeys.Log.StateMachineData.CACHING_ENABLED_KEY);
+        this.zeroCopyAppendEntries = false;
+      }
 
       final SizeInBytes appenderBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
       final SizeInBytes gap = SizeInBytes.ONE_MB;
@@ -182,7 +190,7 @@ public final class GrpcServicesImpl
     }
 
     private GrpcServerProtocolService newGrpcServerProtocolService() {
-      return new GrpcServerProtocolService(server::getId, server);
+      return new GrpcServerProtocolService(server::getId, server, zeroCopyAppendEntries);
     }
 
     private MetricServerInterceptor newMetricServerInterceptor() {
@@ -251,7 +259,7 @@ public final class GrpcServicesImpl
       final EnumSet<GrpcServices.Type> types = EnumSet.of(GrpcServices.Type.SERVER);
       final NettyServerBuilder serverBuilder = newNettyServerBuilderForServer();
       final GrpcServerProtocolService service = newGrpcServerProtocolService();
-      serverBuilder.addService(ServerInterceptors.intercept(service, interceptor));
+      serverBuilder.addService(ServerInterceptors.intercept(service.bindServiceDefinition(), interceptor));
 
       if (!separateAdminServer()) {
         types.add(GrpcServices.Type.ADMIN);
@@ -327,6 +335,7 @@ public final class GrpcServicesImpl
   private final EventLoopGroup serverWorkers;
   private final EventLoopGroup clientWorkers;
   private final TimeDuration executorShutdownWait;
+  private final boolean zeroCopyAppendEntries;
 
   private GrpcServicesImpl(Builder b) {
     super(b.server::getId, id -> new PeerProxyMap<>(id.toString(),
@@ -336,6 +345,7 @@ public final class GrpcServicesImpl
     this.serverWorkers = b.serverWorkers;
     this.clientWorkers = b.clientWorkers;
     this.executorShutdownWait = RaftServerConfigKeys.executorShutdownWait(b.server.getProperties());
+    this.zeroCopyAppendEntries = b.zeroCopyAppendEntries;
 
     this.executor = b.newExecutor();
     this.clientProtocolService = b.newGrpcClientProtocolService(executor);
@@ -379,6 +389,11 @@ public final class GrpcServicesImpl
       ServerInterceptor interceptor) {
     final GrpcAdminProtocolService service = new GrpcAdminProtocolService(admin);
     builder.addService(ServerInterceptors.intercept(service, interceptor));
+  }
+
+  /** @return whether followers decode appendEntries without copying the state machine data. */
+  boolean isZeroCopyAppendEntries() {
+    return zeroCopyAppendEntries;
   }
 
   @Override

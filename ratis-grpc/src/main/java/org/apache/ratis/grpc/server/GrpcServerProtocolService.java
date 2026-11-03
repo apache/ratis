@@ -24,7 +24,15 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.grpc.util.ZeroCopyMessageMarshaller;
+import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.thirdparty.com.google.protobuf.MessageLite;
 import org.apache.ratis.thirdparty.com.google.protobuf.MessageOrBuilder;
+import org.apache.ratis.thirdparty.io.grpc.MethodDescriptor;
+import org.apache.ratis.thirdparty.io.grpc.ServerMethodDefinition;
+import org.apache.ratis.thirdparty.io.grpc.ServerServiceDefinition;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -37,14 +45,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
+  private static final AtomicLong UNRELEASED_ON_FAILURE = new AtomicLong();
 
   private enum BatchLogKey implements BatchLogger.Key {
     COMPLETED_REQUEST,
@@ -211,10 +224,99 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
   private final Supplier<RaftPeerId> idSupplier;
   private final RaftServer server;
+  /** Non-null iff followers decode appendEntries without copying the state machine data. */
+  private final ZeroCopyMessageMarshaller<AppendEntriesRequestProto> zeroCopyAppendEntries;
 
   GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server) {
+    this(idSupplier, server, false);
+  }
+
+  GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server, boolean zeroCopyAppendEntries) {
+    this(idSupplier, server, zeroCopyAppendEntries
+        ? new ZeroCopyMessageMarshaller<>(AppendEntriesRequestProto.getDefaultInstance()) : null);
+  }
+
+  @VisibleForTesting
+  GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server,
+      ZeroCopyMessageMarshaller<AppendEntriesRequestProto> zeroCopyAppendEntries) {
     this.idSupplier = idSupplier;
     this.server = server;
+    this.zeroCopyAppendEntries = zeroCopyAppendEntries;
+  }
+
+  /** @return this service, with appendEntries decoded by the zero-copy marshaller if it is enabled. */
+  ServerServiceDefinition bindServiceDefinition() {
+    final ServerServiceDefinition service = bindService();
+    if (zeroCopyAppendEntries == null) {
+      return service;
+    }
+    final String appendEntries = RaftServerProtocolServiceGrpc.getAppendEntriesMethod().getFullMethodName();
+    final ServerServiceDefinition.Builder builder = ServerServiceDefinition.builder(
+        service.getServiceDescriptor().getName());
+    for (ServerMethodDefinition<?, ?> method : service.getMethods()) {
+      if (method.getMethodDescriptor().getFullMethodName().equals(appendEntries)) {
+        builder.addMethod(withZeroCopy(method));
+      } else {
+        builder.addMethod(method);
+      }
+    }
+    return builder.build();
+  }
+
+  @SuppressWarnings("unchecked")
+  private <REPLY> ServerMethodDefinition<AppendEntriesRequestProto, REPLY> withZeroCopy(
+      ServerMethodDefinition<?, ?> m) {
+    final ServerMethodDefinition<AppendEntriesRequestProto, REPLY> method
+        = (ServerMethodDefinition<AppendEntriesRequestProto, REPLY>) m;
+    final MethodDescriptor<AppendEntriesRequestProto, REPLY> descriptor = method.getMethodDescriptor();
+    return ServerMethodDefinition.create(
+        descriptor.toBuilder(zeroCopyAppendEntries, descriptor.getResponseMarshaller()).build(),
+        method.getServerCallHandler());
+  }
+
+  /**
+   * Copy everything in the request except the state machine data, so that only the state machine data refers to
+   * the zero-copy buffers.
+   */
+  static AppendEntriesRequestProto copyAllButStateMachineData(AppendEntriesRequestProto request) {
+    final AppendEntriesRequestProto.Builder builder = copy(request.toBuilder().clearEntries().build()).toBuilder();
+    for (LogEntryProto entry : request.getEntriesList()) {
+      builder.addEntries(copyAllButStateMachineData(entry));
+    }
+    return builder.build();
+  }
+
+  private static LogEntryProto copyAllButStateMachineData(LogEntryProto entry) {
+    if (!entry.hasStateMachineLogEntry() || !entry.getStateMachineLogEntry().hasStateMachineEntry()) {
+      return copy(entry);
+    }
+    final StateMachineLogEntryProto smLogEntry = entry.getStateMachineLogEntry();
+    final StateMachineEntryProto smEntry = smLogEntry.getStateMachineEntry();
+    final LogEntryProto.Builder copied = copy(entry.toBuilder().setStateMachineLogEntry(smLogEntry.toBuilder()
+        .setStateMachineEntry(smEntry.toBuilder().clearStateMachineData())).build()).toBuilder();
+    copied.getStateMachineLogEntryBuilder().getStateMachineEntryBuilder()
+        .setStateMachineData(smEntry.getStateMachineData());
+    return copied.build();
+  }
+
+  /** A deep copy: parsing from a new array without aliasing. */
+  @SuppressWarnings("unchecked")
+  private static <M extends MessageLite> M copy(M message) {
+    try {
+      return (M) message.getParserForType().parseFrom(message.toByteArray());
+    } catch (InvalidProtocolBufferException e) {
+      throw new IllegalStateException("Failed to copy " + message.getClass().getSimpleName(), e);
+    }
+  }
+
+  private void release(AppendEntriesRequestProto zeroCopied, Throwable error) {
+    if (error == null) {
+      zeroCopyAppendEntries.release(zeroCopied);
+    } else {
+      // the log or state machine may still be writing the data; keep the buffers rather than risk corrupting it
+      final long n = UNRELEASED_ON_FAILURE.incrementAndGet();
+      LOG.warn("{}: Not releasing the zero-copy buffers of a failed appendEntries ({} so far)", getId(), n, error);
+    }
   }
 
   RaftPeerId getId() {
@@ -260,9 +362,44 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       StreamObserver<AppendEntriesReplyProto> responseObserver) {
     return new ServerRequestStreamObserver<AppendEntriesRequestProto, AppendEntriesReplyProto>(
         RaftServerProtocol.Op.APPEND_ENTRIES, responseObserver) {
+      /** The copied requests (see {@link #copyAllButStateMachineData}) to the zero-copy ones they came from. */
+      private final Map<AppendEntriesRequestProto, AppendEntriesRequestProto> zeroCopied
+          = Collections.synchronizedMap(new IdentityHashMap<>());
+
+      @Override
+      public void onNext(AppendEntriesRequestProto request) {
+        if (zeroCopyAppendEntries == null) {
+          super.onNext(request);
+          return;
+        }
+        final AppendEntriesRequestProto copied;
+        try {
+          copied = copyAllButStateMachineData(request);
+        } catch (RuntimeException e) {
+          zeroCopyAppendEntries.release(request);
+          throw e;
+        }
+        zeroCopied.put(copied, request);
+        super.onNext(copied);
+      }
+
       @Override
       CompletableFuture<AppendEntriesReplyProto> process(AppendEntriesRequestProto request) throws IOException {
-        return server.appendEntriesAsync(request);
+        final AppendEntriesRequestProto zeroCopy = zeroCopyAppendEntries == null ? null : zeroCopied.remove(request);
+        if (zeroCopy == null) {
+          return server.appendEntriesAsync(request);
+        }
+        final CompletableFuture<AppendEntriesReplyProto> future;
+        try {
+          future = server.appendEntriesAsync(request);
+        } catch (IOException | RuntimeException e) {
+          // failed before appending anything
+          zeroCopyAppendEntries.release(zeroCopy);
+          throw e;
+        }
+        // the reply is sent once the entries and their state machine data are written
+        future.whenComplete((reply, e) -> release(zeroCopy, e));
+        return future;
       }
 
       @Override
