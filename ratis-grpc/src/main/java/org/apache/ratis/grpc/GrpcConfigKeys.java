@@ -300,6 +300,25 @@ public interface GrpcConfigKeys {
       setBoolean(properties::setBoolean, HEARTBEAT_CHANNEL_KEY, useSeparate);
     }
 
+    /**
+     * Followers decode appendEntries without copying the state machine data: it refers to gRPC's buffers, which are
+     * released once the follower has replied, i.e. after the log entry and the state machine data are written.
+     * Everything else in the request is copied. It requires
+     * {@link org.apache.ratis.server.RaftServerConfigKeys.Log.StateMachineData#CACHING_ENABLED_KEY}, so that the log
+     * cache doesn't keep the data, and a state machine that doesn't keep it after
+     * {@link org.apache.ratis.statemachine.StateMachine.DataApi#write}, including in the follower's
+     * {@link org.apache.ratis.statemachine.TransactionContext}.
+     */
+    String ZERO_COPY_APPEND_ENTRIES_ENABLED_KEY = PREFIX + ".zero-copy.append-entries.enabled";
+    boolean ZERO_COPY_APPEND_ENTRIES_ENABLED_DEFAULT = false;
+    static boolean zeroCopyAppendEntriesEnabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, ZERO_COPY_APPEND_ENTRIES_ENABLED_KEY,
+          ZERO_COPY_APPEND_ENTRIES_ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setZeroCopyAppendEntriesEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, ZERO_COPY_APPEND_ENTRIES_ENABLED_KEY, enabled);
+    }
+
     String LOG_MESSAGE_BATCH_DURATION_KEY = PREFIX + ".log-message.batch.duration";
     TimeDuration LOG_MESSAGE_BATCH_DURATION_DEFAULT = TimeDuration.valueOf(5, TimeUnit.SECONDS);
     static TimeDuration logMessageBatchDuration(RaftProperties properties) {
