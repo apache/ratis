@@ -29,6 +29,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.WriteBufferWaterMark;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContext;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,12 +69,16 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     private final ManagedChannel ch;
     private final S stub;
     private final Semaphore permits;
+    private final TimeDuration shutdownGracefulTimeout;
+    private final TimeDuration shutdownForcefulTimeout;
 
     Stub(String address, SslContext sslContext, Function<ManagedChannel, S> stubFactory, int maxInflight,
-        EventLoopGroup eventLoopGroup) {
+        EventLoopGroup eventLoopGroup, TimeDuration shutdownGracefulTimeout, TimeDuration shutdownForcefulTimeout) {
       this.ch = buildManagedChannel(address, sslContext, eventLoopGroup);
       this.stub = stubFactory.apply(ch);
       this.permits = new Semaphore(maxInflight);
+      this.shutdownGracefulTimeout = shutdownGracefulTimeout;
+      this.shutdownForcefulTimeout = shutdownForcefulTimeout;
     }
 
     S getStub() {
@@ -85,19 +90,21 @@ final class GrpcStubPool<S extends AbstractStub<S>> {
     }
 
     void shutdown() {
-      GrpcUtil.shutdownManagedChannel(ch);
+      GrpcUtil.shutdownManagedChannel(ch, shutdownGracefulTimeout, shutdownForcefulTimeout);
     }
   }
 
   private final List<MemoizedSupplier<Stub<S>>> pool;
 
+  @SuppressWarnings("checkstyle:ParameterNumber")
   GrpcStubPool(int connections, String address, SslContext sslContext, Function<ManagedChannel, S> stubFactory,
-               int maxInflightPerConn, EventLoopGroup eventLoopGroup) {
+               int maxInflightPerConn, EventLoopGroup eventLoopGroup,
+               TimeDuration shutdownGracefulTimeout, TimeDuration shutdownForcefulTimeout) {
     Preconditions.assertTrue(connections > 1, "connections must be > 1");
     final List<MemoizedSupplier<Stub<S>>> tmpPool = new ArrayList<>(connections);
     for (int i = 0; i < connections; i++) {
-      tmpPool.add(MemoizedSupplier.valueOf(
-          () -> new Stub<>(address, sslContext, stubFactory, maxInflightPerConn, eventLoopGroup)));
+      tmpPool.add(MemoizedSupplier.valueOf(() -> new Stub<>(address, sslContext, stubFactory, maxInflightPerConn,
+          eventLoopGroup, shutdownGracefulTimeout, shutdownForcefulTimeout)));
     }
     this.pool = Collections.unmodifiableList(tmpPool);
   }

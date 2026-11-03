@@ -56,18 +56,24 @@ class GrpcServerProtocolClient implements Closeable {
   private final boolean useSeparateHBChannel;
 
   private final TimeDuration requestTimeoutDuration;
+  private final TimeDuration channelShutdownGracefulTimeout;
+  private final TimeDuration channelShutdownForcefulTimeout;
   private static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolClient.class);
   //visible for using in log / error messages AND to use in instrumented tests
   private final RaftPeerId raftPeerId;
   private final EventLoopGroup eventLoopGroup;
 
+  @SuppressWarnings("checkstyle:ParameterNumber")
   GrpcServerProtocolClient(RaftPeer target, int connections, int flowControlWindow,
       TimeDuration requestTimeout, SslContext sslContext, boolean separateHBChannel,
-      EventLoopGroup eventLoopGroup) {
+      EventLoopGroup eventLoopGroup, TimeDuration channelShutdownGracefulTimeout,
+      TimeDuration channelShutdownForcefulTimeout) {
     raftPeerId = target.getId();
     LOG.info("Build channel for {}", target);
     useSeparateHBChannel = separateHBChannel;
     this.eventLoopGroup = eventLoopGroup;
+    this.channelShutdownGracefulTimeout = channelShutdownGracefulTimeout;
+    this.channelShutdownForcefulTimeout = channelShutdownForcefulTimeout;
     channel = buildChannel(target, flowControlWindow, sslContext);
     blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
@@ -81,7 +87,7 @@ class GrpcServerProtocolClient implements Closeable {
 
   GrpcStubPool<RaftServerProtocolServiceStub> newGrpcStubPool(String address, SslContext sslContext, int connections) {
     return new GrpcStubPool<>(connections, address, sslContext, RaftServerProtocolServiceGrpc::newStub, 16,
-        eventLoopGroup);
+        eventLoopGroup, channelShutdownGracefulTimeout, channelShutdownForcefulTimeout);
   }
 
   private ManagedChannel buildChannel(RaftPeer target, int flowControlWindow, SslContext sslContext) {
@@ -107,9 +113,9 @@ class GrpcServerProtocolClient implements Closeable {
   public void close() {
     LOG.info("{} Close channels", raftPeerId);
     if (useSeparateHBChannel) {
-      GrpcUtil.shutdownManagedChannel(hbChannel);
+      GrpcUtil.shutdownManagedChannel(hbChannel, channelShutdownGracefulTimeout, channelShutdownForcefulTimeout);
     }
-    GrpcUtil.shutdownManagedChannel(channel);
+    GrpcUtil.shutdownManagedChannel(channel, channelShutdownGracefulTimeout, channelShutdownForcefulTimeout);
     if (pool != null) {
       pool.close();
     }
