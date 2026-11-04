@@ -164,6 +164,8 @@ public class GrpcLogAppender extends LogAppenderBase {
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile StreamObservers appendLogRequestObserver;
+  // the client whose appendEntries channel this group uses, to release the channel when stopped
+  private volatile GrpcServerProtocolClient appendEntriesClient;
   private final boolean useSeparateHBChannel;
 
   private final GrpcServerMetrics grpcServerMetrics;
@@ -358,7 +360,13 @@ public class GrpcLogAppender extends LogAppenderBase {
   @Override
   public CompletableFuture<LifeCycle.State> stopAsync() {
     grpcServerMetrics.unregister();
-    return super.stopAsync();
+    return super.stopAsync().whenComplete((state, e) -> {
+      // when CLOSED, no more appendEntries for this group to the follower; otherwise, a restarted appender takes over
+      final GrpcServerProtocolClient client = appendEntriesClient;
+      if (state == LifeCycle.State.CLOSED && client != null) {
+        client.releaseAppendEntriesIndex(getServer().getMemberId().getGroupId());
+      }
+    });
   }
 
   @Override
@@ -449,7 +457,8 @@ public class GrpcLogAppender extends LogAppenderBase {
         notifyAppendEntriesListener(l -> l.onRequest(pending));
         increaseNextIndex(pending);
         if (appendLogRequestObserver == null) {
-          appendLogRequestObserver = new StreamObservers(getClient(), getServer().getMemberId().getGroupId(),
+          appendEntriesClient = getClient();
+          appendLogRequestObserver = new StreamObservers(appendEntriesClient, getServer().getMemberId().getGroupId(),
               new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin());
         }
       }

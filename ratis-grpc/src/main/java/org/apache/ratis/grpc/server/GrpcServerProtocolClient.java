@@ -43,7 +43,9 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * This is a RaftClient implementation that supports streaming data to the raft
@@ -60,6 +62,9 @@ class GrpcServerProtocolClient implements Closeable {
   // Channels and stubs for appendEntries, each group always using the same one; the first is the main channel
   private final List<ManagedChannel> appendEntriesChannels;
   private final List<RaftServerProtocolServiceStub> appendEntriesStubs;
+  // The appendEntries channel of each group, and the number of groups on each channel; guarded by this
+  private final Map<RaftGroupId, Integer> appendEntriesIndices = new HashMap<>();
+  private final int[] appendEntriesGroupCounts;
   private final RaftServerProtocolServiceBlockingStub blockingStub;
   private final boolean useSeparateHBChannel;
 
@@ -91,6 +96,7 @@ class GrpcServerProtocolClient implements Closeable {
     }
     appendEntriesChannels = Collections.unmodifiableList(channels);
     appendEntriesStubs = Collections.unmodifiableList(stubs);
+    appendEntriesGroupCounts = new int[appendEntriesConnections];
     if (useSeparateHBChannel) {
       hbChannel = buildChannel(target, flowControlWindow, sslContext);
       hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
@@ -126,11 +132,12 @@ class GrpcServerProtocolClient implements Closeable {
   @Override
   public void close() {
     LOG.info("{} Close channels", raftPeerId);
-    if (useSeparateHBChannel) {
-      GrpcUtil.shutdownManagedChannel(hbChannel);
-    }
     // the first one is the main channel
-    appendEntriesChannels.forEach(GrpcUtil::shutdownManagedChannel);
+    final List<ManagedChannel> channels = new ArrayList<>(appendEntriesChannels);
+    if (useSeparateHBChannel) {
+      channels.add(hbChannel);
+    }
+    GrpcUtil.shutdownManagedChannels(channels);
     if (pool != null) {
       pool.close();
     }
@@ -202,9 +209,42 @@ class GrpcServerProtocolClient implements Closeable {
     }
   }
 
-  /** @return the index of the appendEntries channel for the given group, always the same one for a group. */
-  int getAppendEntriesIndex(RaftGroupId groupId) {
-    return Math.floorMod(groupId.hashCode(), appendEntriesStubs.size());
+  /**
+   * @return the index of the appendEntries channel for the given group, always the same one for a group
+   *         until {@link #releaseAppendEntriesIndex(RaftGroupId)}.
+   *         A new group gets the channel with the fewest groups, so that the groups are spread evenly.
+   */
+  synchronized int getAppendEntriesIndex(RaftGroupId groupId) {
+    if (appendEntriesGroupCounts.length == 1) {
+      return 0;
+    }
+    return appendEntriesIndices.computeIfAbsent(groupId, g -> {
+      int least = 0;
+      for (int i = 1; i < appendEntriesGroupCounts.length; i++) {
+        if (appendEntriesGroupCounts[i] < appendEntriesGroupCounts[least]) {
+          least = i;
+        }
+      }
+      appendEntriesGroupCounts[least]++;
+      return least;
+    });
+  }
+
+  /**
+   * The given group no longer sends appendEntries to this peer, so its channel can be given to another group.
+   * Any channel is correct for any group, so a race with {@link #getAppendEntriesIndex(RaftGroupId)} only affects
+   * how evenly the groups are spread.
+   */
+  synchronized void releaseAppendEntriesIndex(RaftGroupId groupId) {
+    final Integer index = appendEntriesIndices.remove(groupId);
+    if (index != null) {
+      appendEntriesGroupCounts[index]--;
+    }
+  }
+
+  @VisibleForTesting
+  synchronized Map<RaftGroupId, Integer> getAppendEntriesIndices() {
+    return new HashMap<>(appendEntriesIndices);
   }
 
   @VisibleForTesting

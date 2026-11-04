@@ -50,10 +50,13 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.security.Provider;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
 import static org.apache.ratis.util.NettyUtils.getJsseProvider;
@@ -273,6 +276,41 @@ public interface GrpcUtil {
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
+      } catch (Exception e) {
+        LOG.error("Unexpected exception while waiting for channel termination", e);
+      }
+    }
+  }
+
+  /**
+   * Shut down the given channels as {@link #shutdownManagedChannel(ManagedChannel)} does, but in parallel:
+   * all of them are shut down before any is awaited, so the total wait is bounded by one graceful and one forceful
+   * timeout instead of one of each per channel.
+   */
+  static void shutdownManagedChannels(Collection<ManagedChannel> channels) {
+    // Close the gRPC managed-channels if not shut down already.
+    final List<ManagedChannel> open = channels.stream().filter(c -> !c.isShutdown()).collect(Collectors.toList());
+    open.forEach(ManagedChannel::shutdown);
+    awaitTermination(open, GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT, "gracefully");
+
+    // Forceful shut down if still not terminated.
+    final List<ManagedChannel> remaining = channels.stream().filter(c -> !c.isTerminated())
+        .collect(Collectors.toList());
+    remaining.forEach(ManagedChannel::shutdownNow);
+    awaitTermination(remaining, GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT, "forcefully");
+  }
+
+  /** Wait for the given channels to terminate, up to the given timeout for all of them together. */
+  static void awaitTermination(List<ManagedChannel> channels, TimeDuration timeout, String mode) {
+    final long deadline = System.nanoTime() + timeout.toLong(TimeUnit.NANOSECONDS);
+    for (ManagedChannel channel : channels) {
+      try {
+        if (!channel.awaitTermination(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS)) {
+          LOG.warn("Timed out {} shutting down connection: {}. ", mode, channel);
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return;
       } catch (Exception e) {
         LOG.error("Unexpected exception while waiting for channel termination", e);
       }
