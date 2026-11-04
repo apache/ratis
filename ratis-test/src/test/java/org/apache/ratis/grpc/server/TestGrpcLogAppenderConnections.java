@@ -21,11 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -35,8 +37,11 @@ import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -45,7 +50,7 @@ import org.junit.jupiter.api.Test;
 /** Several groups on the same servers replicate over more than one appendEntries connection per peer. */
 public class TestGrpcLogAppenderConnections extends BaseTest {
   private static final int CONNECTIONS = 3;
-  private static final int NEW_GROUPS = 5;
+  private static final int NEW_GROUPS = 2 * CONNECTIONS;
 
   @Test
   public void testGroupsOnSameServersShareLogAppenderConnections() throws Exception {
@@ -55,14 +60,19 @@ public class TestGrpcLogAppenderConnections extends BaseTest {
     try {
       cluster.start();
       RaftTestUtil.waitForLeader(cluster);
-      final Collection<RaftPeer> peers = cluster.getGroup().getPeers();
+      // the first server has the highest priority in the new groups, so that it becomes the leader of all of them
+      final List<RaftPeer> peers = new ArrayList<>(cluster.getGroup().getPeers());
+      final RaftPeerId leaderId = peers.get(0).getId();
+      final List<RaftPeer> prioritized = new ArrayList<>();
+      for (RaftPeer peer : peers) {
+        prioritized.add(RaftPeer.newBuilder(peer).setPriority(peer.getId().equals(leaderId) ? 1 : 0).build());
+      }
 
       // add more groups on the same three servers
       final List<RaftGroup> groups = new ArrayList<>();
-      groups.add(cluster.getGroup());
       for (int i = 0; i < NEW_GROUPS; i++) {
-        final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(), peers);
-        for (RaftPeer peer : peers) {
+        final RaftGroup group = RaftGroup.valueOf(RaftGroupId.randomId(), prioritized);
+        for (RaftPeer peer : prioritized) {
           try (RaftClient client = cluster.createClient(peer.getId(), group)) {
             assertTrue(client.getGroupManagementApi(peer.getId()).add(group).isSuccess());
           }
@@ -71,63 +81,39 @@ public class TestGrpcLogAppenderConnections extends BaseTest {
       }
 
       for (RaftGroup group : groups) {
-        RaftTestUtil.waitForLeader(cluster, group.getGroupId());
+        JavaUtils.attempt(() -> assertTrue(cluster.getDivision(leaderId, group.getGroupId()).getInfo().isLeader()),
+            30, TimeDuration.ONE_SECOND, leaderId + " leads " + group.getGroupId(), LOG);
         try (RaftClient client = cluster.createClient(group)) {
           for (int i = 0; i < 10; i++) {
             assertTrue(client.io().send(new SimpleMessage(group.getGroupId() + "-" + i)).isSuccess());
           }
         }
       }
-      JavaUtils.attempt(() -> assertConnections(cluster, groups), 10, TimeDuration.ONE_SECOND,
-          "assertConnections", LOG);
-
-      // a removed group releases its connections
-      final List<RaftGroup> removed = groups.subList(1, groups.size());
-      for (RaftGroup group : removed) {
-        for (RaftPeer peer : peers) {
-          try (RaftClient client = cluster.createClient(peer.getId(), group)) {
-            assertTrue(client.getGroupManagementApi(peer.getId()).remove(group.getGroupId(), true, false)
-                .isSuccess());
-          }
-        }
-      }
-      final List<RaftGroup> remaining = groups.subList(0, 1);
-      JavaUtils.attempt(() -> assertConnections(cluster, remaining), 10, TimeDuration.ONE_SECOND,
-          "assertConnections after remove", LOG);
+      assertConnections(cluster, leaderId, groups);
     } finally {
       cluster.shutdown();
     }
   }
 
-  /**
-   * On each server, the groups it leads use the appendEntries connections to each follower,
-   * spread evenly over them; no other group uses them.
-   */
-  private static void assertConnections(MiniRaftCluster cluster, List<RaftGroup> groups) throws Exception {
-    for (RaftServer server : cluster.getServers()) {
-      final Set<RaftGroupId> led = new HashSet<>();
-      for (RaftGroup group : groups) {
-        if (cluster.getDivision(server.getId(), group.getGroupId()).getInfo().isLeader()) {
-          led.add(group.getGroupId());
-        }
-      }
-      final GrpcServicesImpl rpc = (GrpcServicesImpl) server.getServerRpc();
-      for (RaftPeer follower : groups.get(0).getPeers()) {
-        if (follower.getId().equals(server.getId())) {
-          continue;
-        }
-        final GrpcServerProtocolClient proxy = rpc.getProxies().getProxy(follower.getId());
-        assertEquals(CONNECTIONS, proxy.getAppendEntriesChannels().size());
-        final Map<RaftGroupId, Integer> indices = proxy.getAppendEntriesIndices();
-        assertEquals(led, indices.keySet(), server.getId() + " -> " + follower.getId());
-
-        final int[] groupCounts = new int[CONNECTIONS];
-        indices.values().forEach(i -> groupCounts[i]++);
-        for (int count : groupCounts) {
-          assertTrue(Math.abs(count * CONNECTIONS - led.size()) < CONNECTIONS,
-              () -> server.getId() + " -> " + follower.getId() + ": " + indices);
-        }
+  /** The leader's appenders of all the groups use every appendEntries connection to each follower. */
+  private static void assertConnections(MiniRaftCluster cluster, RaftPeerId leaderId, List<RaftGroup> groups)
+      throws Exception {
+    final RaftServer leader = cluster.getServer(leaderId);
+    final GrpcServicesImpl rpc = (GrpcServicesImpl) leader.getServerRpc();
+    final Map<RaftPeerId, Set<Integer>> indices = new HashMap<>();
+    for (RaftGroup group : groups) {
+      final List<LogAppender> appenders = RaftServerTestUtil.getLogAppenders(
+          cluster.getDivision(leaderId, group.getGroupId())).collect(Collectors.toList());
+      assertEquals(group.getPeers().size() - 1, appenders.size());
+      for (LogAppender appender : appenders) {
+        final RaftPeerId follower = appender.getFollowerId();
+        assertEquals(CONNECTIONS, rpc.getProxies().getProxy(follower).getAppendEntriesChannels().size());
+        final int index = ((GrpcLogAppender) appender).getAppendEntriesIndex();
+        indices.computeIfAbsent(follower, k -> new TreeSet<>()).add(index);
       }
     }
+    final Set<Integer> all = IntStream.range(0, CONNECTIONS).boxed().collect(Collectors.toCollection(TreeSet::new));
+    assertEquals(2, indices.size());
+    indices.forEach((follower, used) -> assertEquals(all, used, leaderId + " -> " + follower));
   }
 }

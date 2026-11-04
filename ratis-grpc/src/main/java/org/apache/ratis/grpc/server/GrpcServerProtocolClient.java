@@ -20,7 +20,6 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.util.NettyUtils;
 import org.apache.ratis.grpc.util.StreamObserverWithTimeout;
-import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.util.ServerStringUtils;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
@@ -43,9 +42,8 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This is a RaftClient implementation that supports streaming data to the raft
@@ -62,9 +60,8 @@ class GrpcServerProtocolClient implements Closeable {
   // Channels and stubs for appendEntries, each group always using the same one; the first is the main channel
   private final List<ManagedChannel> appendEntriesChannels;
   private final List<RaftServerProtocolServiceStub> appendEntriesStubs;
-  // The appendEntries channel of each group, and the number of groups on each channel; guarded by this
-  private final Map<RaftGroupId, Integer> appendEntriesIndices = new HashMap<>();
-  private final int[] appendEntriesGroupCounts;
+  // The appendEntries channel for the next new log appender, so that the appenders take the channels in turn
+  private final AtomicInteger nextAppendEntriesIndex = new AtomicInteger();
   private final RaftServerProtocolServiceBlockingStub blockingStub;
   private final boolean useSeparateHBChannel;
 
@@ -96,7 +93,6 @@ class GrpcServerProtocolClient implements Closeable {
     }
     appendEntriesChannels = Collections.unmodifiableList(channels);
     appendEntriesStubs = Collections.unmodifiableList(stubs);
-    appendEntriesGroupCounts = new int[appendEntriesConnections];
     if (useSeparateHBChannel) {
       hbChannel = buildChannel(target, flowControlWindow, sslContext);
       hbAsyncStub = RaftServerProtocolServiceGrpc.newStub(hbChannel);
@@ -199,52 +195,23 @@ class GrpcServerProtocolClient implements Closeable {
     }
   }
 
-  CallStreamObserver<AppendEntriesRequestProto> appendEntries(RaftGroupId groupId,
+  /** @param appendEntriesIndex the appendEntries channel, from {@link #nextAppendEntriesIndex()} */
+  CallStreamObserver<AppendEntriesRequestProto> appendEntries(int appendEntriesIndex,
       StreamObserver<AppendEntriesReplyProto> responseHandler, boolean isHeartbeat) {
     if (isHeartbeat && useSeparateHBChannel) {
       return (CallStreamObserver<AppendEntriesRequestProto>) hbAsyncStub.appendEntries(responseHandler);
     } else {
-      final RaftServerProtocolServiceStub stub = appendEntriesStubs.get(getAppendEntriesIndex(groupId));
+      final RaftServerProtocolServiceStub stub = appendEntriesStubs.get(appendEntriesIndex);
       return (CallStreamObserver<AppendEntriesRequestProto>) stub.appendEntries(responseHandler);
     }
   }
 
   /**
-   * @return the index of the appendEntries channel for the given group, always the same one for a group
-   *         until {@link #releaseAppendEntriesIndex(RaftGroupId)}.
-   *         A new group gets the channel with the fewest groups, so that the groups are spread evenly.
+   * @return the index of the appendEntries channel for a new log appender. The appenders take the channels in turn;
+   *         an appender keeps its channel, so the appendEntries of a group to this peer use one channel.
    */
-  synchronized int getAppendEntriesIndex(RaftGroupId groupId) {
-    if (appendEntriesGroupCounts.length == 1) {
-      return 0;
-    }
-    return appendEntriesIndices.computeIfAbsent(groupId, g -> {
-      int least = 0;
-      for (int i = 1; i < appendEntriesGroupCounts.length; i++) {
-        if (appendEntriesGroupCounts[i] < appendEntriesGroupCounts[least]) {
-          least = i;
-        }
-      }
-      appendEntriesGroupCounts[least]++;
-      return least;
-    });
-  }
-
-  /**
-   * The given group no longer sends appendEntries to this peer, so its channel can be given to another group.
-   * Any channel is correct for any group, so a race with {@link #getAppendEntriesIndex(RaftGroupId)} only affects
-   * how evenly the groups are spread.
-   */
-  synchronized void releaseAppendEntriesIndex(RaftGroupId groupId) {
-    final Integer index = appendEntriesIndices.remove(groupId);
-    if (index != null) {
-      appendEntriesGroupCounts[index]--;
-    }
-  }
-
-  @VisibleForTesting
-  synchronized Map<RaftGroupId, Integer> getAppendEntriesIndices() {
-    return new HashMap<>(appendEntriesIndices);
+  int nextAppendEntriesIndex() {
+    return Math.floorMod(nextAppendEntriesIndex.getAndIncrement(), appendEntriesStubs.size());
   }
 
   @VisibleForTesting

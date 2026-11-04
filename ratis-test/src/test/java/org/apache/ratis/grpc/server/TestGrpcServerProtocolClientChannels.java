@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.util.TimeDuration;
@@ -48,16 +47,15 @@ public class TestGrpcServerProtocolClientChannels extends BaseTest {
       assertEquals(1, channels.size());
       assertSame(client.getMainChannel(), channels.get(0));
       for (int i = 0; i < 10; i++) {
-        assertEquals(0, client.getAppendEntriesIndex(RaftGroupId.randomId()));
+        assertEquals(0, client.nextAppendEntriesIndex());
       }
-      assertTrue(client.getAppendEntriesIndices().isEmpty());
     } finally {
       client.close();
     }
   }
 
   @Test
-  public void testGroupsSpreadOverConnections() {
+  public void testAppendersTakeConnectionsInTurn() {
     final int connections = 4;
     final GrpcServerProtocolClient client = newClient(connections);
     final List<ManagedChannel> channels = client.getAppendEntriesChannels();
@@ -66,48 +64,12 @@ public class TestGrpcServerProtocolClientChannels extends BaseTest {
       assertSame(client.getMainChannel(), channels.get(0));
       assertEquals(connections, new HashSet<>(channels).size());
 
-      final int[] groupCounts = new int[connections];
       for (int i = 0; i < 100; i++) {
-        final RaftGroupId groupId = RaftGroupId.randomId();
-        final int index = client.getAppendEntriesIndex(groupId);
-        assertTrue(index >= 0 && index < connections, "index " + index);
-        // a group always uses the same connection, which keeps its appendEntries in order
-        assertEquals(index, client.getAppendEntriesIndex(RaftGroupId.valueOf(groupId.getUuid())));
-        groupCounts[index]++;
-      }
-      // each new group goes to the connection with the fewest groups
-      for (int count : groupCounts) {
-        assertEquals(100 / connections, count);
+        assertEquals(i % connections, client.nextAppendEntriesIndex());
       }
     } finally {
       client.close();
     }
     channels.forEach(c -> assertTrue(c.isShutdown(), c + " is not shut down"));
-  }
-
-  @Test
-  public void testReleasedConnectionIsReused() {
-    final int connections = 3;
-    final GrpcServerProtocolClient client = newClient(connections);
-    try {
-      final RaftGroupId[] groups = new RaftGroupId[2 * connections];
-      for (int i = 0; i < groups.length; i++) {
-        groups[i] = RaftGroupId.randomId();
-        assertEquals(i % connections, client.getAppendEntriesIndex(groups[i]));
-      }
-
-      // the connection of a released group goes to the next new group
-      client.releaseAppendEntriesIndex(groups[4]);
-      assertEquals(groups.length - 1, client.getAppendEntriesIndices().size());
-      assertEquals(1, client.getAppendEntriesIndex(RaftGroupId.randomId()));
-
-      // releasing a group again, or a group without a connection, changes nothing
-      client.releaseAppendEntriesIndex(groups[4]);
-      client.releaseAppendEntriesIndex(RaftGroupId.randomId());
-      assertEquals(0, client.getAppendEntriesIndex(RaftGroupId.randomId()));
-      assertEquals(2, client.getAppendEntriesIndex(groups[2]));
-    } finally {
-      client.close();
-    }
   }
 }
