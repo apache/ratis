@@ -362,6 +362,21 @@ public interface GrpcConfigKeys {
       setInt(properties::setInt, STUB_POOL_SIZE_KEY, size);
     }
 
+    /**
+     * The number of connections to each peer used for appendEntries. The groups shared with a peer are spread over
+     * them, each group always using the same one, so that the replication between two servers is not limited to one
+     * connection and so one event-loop thread at each end. Heartbeats keep their own channel.
+     */
+    String LOG_APPENDER_CONNECTIONS_KEY = PREFIX + ".log-appender.connections";
+    int LOG_APPENDER_CONNECTIONS_DEFAULT = 1;
+    static int logAppenderConnections(RaftProperties properties) {
+      return getInt(properties::getInt, LOG_APPENDER_CONNECTIONS_KEY,
+          LOG_APPENDER_CONNECTIONS_DEFAULT, getDefaultLog(), requireMin(1), requireMax(1024));
+    }
+    static void setLogAppenderConnections(RaftProperties properties, int connections) {
+      setInt(properties::setInt, LOG_APPENDER_CONNECTIONS_KEY, connections);
+    }
+
     String BOSS_GROUP_SIZE_KEY = PREFIX + ".boss-group.size";
     int BOSS_GROUP_SIZE_DEFAULT = 0;
     static int bossGroupSize(RaftProperties properties) {

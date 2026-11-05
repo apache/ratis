@@ -34,6 +34,7 @@ import org.apache.ratis.server.leader.LogAppenderBase;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.util.ServerStringUtils;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.CallStreamObserver;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -163,6 +164,8 @@ public class GrpcLogAppender extends LogAppenderBase {
   private final TimeoutExecutor scheduler = TimeoutExecutor.getInstance();
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile StreamObservers appendLogRequestObserver;
+  // the appendEntries channel of this appender, taken when it creates its first stream; guarded by the write lock
+  private int appendEntriesIndex = -1;
   private final boolean useSeparateHBChannel;
 
   private final GrpcServerMetrics grpcServerMetrics;
@@ -389,10 +392,10 @@ public class GrpcLogAppender extends LogAppenderBase {
     private final TimeDuration waitForReady;
     private volatile boolean running = true;
 
-    StreamObservers(GrpcServerProtocolClient client, AppendLogResponseHandler handler, boolean separateHeartbeat,
-        TimeDuration waitTimeMin) {
-      this.appendLog = client.appendEntries(handler, false);
-      this.heartbeat = separateHeartbeat? client.appendEntries(handler, true): null;
+    StreamObservers(GrpcServerProtocolClient client, int appendEntriesIndex, AppendLogResponseHandler handler,
+        boolean separateHeartbeat, TimeDuration waitTimeMin) {
+      this.appendLog = client.appendEntries(appendEntriesIndex, handler, false);
+      this.heartbeat = separateHeartbeat? client.appendEntries(appendEntriesIndex, handler, true): null;
       this.waitForReady = waitTimeMin.isPositive()? waitTimeMin: TimeDuration.ONE_MILLISECOND;
     }
 
@@ -422,6 +425,13 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
   }
 
+  @VisibleForTesting
+  int getAppendEntriesIndex() {
+    try (AutoCloseableLock readLock = lock.readLock(caller, LOG::trace)) {
+      return appendEntriesIndex;
+    }
+  }
+
   @Override
   public long getCallId() {
     return callId.get();
@@ -448,8 +458,12 @@ public class GrpcLogAppender extends LogAppenderBase {
         notifyAppendEntriesListener(l -> l.onRequest(pending));
         increaseNextIndex(pending);
         if (appendLogRequestObserver == null) {
-          appendLogRequestObserver = new StreamObservers(
-              getClient(), new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin());
+          final GrpcServerProtocolClient client = getClient();
+          if (appendEntriesIndex < 0) {
+            appendEntriesIndex = client.nextAppendEntriesIndex();
+          }
+          appendLogRequestObserver = new StreamObservers(client, appendEntriesIndex,
+              new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin());
         }
       }
 
