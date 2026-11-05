@@ -18,16 +18,14 @@
 package org.apache.ratis.grpc.server;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -43,6 +41,8 @@ import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.leader.LogAppender;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
+import org.apache.ratis.thirdparty.io.grpc.ConnectivityState;
+import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Test;
@@ -100,20 +100,26 @@ public class TestGrpcLogAppenderConnections extends BaseTest {
       throws Exception {
     final RaftServer leader = cluster.getServer(leaderId);
     final GrpcServicesImpl rpc = (GrpcServicesImpl) leader.getServerRpc();
-    final Map<RaftPeerId, Set<Integer>> indices = new HashMap<>();
+    final Set<RaftPeerId> followers = new HashSet<>();
     for (RaftGroup group : groups) {
       final List<LogAppender> appenders = RaftServerTestUtil.getLogAppenders(
           cluster.getDivision(leaderId, group.getGroupId())).collect(Collectors.toList());
       assertEquals(group.getPeers().size() - 1, appenders.size());
-      for (LogAppender appender : appenders) {
-        final RaftPeerId follower = appender.getFollowerId();
-        assertEquals(CONNECTIONS, rpc.getProxies().getProxy(follower).getAppendEntriesChannels().size());
-        final int index = ((GrpcLogAppender) appender).getAppendEntriesIndex();
-        indices.computeIfAbsent(follower, k -> new TreeSet<>()).add(index);
+      appenders.forEach(appender -> followers.add(appender.getFollowerId()));
+    }
+    assertEquals(2, followers.size());
+    for (RaftPeerId follower : followers) {
+      final GrpcServerProtocolClient client = rpc.getProxies().getProxy(follower);
+      final List<ManagedChannel> channels = client.getAppendEntriesStreamsForTesting().getOtherChannelsForTesting();
+      assertEquals(CONNECTIONS, channels.size());
+      // the main channel is not used for appendEntries
+      assertFalse(channels.contains(client.getMainChannelForTesting()));
+      assertEquals(channels, client.getAppendEntriesStreamsForTesting().getAppendEntriesChannelsForTesting());
+      // The channels connect lazily, so a channel is READY only if some stream has used it.
+      for (int i = 0; i < channels.size(); i++) {
+        assertEquals(ConnectivityState.READY, channels.get(i).getState(false),
+            leaderId + " -> " + follower + ": channel " + i + " is not used");
       }
     }
-    final Set<Integer> all = IntStream.range(0, CONNECTIONS).boxed().collect(Collectors.toCollection(TreeSet::new));
-    assertEquals(2, indices.size());
-    indices.forEach((follower, used) -> assertEquals(all, used, leaderId + " -> " + follower));
   }
 }
