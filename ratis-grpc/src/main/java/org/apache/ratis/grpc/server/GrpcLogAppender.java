@@ -165,7 +165,7 @@ public class GrpcLogAppender extends LogAppenderBase {
   @SuppressWarnings({"squid:S3077"}) // Suppress volatile for generic type
   private volatile StreamObservers appendLogRequestObserver;
   // the appendEntries channel of this appender, taken when it creates its first stream; guarded by the write lock
-  private int appendEntriesIndex = -1;
+  private volatile int appendEntriesIndex = -1;
   private final boolean useSeparateHBChannel;
 
   private final GrpcServerMetrics grpcServerMetrics;
@@ -427,9 +427,7 @@ public class GrpcLogAppender extends LogAppenderBase {
 
   @VisibleForTesting
   int getAppendEntriesIndex() {
-    try (AutoCloseableLock readLock = lock.readLock(caller, LOG::trace)) {
-      return appendEntriesIndex;
-    }
+    return appendEntriesIndex;
   }
 
   @Override
