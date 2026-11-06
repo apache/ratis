@@ -48,6 +48,13 @@ public class TestRatisShell extends BaseTest {
   static final PrintStream OUT = System.out;
   static final Class<?>[] ARG_CLASSES = new Class[] {Context.class};
 
+  @Test
+  public void testUsageForMissingAndUnknownCommand() {
+    final RatisShell shell = new RatisShell(OUT);
+    Assertions.assertEquals(-1, shell.run());
+    Assertions.assertEquals(-1, shell.run("unknown-command"));
+  }
+
   static void assertCommand(String message, Command expected, Command computed) {
     Assertions.assertEquals(expected.getClass(), computed.getClass(), message);
     Assertions.assertEquals(expected.getCommandName(), computed.getCommandName(), message);

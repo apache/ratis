@@ -337,7 +337,8 @@ public class RaftProperties {
    *         doesn't exist.
    */
   public String get(String name, String defaultValue) {
-    return substituteVars(properties.getOrDefault(name, defaultValue));
+    final String value = properties.get(name);
+    return substituteVars(value != null ? value : defaultValue);
   }
 
   /**

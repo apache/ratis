@@ -52,6 +52,39 @@ $ mvn clean test-compile -Perrorprone -DskipTests
 Normal builds do not enable Error Prone and continue to support Java 8.
 To test the check script's report handling, run `bash dev-support/tests/test-errorprone.sh`.
 
+## Infer
+
+Run [Infer](https://fbinfer.com/docs/getting-started) static analysis with JDK 21:
+
+```
+$ dev-support/checks/infer.sh
+```
+
+The check installs Infer 1.3.0 in `.dev-tools` if `infer` is not already on `PATH`.
+Automatic installation supports Linux x86_64 and macOS arm64. The check also requires
+`jq` to read Infer's JSON report.
+
+The check performs a clean Maven build with compilation caches disabled, without running tests.
+Test and generated sources are excluded from analysis. Reports and diagnostics are written to
+`target/infer`, including `report.txt`, `report.json`, `captured-sources.txt`, `output.log`,
+and `summary.txt`. CI archives this directory without the large Infer databases in `infer-out`.
+Any unsuppressed, uncensored finding fails the check, regardless of severity. Installation, build,
+capture, and reporting failures also fail the check. Suppressed findings remain in the JSON report
+for review but do not count as failures. There is no baseline allowance for existing findings.
+
+To test the check script's report handling, run `bash dev-support/tests/test-infer.sh`.
+
+### Handling Infer findings
+
+Validate each finding against its trace and the implementation before classifying it as a false positive.
+For a confirmed false positive, explain the invariant in a comment and add
+`// @infer-ignore ISSUE_TYPE` immediately before the reported line, using the exact issue type from the report.
+Add focused tests for the invariant where practical. Do not suppress an entire file or issue type to hide individual findings.
+
+Rerun the check after adding a suppression. Verify that the finding is absent from `report.txt`
+and retained in `report.json` with `"suppressed": true`; the summary count excludes suppressed findings.
+Leave unconfirmed findings visible and address confirmed bugs separately.
+
 # Thirdparty
 
 All bundled thirdparty dependencies are centralized in the *ratis-thirdparty* module

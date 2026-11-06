@@ -128,6 +128,8 @@ public abstract class AbstractShell {
     System.out.println("Usage: ratis " + getShellName() + " [generic options]");
     SortedSet<String> sortedCmds = new TreeSet<>(mCommands.keySet());
     for (String cmd : sortedCmds) {
+      // These keys come from the same command map, which is not modified while printing usage.
+      // @infer-ignore NULLPTR_DEREFERENCE
       System.out.format("%-60s%n", "\t [" + mCommands.get(cmd).getUsage() + "]");
     }
   }

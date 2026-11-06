@@ -53,6 +53,8 @@ final class SegmentedRaftLogReader implements Closeable {
    * <p>
    * This stream also allows us to set a limit on how many bytes we can read
    * without getting an exception.
+   * Instances are consumed sequentially by their owning reader. The synchronized
+   * mark/reset overrides follow FilterInputStream and do not imply concurrent stream access.
    */
   static class LimitedInputStream extends FilterInputStream {
     private long curPos = 0;
@@ -73,9 +75,11 @@ final class SegmentedRaftLogReader implements Closeable {
 
     @Override
     public int read() throws IOException {
+      // @infer-ignore THREAD_SAFETY_VIOLATION
       checkLimit(1);
       int ret = super.read();
       if (ret != -1) {
+        // @infer-ignore THREAD_SAFETY_VIOLATION
         curPos++;
       }
       return ret;
@@ -83,15 +87,18 @@ final class SegmentedRaftLogReader implements Closeable {
 
     @Override
     public int read(byte[] data, int offset, int length) throws IOException {
+      // @infer-ignore THREAD_SAFETY_VIOLATION
       checkLimit(length);
       int ret = super.read(data, offset, length);
       if (ret > 0) {
+        // @infer-ignore THREAD_SAFETY_VIOLATION
         curPos += ret;
       }
       return ret;
     }
 
     public void setLimit(long limit) {
+      // @infer-ignore THREAD_SAFETY_VIOLATION
       limitPos = curPos + limit;
     }
 
@@ -116,17 +123,20 @@ final class SegmentedRaftLogReader implements Closeable {
     }
 
     public long getPos() {
+      // @infer-ignore THREAD_SAFETY_VIOLATION
       return curPos;
     }
 
     @Override
     public long skip(long amt) throws IOException {
+      // @infer-ignore THREAD_SAFETY_VIOLATION
       long extra = (curPos + amt) - limitPos;
       if (extra > 0) {
         throw new IOException("Tried to skip " + extra + " bytes past " +
             "the limit at offset " + limitPos);
       }
       long ret = super.skip(amt);
+      // @infer-ignore THREAD_SAFETY_VIOLATION
       curPos += ret;
       return ret;
     }

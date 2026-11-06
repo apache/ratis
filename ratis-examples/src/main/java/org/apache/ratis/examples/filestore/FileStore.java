@@ -142,9 +142,9 @@ public class FileStore implements Closeable {
     committer = Executors.newFixedThreadPool(commitThreadNum);
     deleter = Executors.newFixedThreadPool(deleteThreadNum);
 
-    final List<File> dirs = ConfUtils.getFiles(properties::getFiles, FileStoreCommon.STATEMACHINE_DIR_KEY,
-        null, LOG::info);
-    Objects.requireNonNull(dirs, FileStoreCommon.STATEMACHINE_DIR_KEY + " is not set.");
+    final List<File> dirs = Objects.requireNonNull(
+        ConfUtils.getFiles(properties::getFiles, FileStoreCommon.STATEMACHINE_DIR_KEY, null, LOG::info),
+        FileStoreCommon.STATEMACHINE_DIR_KEY + " is not set.");
     for (File dir : dirs) {
       this.rootSuppliers.add(
           JavaUtils.memoize(() -> dir.toPath().resolve(getId().toString()).normalize().toAbsolutePath()));

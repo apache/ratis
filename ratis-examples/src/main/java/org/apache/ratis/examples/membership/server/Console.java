@@ -76,6 +76,8 @@ public class Console {
         } else if (command.equalsIgnoreCase("incr")) {
           cluster.counterIncrement();
         } else if (command.equalsIgnoreCase("query")) {
+          // CounterStateMachine answers GET with a non-null four-byte payload, decoded by the Netty client.
+          // @infer-ignore NULLPTR_DEREFERENCE
           cluster.queryCounter();
         } else if (command.equalsIgnoreCase("quit")) {
           break;

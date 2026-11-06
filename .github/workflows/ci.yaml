@@ -106,6 +106,15 @@ jobs:
     secrets:
       DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
+  infer:
+    uses: $/.github/workflows/check.yaml
+    with:
+      java-version: '21'
+      script: infer
+      timeout-minutes: 60
+    secrets:
+      DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+
   unit:
     strategy:
       matrix:

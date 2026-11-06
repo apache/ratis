@@ -23,6 +23,7 @@ import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroup;
@@ -41,6 +42,8 @@ import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogBase;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
+import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.util.ConcurrentUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
@@ -49,16 +52,24 @@ import org.apache.ratis.util.TimeDuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -517,6 +528,81 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
   public void testKillLeaderDuringReconf() throws Exception {
     // originally 3 peers
     runWithNewCluster(3, this::runTestKillLeaderDuringReconf);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  @Timeout(60)
+  public void testCloseLeaderDuringReconfigurationRegistration(boolean pauseBeforeRegistration) throws Exception {
+    final CountDownLatch requestPaused = new CountDownLatch(pauseBeforeRegistration ? 1 : 0);
+    final CountDownLatch resumeRequest = new CountDownLatch(1);
+    final CountDownLatch pendingRequestsFailed = new CountDownLatch(1);
+    final CompletableFuture<Void> finishShutdown = new CompletableFuture<>();
+    final CompletableFuture<Thread> shutdownThread = new CompletableFuture<>();
+    final ExecutorService executor = Executors.newFixedThreadPool(2);
+    try {
+      runWithNewCluster(3, false, cluster -> {
+        try {
+          cluster.setStateMachineRegistry(groupId -> new SimpleStateMachine4Testing() {
+            @Override
+            public void notifyNotLeader(Collection<TransactionContext> pendingEntries) {
+              if (Thread.currentThread() == shutdownThread.getNow(null)) {
+                pendingRequestsFailed.countDown();
+                JavaUtils.runAsUnchecked(() -> finishShutdown.get(10, TimeUnit.SECONDS));
+              }
+            }
+          });
+          cluster.start();
+          final RaftServerImpl leader = (RaftServerImpl) RaftTestUtil.waitForLeader(cluster);
+          final PeerChanges change = cluster.addNewPeers(1, false);
+          final SetConfigurationRequest request = Mockito.spy(cluster.newSetConfigurationRequest(
+              ClientId.randomId(), leader.getId(), change.getPeersInNewConf()));
+          // Logging must not call getArguments before the leader-running check.
+          Mockito.doReturn("close-during-reconfiguration").when(request).toString();
+          Mockito.doAnswer(invocation -> {
+            if (Thread.holdsLock(leader) && requestPaused.getCount() != 0) {
+              requestPaused.countDown();
+              assertTrue(resumeRequest.await(10, TimeUnit.SECONDS), "request was not resumed");
+            }
+            return invocation.callRealMethod();
+          }).when(request).getArguments();
+
+          final Future<CompletableFuture<RaftClientReply>> registration =
+              executor.submit(() -> leader.setConfigurationAsync(request));
+          if (!pauseBeforeRegistration) {
+            registration.get(10, TimeUnit.SECONDS);
+          }
+          assertTrue(requestPaused.await(10, TimeUnit.SECONDS),
+              "request did not reach the window after the leader-running check");
+          final Future<?> shutdown = executor.submit(() -> {
+            shutdownThread.complete(Thread.currentThread());
+            leader.close();
+          });
+          final long shutdownThreadId = shutdownThread.get(10, TimeUnit.SECONDS).getId();
+          // Shutdown must either wait for registration's server lock or reach the pending-request drain.
+          RaftTestUtil.waitFor(() -> {
+            final ThreadInfo info = ManagementFactory.getThreadMXBean().getThreadInfo(shutdownThreadId);
+            return pendingRequestsFailed.getCount() == 0
+                || (info != null && info.getThreadState() == Thread.State.BLOCKED
+                    && info.getLockInfo().getIdentityHashCode() == System.identityHashCode(leader));
+          }, 10, 10000);
+          resumeRequest.countDown();
+          final CompletableFuture<RaftClientReply> reply = registration.get(10, TimeUnit.SECONDS);
+          finishShutdown.complete(null);
+          shutdown.get(10, TimeUnit.SECONDS);
+          assertTrue(reply.isDone(), "reconfiguration future remains incomplete after leader shutdown");
+          Assertions.assertNotNull(reply.get(10, TimeUnit.SECONDS).getNotLeaderException());
+        } finally {
+          resumeRequest.countDown();
+          finishShutdown.complete(null);
+        }
+      });
+    } finally {
+      resumeRequest.countDown();
+      finishShutdown.complete(null);
+      executor.shutdownNow();
+      assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "test executor did not terminate");
+    }
   }
 
   /**

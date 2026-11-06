@@ -108,6 +108,8 @@ public class LifeCycle {
 
     /** Is the given transition valid? */
     public static boolean isValid(State from, State to) {
+      // PREDECESSORS contains every State; callers supply a non-null destination state.
+      // @infer-ignore NULLPTR_DEREFERENCE
       return PREDECESSORS.get(to).contains(from);
     }
 
