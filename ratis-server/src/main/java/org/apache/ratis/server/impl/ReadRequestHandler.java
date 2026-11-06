@@ -81,11 +81,9 @@ class ReadRequestHandler {
   }
 
   CompletableFuture<RaftClientReply> staleReadAsync(RaftClientRequest request) {
-    final long installSnapshot = server.getSnapshotInstallationHandler().getInProgressInstallSnapshotIndex();
-    final ReadException ex = getReadException("stale read", installSnapshot, false);
+    final ReadException ex = getReadExceptionIfInstallingSnapshot("stale read");
     if (ex != null) {
-      return CompletableFuture.completedFuture(
-          server.newExceptionReply(request, new StateMachineException(getMemberId(), ex)));
+      return CompletableFuture.completedFuture(server.newExceptionReply(request, ex));
     }
     final long minIndex = request.getType().getStaleRead().getMinIndex();
     final long commitIndex = state.getLog().getLastCommittedIndex();
@@ -100,19 +98,20 @@ class ReadRequestHandler {
   }
 
   ReadException getReadException(String op, long installSnapshot, boolean started) {
-    return installSnapshot == RaftLog.INVALID_LOG_INDEX ? null : new ReadException(getMemberId() + ": Failed to " + op
-        + " readIndex as snapshot (" + installSnapshot + ") installation is " + (started ? "started" : "in progress"));
+    return installSnapshot == RaftLog.INVALID_LOG_INDEX ? null : new ReadException(getMemberId() + ": Failed " + op
+        + " as snapshot (" + installSnapshot + ") installation is " + (started ? "started" : "in progress"));
   }
 
-  private ReadException getReadExceptionIfInstallingSnapshot() {
-    return getReadException("add", server.getSnapshotInstallationHandler().getInProgressInstallSnapshotIndex(), false);
+  private ReadException getReadExceptionIfInstallingSnapshot(String op) {
+    final long installSnapshotIndex = server.getSnapshotInstallationHandler().getInProgressInstallSnapshotIndex();
+    return getReadException(op, installSnapshotIndex, false);
   }
 
   private CompletableFuture<ReadIndexReplyProto> sendReadIndexAsync(
       ClientId clientId, ReadRequestTypeProto readRequestType) {
-    final long installSnapshot = server.getSnapshotInstallationHandler().getInProgressInstallSnapshotIndex();
-    if (installSnapshot != RaftLog.INVALID_LOG_INDEX) {
-      return JavaUtils.completeExceptionally(getReadException("get", installSnapshot, false));
+    final ReadException readException = getReadExceptionIfInstallingSnapshot("to send readIndex request");
+    if (readException != null) {
+      return JavaUtils.completeExceptionally(readException);
     }
     final RaftPeerId leaderId = server.getInfo().getLeaderId();
     if (leaderId == null) {
@@ -160,7 +159,7 @@ class ReadRequestHandler {
       final LeaderStateImpl leader = server.getRole().getLeaderState().orElse(null);
       return getReadIndex(clientId, readRequestType, leader)
           .thenCompose(readIndex -> state.getReadRequests().waitToAdvance(readIndex,
-              this::getReadExceptionIfInstallingSnapshot))
+              () -> getReadExceptionIfInstallingSnapshot("local read")))
           .thenCompose(readIndex -> stateMachine.query(queryMessage));
     } else {
       throw new IllegalStateException("Unexpected read option: " + readOption);
@@ -183,7 +182,7 @@ class ReadRequestHandler {
 
       return replyFuture
           .thenCompose(readIndex -> state.getReadRequests().waitToAdvance(readIndex,
-              this::getReadExceptionIfInstallingSnapshot))
+              () -> getReadExceptionIfInstallingSnapshot("read")))
           .thenCompose(readIndex -> isDummyRead(request)
               ? CompletableFuture.completedFuture(server.newSuccessReply(request)) : queryStateMachine(request))
           .exceptionally(e -> readException2Reply(request, e));

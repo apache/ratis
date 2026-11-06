@@ -22,7 +22,8 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.exceptions.StateMachineException;
+import org.apache.ratis.protocol.exceptions.ReadException;
+import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
@@ -37,10 +38,10 @@ import org.junit.jupiter.api.Timeout;
 import java.io.IOException;
 
 /**
- * Test stale reads failing while a snapshot installation is in progress: the follower serving the
- * stale read is exactly the node whose state machine is paused/reinitialized by the installation,
- * so the read must be rejected with a retriable error instead of querying a paused state machine
- * (see {@link ReadRequestHandler#staleReadAsync}).
+ * Test stale reads being rejected while a snapshot installation is in progress: the follower
+ * serving the stale read is exactly the node whose state machine is paused/reinitialized by the
+ * installation, so the read must be rejected with a retriable error instead of querying a paused
+ * state machine (see {@link ReadRequestHandler#staleReadAsync}).
  */
 public class TestStaleReadDuringSnapshotInstallation {
   private static final int NUM_SERVERS = 3;
@@ -94,13 +95,15 @@ public class TestStaleReadDuringSnapshotInstallation {
       final RaftClientReply before = client.io().sendStaleRead(message, m4Index, follower.getId());
       Assertions.assertTrue(before.isSuccess());
 
-      // Simulate a snapshot installation in progress on the follower.
+      // Simulate a snapshot installation in progress on the follower: the gate must reject
+      // the stale read with a retriable ReadException instead of querying the paused state
+      // machine. Use a no-retry client so the exception surfaces immediately (the default
+      // test policy would keep retrying it -- see BlockingImpl#sendRequestWithRetry).
       handler.setInProgressInstallSnapshotIndex(1);
-      try {
+      try (final RaftClient noRetryClient = cluster.createClient(follower.getId(), RetryPolicies.noRetry())) {
         final IOException e = Assertions.assertThrows(IOException.class,
-            () -> client.io().sendStaleRead(message, m4Index, follower.getId()));
-        // The gate rejects with a retriable StateMachineException, not a success and not a crash.
-        Assertions.assertTrue(e instanceof StateMachineException, () -> "Unexpected exception: " + e);
+            () -> noRetryClient.io().sendStaleRead(message, m4Index, follower.getId()));
+        Assertions.assertTrue(e instanceof ReadException, () -> "Unexpected exception: " + e);
         Assertions.assertTrue(e.getMessage().contains("stale read"), () -> e.getMessage());
         Assertions.assertTrue(e.getMessage().contains("in progress"), () -> e.getMessage());
       } finally {

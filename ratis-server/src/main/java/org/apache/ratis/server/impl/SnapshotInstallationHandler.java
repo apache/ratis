@@ -240,10 +240,19 @@ class SnapshotInstallationHandler {
         // update the committed index
         // re-load the state machine if this is the last chunk
         if (snapshotChunkRequest.getDone()) {
-          stateMachine.pause(); // pause the SM right before publishing the snapshot atomically
-          snapshotManager.finalizeSnapshot(request);
-          state.reloadStateMachine(lastIncluded);
-          chunk0CallId.set(-1);
+          final long i = inProgressInstallSnapshotIndex.getAndUpdate(
+              previous -> previous == INVALID_LOG_INDEX ? lastIncludedIndex : previous);
+          if (i != INVALID_LOG_INDEX) {
+            throw new IOException("Snapshot (index " + i + ") installation is in progress");
+          }
+          try {
+            stateMachine.pause(); // pause the SM right before publishing the snapshot atomically
+            snapshotManager.finalizeSnapshot(request);
+            state.reloadStateMachine(lastIncluded);
+            chunk0CallId.set(-1);
+          } finally {
+            inProgressInstallSnapshotIndex.set(INVALID_LOG_INDEX);
+          }
         }
       } finally {
         server.updateLastRpcTime(UpdateType.INSTALL_SNAPSHOT_COMPLETE);
@@ -295,7 +304,7 @@ class SnapshotInstallationHandler {
           return future.thenApply(dummy -> reply);
         }
         server.getState().getReadRequests().fail(
-            server.getReadRequestHandler().getReadException("wait for", firstAvailableLogIndex, true));
+            server.getReadRequestHandler().getReadException("to wait for readIndex", firstAvailableLogIndex, true));
 
         final RaftPeerProto leaderProto;
         if (!request.hasLastRaftConfigurationLogEntryProto()) {
