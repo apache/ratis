@@ -23,6 +23,7 @@ import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroup;
@@ -54,6 +55,7 @@ import org.slf4j.event.Level;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -65,6 +67,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckAddedPeers;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -278,6 +281,43 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       waitAndCheckNewConf(cluster, change.getPeersInNewConf(), 0, null);
     }
     cluster.close();
+  }
+
+  @Test
+  public void testAddModePreservesExistingListeners() throws Exception {
+    runWithNewCluster(2, 1, this::runTestAddModePreservesExistingListeners);
+  }
+
+  private void runTestAddModePreservesExistingListeners(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final Collection<RaftPeer> currentPeers = leader.getRaftConf().getCurrentPeers();
+    final Collection<RaftPeer> listeners = leader.getRaftConf().getCurrentPeers(RaftPeerRole.LISTENER);
+
+    Assertions.assertEquals(1, listeners.size());
+
+    final PeerChanges change = cluster.addNewPeers(1, true);
+    final List<RaftPeer> addedPeers = change.getAddedPeers();
+    final List<RaftPeer> newPeers = new ArrayList<>(currentPeers);
+    newPeers.addAll(addedPeers);
+
+    try (final RaftClient client = cluster.createClient(leader.getId())) {
+      for (int i = 0; i < 10; i++) {
+        final RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
+        Assertions.assertTrue(reply.isSuccess());
+      }
+
+      final RaftClientReply reply = client.admin().setConfiguration(
+          SetConfigurationRequest.Arguments.newBuilder()
+              .setServersInNewConf(addedPeers)
+              .setMode(SetConfigurationRequest.Mode.ADD)
+              .build());
+      Assertions.assertTrue(reply.isSuccess());
+
+      final RaftConfigurationImpl expectedConf = RaftConfigurationImpl.newBuilder()
+          .setConf(newPeers, listeners)
+          .build();
+      waitAndCheckAddedPeers(cluster, expectedConf, 1);
+    }
   }
 
   @Test
