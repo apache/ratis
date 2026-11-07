@@ -327,4 +327,15 @@ public interface JavaUtils {
       throw new CompletionException(t);
     }
   }
+
+  /** Apply the given method to each value, continuing with the others even if one fails. */
+  static <V> void acceptEach(Iterable<V> values, Consumer<V> method, String methodName, Logger log) {
+    for (V v : values) {
+      try {
+        method.accept(v);
+      } catch (Exception e) {
+        log.error("Failed to {}: {}", methodName, v, e);
+      }
+    }
+  }
 }

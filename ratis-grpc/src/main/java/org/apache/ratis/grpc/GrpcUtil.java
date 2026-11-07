@@ -17,14 +17,9 @@
  */
 package org.apache.ratis.grpc;
 
-import java.util.function.Consumer;
 import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.security.TlsConf;
-import org.apache.ratis.security.TlsConf.TrustManagerConf;
-import org.apache.ratis.security.TlsConf.CertificatesConf;
-import org.apache.ratis.security.TlsConf.PrivateKeyConf;
-import org.apache.ratis.security.TlsConf.KeyManagerConf;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.Metadata;
 import org.apache.ratis.thirdparty.io.grpc.Status;
@@ -45,21 +40,24 @@ import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLException;
-import javax.net.ssl.TrustManager;
 import java.io.IOException;
 import java.security.Provider;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
+import static org.apache.ratis.util.JavaUtils.acceptEach;
 import static org.apache.ratis.util.NettyUtils.getJsseProvider;
+import static org.apache.ratis.util.NettyUtils.initSslContextBuilderForServer;
+import static org.apache.ratis.util.NettyUtils.setKeyManager;
+import static org.apache.ratis.util.NettyUtils.setTrustManager;
 
 public interface GrpcUtil {
   Logger LOG = LoggerFactory.getLogger(GrpcUtil.class);
@@ -236,135 +234,63 @@ public interface GrpcUtil {
     }
   }
 
-  /**
-   * Tries to gracefully shut down the managed channel. Falls back to forceful shutdown if
-   * graceful shutdown times out.
-   */
-  static void shutdownManagedChannel(ManagedChannel managedChannel) {
-    shutdownManagedChannel(managedChannel, GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
+  /** Shut down the given channel using the default timeouts. */
+  static void shutdownManagedChannel(ManagedChannel channel) {
+    shutdownManagedChannel(channel,
+        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
+        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
+  }
+
+  /** The same as shutdownManagedChannels(Collections.singleton(channel), gracefulTimeout, forcefulTimeout). */
+  static void shutdownManagedChannel(ManagedChannel channel,
+      TimeDuration gracefulTimeout, TimeDuration forcefulTimeout) {
+    shutdownManagedChannels(Collections.singleton(channel), gracefulTimeout, forcefulTimeout);
+  }
+
+  /** Shut down the given channels using the default timeouts. */
+  static void shutdownManagedChannels(Collection<ManagedChannel> channels) {
+    shutdownManagedChannels(channels,
+        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
         GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
   }
 
   /**
-   * Shut down the given channel gracefully, waiting up to the graceful timeout for its calls to finish,
-   * and then forcefully, cancelling the remaining calls, if it has not terminated.
+   * Shut down the given channels using the given timeouts.
+   * It first tries {@link ManagedChannel#shutdown()} and then {@link ManagedChannel#shutdownNow()}.
    *
-   * @param gracefulTimeout zero skips the graceful shutdown.
+   * @param gracefulTimeout the wait time after {@link ManagedChannel#shutdown()}; non-positive skips this step.
+   * @param forcefulTimeout the wait time after {@link ManagedChannel#shutdownNow()}.
    */
-  static void shutdownManagedChannel(ManagedChannel managedChannel,
+  static void shutdownManagedChannels(Collection<ManagedChannel> channels,
       TimeDuration gracefulTimeout, TimeDuration forcefulTimeout) {
-    // Close the gRPC managed-channel if not shut down already.
-    if (!managedChannel.isShutdown() && gracefulTimeout.isPositive()) {
-      try {
-        managedChannel.shutdown();
-        if (!managedChannel.awaitTermination(gracefulTimeout.getDuration(), gracefulTimeout.getUnit())) {
-          LOG.warn("Timed out gracefully shutting down connection: {}. ", managedChannel);
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      } catch (Exception e) {
-        LOG.error("Unexpected exception while waiting for channel termination", e);
-      }
+    if (gracefulTimeout.isPositive()) {
+      // Graceful shutdown
+      acceptEach(channels, ManagedChannel::shutdown, "shutdown", LOG);
+      awaitTermination(channels, gracefulTimeout, "shutdown");
     }
 
-    // Forceful shut down if still not terminated.
-    if (!managedChannel.isTerminated()) {
-      try {
-        managedChannel.shutdownNow();
-        if (!managedChannel.awaitTermination(forcefulTimeout.getDuration(), forcefulTimeout.getUnit())) {
-          LOG.warn("Timed out forcefully shutting down connection: {}. ", managedChannel);
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      } catch (Exception e) {
-        LOG.error("Unexpected exception while waiting for channel termination", e);
-      }
-    }
-  }
-
-  /**
-   * Shut down the given channels as {@link #shutdownManagedChannel(ManagedChannel)} does, but in parallel:
-   * all of them are shut down before any is awaited, so the total wait is bounded by one graceful and one forceful
-   * timeout instead of one of each per channel.
-   */
-  static void shutdownManagedChannels(Collection<ManagedChannel> channels) {
-    // Close the gRPC managed-channels if not shut down already.
-    final List<ManagedChannel> open = channels.stream().filter(c -> !c.isShutdown()).collect(Collectors.toList());
-    open.forEach(ManagedChannel::shutdown);
-    awaitTermination(open, GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT, "gracefully");
-
-    // Forceful shut down if still not terminated.
-    final List<ManagedChannel> remaining = channels.stream().filter(c -> !c.isTerminated())
-        .collect(Collectors.toList());
-    remaining.forEach(ManagedChannel::shutdownNow);
-    awaitTermination(remaining, GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT, "forcefully");
+    // Forceful shutdown
+    acceptEach(channels, ManagedChannel::shutdownNow, "shutdownNow", LOG);
+    awaitTermination(channels, forcefulTimeout, "shutdownNow");
   }
 
   /** Wait for the given channels to terminate, up to the given timeout for all of them together. */
-  static void awaitTermination(List<ManagedChannel> channels, TimeDuration timeout, String mode) {
+  static void awaitTermination(Collection<ManagedChannel> channels, TimeDuration timeout, String op) {
+    if (Thread.currentThread().isInterrupted()) {
+      return;
+    }
     final long deadline = System.nanoTime() + timeout.toLong(TimeUnit.NANOSECONDS);
     for (ManagedChannel channel : channels) {
       try {
         if (!channel.awaitTermination(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS)) {
-          LOG.warn("Timed out {} shutting down connection: {}. ", mode, channel);
+          LOG.warn("Timed out ({}) waiting for {} of channel: {}", timeout, op, channel);
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         return;
       } catch (Exception e) {
-        LOG.error("Unexpected exception while waiting for channel termination", e);
+        LOG.error("Failed to awaitTermination for channel {}", channel, e);
       }
-    }
-  }
-
-  static SslContextBuilder initSslContextBuilderForServer(KeyManagerConf keyManagerConfig) {
-    final KeyManager keyManager = keyManagerConfig.getKeyManager();
-    if (keyManager != null) {
-      return SslContextBuilder.forServer(keyManager);
-    }
-    final PrivateKeyConf privateKey = keyManagerConfig.getPrivateKey();
-    final CertificatesConf certificates = keyManagerConfig.getKeyCertificates();
-
-    if (keyManagerConfig.isFileBased()) {
-      return SslContextBuilder.forServer(certificates.getFile(), privateKey.getFile());
-    } else {
-      return SslContextBuilder.forServer(privateKey.get(), certificates.get());
-    }
-  }
-
-  static void setTrustManager(SslContextBuilder b, TrustManagerConf trustManagerConfig) {
-    if (trustManagerConfig == null) {
-      return;
-    }
-    final TrustManager trustManager = trustManagerConfig.getTrustManager();
-    if (trustManager != null) {
-      b.trustManager(trustManager);
-      return;
-    }
-    final CertificatesConf certificates = trustManagerConfig.getTrustCertificates();
-    if (certificates.isFileBased()) {
-      b.trustManager(certificates.getFile());
-    } else {
-      b.trustManager(certificates.get());
-    }
-  }
-
-  static void setKeyManager(SslContextBuilder b, KeyManagerConf keyManagerConfig) {
-    if (keyManagerConfig == null) {
-      return;
-    }
-    final KeyManager keyManager = keyManagerConfig.getKeyManager();
-    if (keyManager != null) {
-      b.keyManager(keyManager);
-      return;
-    }
-    final PrivateKeyConf privateKey = keyManagerConfig.getPrivateKey();
-    final CertificatesConf certificates = keyManagerConfig.getKeyCertificates();
-
-    if (keyManagerConfig.isFileBased()) {
-      b.keyManager(certificates.getFile(), privateKey.getFile());
-    } else {
-      b.keyManager(privateKey.get(), certificates.get());
     }
   }
 
