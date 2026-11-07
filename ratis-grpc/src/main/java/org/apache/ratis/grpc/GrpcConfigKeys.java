@@ -332,18 +332,6 @@ public interface GrpcConfigKeys {
       parameters.put(CREDENTIALS_PARAMETER, credentials, CREDENTIALS_CLASS);
     }
 
-    String LOG_APPENDER_LISTENER_FACTORY_PARAMETER = PREFIX + ".log.appender.listener.factory";
-    Class<GrpcLogAppenderListener.Factory> LOG_APPENDER_LISTENER_FACTORY_CLASS = GrpcLogAppenderListener.Factory.class;
-    static GrpcLogAppenderListener.Factory logAppenderListenerFactory(Parameters parameters) {
-      return parameters == null ? null : parameters.get(
-          LOG_APPENDER_LISTENER_FACTORY_PARAMETER, LOG_APPENDER_LISTENER_FACTORY_CLASS);
-    }
-
-    /** Sets an optional factory for observing the lifecycle of each peer log appender. */
-    static void setLogAppenderListenerFactory(Parameters parameters, GrpcLogAppenderListener.Factory factory) {
-      parameters.put(LOG_APPENDER_LISTENER_FACTORY_PARAMETER, factory, LOG_APPENDER_LISTENER_FACTORY_CLASS);
-    }
-
     String TLS_CONF_PARAMETER = PREFIX + ".tls.conf";
     Class<GrpcTlsConfig> TLS_CONF_CLASS = TLS.CONF_CLASS;
     static GrpcTlsConfig tlsConf(Parameters parameters) {
@@ -362,12 +350,27 @@ public interface GrpcConfigKeys {
       setInt(properties::setInt, STUB_POOL_SIZE_KEY, size);
     }
 
+    String LOG_APPENDER_LISTENER_FACTORY_PARAMETER = PREFIX + ".log.appender.listener.factory";
+    Class<GrpcLogAppenderListener.Factory> LOG_APPENDER_LISTENER_FACTORY_CLASS = GrpcLogAppenderListener.Factory.class;
+    static GrpcLogAppenderListener.Factory logAppenderListenerFactory(Parameters parameters) {
+      return parameters == null ? null : parameters.get(
+          LOG_APPENDER_LISTENER_FACTORY_PARAMETER, LOG_APPENDER_LISTENER_FACTORY_CLASS);
+    }
+    /** Sets an optional factory for observing the lifecycle of each peer log appender. */
+    static void setLogAppenderListenerFactory(Parameters parameters, GrpcLogAppenderListener.Factory factory) {
+      parameters.put(LOG_APPENDER_LISTENER_FACTORY_PARAMETER, factory, LOG_APPENDER_LISTENER_FACTORY_CLASS);
+    }
+
     /**
-     * The number of connections to each peer used for appendEntries. The groups shared with a peer are spread over
-     * them, each group always using the same one, so that the replication between two servers is not limited to one
-     * connection and so one event-loop thread at each end. Heartbeats keep their own channel.
+     * The number of connections to each peer for appendEntries.
+     * When it is 1 (the default), appendEntries uses the main connection to the peer,
+     * which is shared with the other RPCs such as requestVote and installSnapshot.
+     * Otherwise, appendEntries uses this many extra connections dedicated to it, but not the main connection.
+     * The connections are shared by the appendEntries streams of all the groups with the peer;
+     * each stream uses one connection and the new streams take the connections in turn.
+     * When there is a separate heartbeat channel (see {@link #HEARTBEAT_CHANNEL_KEY}), heartbeats do not use them.
      */
-    String LOG_APPENDER_CONNECTIONS_KEY = PREFIX + ".log-appender.connections";
+    String LOG_APPENDER_CONNECTIONS_KEY = PREFIX + ".log.appender.connections";
     int LOG_APPENDER_CONNECTIONS_DEFAULT = 1;
     static int logAppenderConnections(RaftProperties properties) {
       return getInt(properties::getInt, LOG_APPENDER_CONNECTIONS_KEY,
