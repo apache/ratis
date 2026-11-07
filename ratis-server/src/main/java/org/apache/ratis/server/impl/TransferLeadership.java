@@ -172,6 +172,8 @@ public class TransferLeadership {
   TransferLeadership(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
     this.requestTimeout = RaftServerConfigKeys.Rpc.requestTimeout(properties);
+    // getLong parses a value or returns the non-null primitive default; it cannot return a null Long.
+    // @infer-ignore NULLPTR_DEREFERENCE
     this.appliedIndexThreshold = RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties);
   }
 

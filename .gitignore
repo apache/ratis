@@ -19,5 +19,6 @@ target
 build
 patchprocess
 dependency-reduced-pom.xml
+infer-out/
 .mvn/wrapper/maven-wrapper.jar
 .vscode/

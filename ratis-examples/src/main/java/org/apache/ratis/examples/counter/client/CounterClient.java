@@ -187,6 +187,8 @@ public final class CounterClient implements Closeable {
 
       final ExecutorService executor = Executors.newFixedThreadPool(Math.max(numClients, Constants.PEERS.size()));
       try {
+        // CounterStateMachine answers GET with a non-null four-byte counter payload.
+        // @infer-ignore NULLPTR_DEREFERENCE
         client.run(increment, mode, numClients, executor);
       } finally {
         executor.shutdown();

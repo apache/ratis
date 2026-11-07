@@ -115,4 +115,51 @@ public class TestRaftServerConfigKeys {
             / SizeInBytes.ONE_MB.getSize());
     Assertions.assertEquals(4096, pendingRequestMegabyteLimit);
   }
+
+  @Test
+  public void testLeaderTransferAppliedIndexGap() {
+    final RaftProperties properties = new RaftProperties();
+    Assertions.assertEquals(RaftServerConfigKeys.LeaderElection.LEADER_TRANSFER_APPLIED_INDEX_GAP_DEFAULT,
+        RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties));
+    for (String value : new String[] {"2048", "0x800", "0"}) {
+      properties.set(RaftServerConfigKeys.LeaderElection.LEADER_TRANSFER_APPLIED_INDEX_GAP_KEY, value);
+      Assertions.assertEquals("0".equals(value) ? 0L : 2048L,
+          RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties));
+    }
+    properties.set(RaftServerConfigKeys.LeaderElection.LEADER_TRANSFER_APPLIED_INDEX_GAP_KEY, "invalid");
+    Assertions.assertThrows(NumberFormatException.class,
+        () -> RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties));
+    properties.set(RaftServerConfigKeys.LeaderElection.LEADER_TRANSFER_APPLIED_INDEX_GAP_KEY, "-1");
+    Assertions.assertThrows(IllegalArgumentException.class,
+        () -> RaftServerConfigKeys.LeaderElection.leaderTransferAppliedIndexGap(properties));
+  }
+
+  @Test
+  public void testLongProperties() {
+    final RaftProperties properties = new RaftProperties();
+    Assertions.assertEquals(RaftServerConfigKeys.Log.PURGE_PRESERVATION_LOG_NUM_DEFAULT,
+        RaftServerConfigKeys.Log.purgePreservationLogNum(properties));
+    Assertions.assertEquals(RaftServerConfigKeys.Snapshot.CREATION_GAP_DEFAULT,
+        RaftServerConfigKeys.Snapshot.creationGap(properties));
+    Assertions.assertEquals(RaftServerConfigKeys.Snapshot.AUTO_TRIGGER_THRESHOLD_DEFAULT,
+        RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties));
+
+    for (String value : new String[] {"2048", "0x800"}) {
+      properties.set(RaftServerConfigKeys.Log.PURGE_PRESERVATION_LOG_NUM_KEY, value);
+      properties.set(RaftServerConfigKeys.Snapshot.CREATION_GAP_KEY, value);
+      properties.set(RaftServerConfigKeys.Snapshot.AUTO_TRIGGER_THRESHOLD_KEY, value);
+      Assertions.assertEquals(2048L, RaftServerConfigKeys.Log.purgePreservationLogNum(properties));
+      Assertions.assertEquals(2048L, RaftServerConfigKeys.Snapshot.creationGap(properties));
+      Assertions.assertEquals(2048L, RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties));
+    }
+
+    properties.set(RaftServerConfigKeys.Log.PURGE_PRESERVATION_LOG_NUM_KEY, "invalid");
+    properties.set(RaftServerConfigKeys.Snapshot.CREATION_GAP_KEY, "invalid");
+    properties.set(RaftServerConfigKeys.Snapshot.AUTO_TRIGGER_THRESHOLD_KEY, "invalid");
+    Assertions.assertThrows(NumberFormatException.class,
+        () -> RaftServerConfigKeys.Log.purgePreservationLogNum(properties));
+    Assertions.assertThrows(NumberFormatException.class, () -> RaftServerConfigKeys.Snapshot.creationGap(properties));
+    Assertions.assertThrows(NumberFormatException.class,
+        () -> RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties));
+  }
 }

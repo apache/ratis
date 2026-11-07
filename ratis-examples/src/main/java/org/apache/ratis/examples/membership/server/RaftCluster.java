@@ -23,7 +23,6 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.counter.CounterCommand;
 import org.apache.ratis.netty.NettyFactory;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
@@ -147,7 +146,7 @@ public class RaftCluster {
     RaftClient client = createClient();
     try {
       RaftClientReply reply = client.io().sendReadOnly(CounterCommand.GET.getMessage());
-      String count = Message.toByteString(reply.getMessage()).toStringUtf8();
+      int count = reply.getMessage().asReadOnlyByteBuffer().getInt();
       System.out.println("Current counter value: " + count);
     } finally {
       client.close();

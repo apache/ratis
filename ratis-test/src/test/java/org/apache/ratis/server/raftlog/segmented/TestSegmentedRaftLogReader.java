@@ -28,6 +28,29 @@ import java.io.IOException;
 /** Tests for {@link SegmentedRaftLogReader}. */
 public class TestSegmentedRaftLogReader extends BaseTest {
   @Test
+  public void testSequentialReadSkipLimitAndReset() throws IOException {
+    final byte[] data = {1, 2, 3, 4, 5};
+    try (SegmentedRaftLogReader.LimitedInputStream in =
+        new SegmentedRaftLogReader.LimitedInputStream(new ByteArrayInputStream(data))) {
+      in.mark(data.length);
+      Assertions.assertEquals(1, in.read());
+      Assertions.assertEquals(2, in.skip(2));
+      Assertions.assertEquals(3, in.getPos());
+      in.setLimit(1);
+      Assertions.assertEquals(4, in.read());
+      Assertions.assertThrows(IOException.class, in::read);
+      in.clearLimit();
+      Assertions.assertEquals(5, in.read());
+      in.reset();
+      Assertions.assertEquals(0, in.getPos());
+      final byte[] buffer = new byte[data.length];
+      Assertions.assertEquals(data.length, in.read(buffer));
+      Assertions.assertArrayEquals(data, buffer);
+      Assertions.assertEquals(data.length, in.getPos());
+    }
+  }
+
+  @Test
   public void testLimitedInputStreamPosition() throws IOException {
     final byte[] data = {1, 2, 3, 4, 5};
     try (SegmentedRaftLogReader.LimitedInputStream in =

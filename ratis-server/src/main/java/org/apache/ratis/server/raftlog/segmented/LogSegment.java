@@ -298,7 +298,8 @@ public final class LogSegment {
   }
 
   private volatile boolean isOpen;
-  private long totalFileSize = SegmentedRaftLogFormat.getHeaderLength();
+  // Updated under the log write lock and read by metrics without locking.
+  private volatile long totalFileSize = SegmentedRaftLogFormat.getHeaderLength();
   private AtomicLong totalCacheSize = new AtomicLong(0);
   /** Segment start index, inclusive. */
   private final long startIndex;

@@ -202,6 +202,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .setDataStreamServer(peer)
         .setProperties(properties)
         .setParameters(parameters)
+        // The server supplies non-null properties, and setProperties stores them before build.
+        // @infer-ignore NULLPTR_DEREFERENCE
         .build();
   }
 

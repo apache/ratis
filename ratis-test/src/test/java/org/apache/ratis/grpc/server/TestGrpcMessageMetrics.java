@@ -47,6 +47,24 @@ public class TestGrpcMessageMetrics extends BaseTest
   public static final int NUM_SERVERS = 3;
 
   @Test
+  public void testMessageMetricTypes() {
+    final MessageMetrics metrics = new MessageMetrics("testMessageMetricTypes", "server");
+    try {
+      for (int i = 1; i <= 2; i++) {
+        metrics.rpcStarted("request");
+        metrics.rpcCompleted("request");
+        metrics.rpcReceived("request");
+        final RatisMetricRegistry registry = metrics.getRegistry();
+        Assertions.assertEquals(i, registry.counter("request_started_total").getCount());
+        Assertions.assertEquals(i, registry.counter("request_completed_total").getCount());
+        Assertions.assertEquals(i, registry.counter("request_received_executed").getCount());
+      }
+    } finally {
+      metrics.unregister();
+    }
+  }
+
+  @Test
   public void testGrpcMessageMetrics() throws Exception {
     try(final MiniRaftCluster cluster = newCluster(NUM_SERVERS)) {
       cluster.start();

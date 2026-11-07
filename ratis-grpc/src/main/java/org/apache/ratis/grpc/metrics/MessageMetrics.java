@@ -59,6 +59,8 @@ public class MessageMetrics extends RatisMetrics {
 
   private void inc(String metricNamePrefix, Type t) {
     types.get(t)
+        // newCounterMaps initializes every Type; callers pass only Type constants.
+        // @infer-ignore NULLPTR_DEREFERENCE
         .computeIfAbsent(metricNamePrefix, prefix -> getRegistry().counter(prefix + t.getSuffix()))
         .inc();
   }

@@ -207,7 +207,8 @@ public class SegmentedRaftLogCache {
     private final Object name;
     private final List<LogSegment> segments = new CopyOnWriteArrayList<>();
     private final AutoCloseableReadWriteLock lock;
-    private long sizeInBytes;
+    // Updated under the list write lock and read by metrics without locking.
+    private volatile long sizeInBytes;
 
     LogSegmentList(Object name) {
       this.name = name;
@@ -459,7 +460,8 @@ public class SegmentedRaftLogCache {
   }
 
   long getOpenSegmentSizeInBytes() {
-    return openSegment == null ? 0 : openSegment.getTotalFileSize();
+    final LogSegment open = this.openSegment;
+    return open == null ? 0 : open.getTotalFileSize();
   }
 
   boolean shouldEvict() {

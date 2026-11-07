@@ -18,11 +18,67 @@
 package org.apache.ratis.conf;
 
 
+import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.datastream.SupportedDataStreamType;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 public class TestRaftProperties {
+  @Test
+  public void testStringDefaults() {
+    final RaftProperties properties = new RaftProperties();
+    Assertions.assertNull(properties.get(KEY, null));
+    Assertions.assertEquals("fallback", properties.get(KEY, "fallback"));
+    Assertions.assertEquals("", properties.get(KEY, ""));
+
+    properties.set(KEY, "configured");
+    Assertions.assertEquals("configured", properties.get(KEY, null));
+    Assertions.assertEquals("configured", properties.get(KEY, "fallback"));
+    properties.set(KEY, "");
+    Assertions.assertEquals("", properties.get(KEY, "fallback"));
+    properties.unset(KEY);
+    Assertions.assertNull(properties.get(KEY, null));
+    Assertions.assertEquals("fallback", properties.get(KEY, "fallback"));
+    Assertions.assertThrows(NullPointerException.class, () -> properties.get(null, "fallback"));
+  }
+
+  @Test
+  public void testStringDefaultSubstitution() {
+    final RaftProperties properties = new RaftProperties();
+    properties.set("replacement", "expanded");
+    Assertions.assertEquals("expanded", properties.get(KEY, "${replacement}"));
+    properties.set(KEY, "prefix-${replacement}");
+    Assertions.assertEquals("prefix-expanded", properties.get(KEY, null));
+    Assertions.assertEquals("prefix-expanded", properties.get(KEY, "fallback"));
+    Assertions.assertEquals("${missing}", properties.get("absent", "${missing}"));
+  }
+
+  @Test
+  public void testDataStreamTypeDefaultAndOverride() {
+    final RaftProperties properties = new RaftProperties();
+    Assertions.assertEquals(SupportedDataStreamType.DISABLED, RaftConfigKeys.DataStream.type(properties, null));
+    properties.set(RaftConfigKeys.DataStream.TYPE_KEY, "netty");
+    Assertions.assertEquals(SupportedDataStreamType.NETTY, RaftConfigKeys.DataStream.type(properties, null));
+    properties.unset(RaftConfigKeys.DataStream.TYPE_KEY);
+    Assertions.assertEquals(SupportedDataStreamType.DISABLED, RaftConfigKeys.DataStream.type(properties, null));
+    properties.set(RaftConfigKeys.DataStream.TYPE_KEY, "invalid-data-stream-type");
+    Assertions.assertThrows(IllegalArgumentException.class, () -> RaftConfigKeys.DataStream.type(properties, null));
+  }
+
+  @Test
+  public void testRpcTypeDefaultAndOverride() {
+    final RaftProperties properties = new RaftProperties();
+    Assertions.assertEquals(SupportedRpcType.GRPC, RaftConfigKeys.Rpc.type(properties, null));
+    properties.set(RaftConfigKeys.Rpc.TYPE_KEY, "netty");
+    Assertions.assertEquals(SupportedRpcType.NETTY, RaftConfigKeys.Rpc.type(properties, null));
+    properties.unset(RaftConfigKeys.Rpc.TYPE_KEY);
+    Assertions.assertEquals(SupportedRpcType.GRPC, RaftConfigKeys.Rpc.type(properties, null));
+    properties.set(RaftConfigKeys.Rpc.TYPE_KEY, "invalid-rpc-type");
+    Assertions.assertThrows(IllegalArgumentException.class, () -> RaftConfigKeys.Rpc.type(properties, null));
+  }
+
   enum Type {APPEND_ENTRIES}
 
   static class Request_Vote {

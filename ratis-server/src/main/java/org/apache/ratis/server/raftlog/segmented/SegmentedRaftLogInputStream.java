@@ -94,6 +94,8 @@ public class SegmentedRaftLogInputStream implements Closeable {
         state.close();
       }
     }
+    // Failed initialization closes the reader above; successful initialization is owned by this stream's close().
+    // @infer-ignore PULSE_RESOURCE_LEAK
   }
 
   String getName() {

@@ -132,6 +132,8 @@ public class NettyServerStreamRpcMetrics extends RatisMetrics {
   }
 
   private void inc(Op op, RequestType type) {
+    // newCounterMaps initializes every Op; callers pass only Op constants.
+    // @infer-ignore NULLPTR_DEREFERENCE
     ops.get(op).computeIfAbsent(op.getString(type), getRegistry()::counter).inc();
   }
 
