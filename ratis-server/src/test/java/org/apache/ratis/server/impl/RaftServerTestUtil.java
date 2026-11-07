@@ -130,6 +130,41 @@ public final class RaftServerTestUtil {
     Assertions.assertEquals(peers.size(), numIncluded + deadIncluded);
   }
 
+  static void waitAndCheckAddedPeers(MiniRaftCluster cluster,
+      RaftConfigurationImpl expectedConf, int numOfNewPeers) throws Exception {
+    final TimeDuration sleepTime = cluster.getTimeoutMax().apply(n -> n * (numOfNewPeers + 2));
+    JavaUtils.attempt(() -> waitAndCheckAddedPeers(cluster, expectedConf),
+        10, sleepTime, "waitAndCheckAddedPeers", LOG);
+  }
+
+  private static void waitAndCheckAddedPeers(MiniRaftCluster cluster,
+      RaftConfigurationImpl expectedConf) {
+    Assertions.assertNotNull(cluster.getLeader());
+
+    final Collection<RaftPeer> expectedPeers = expectedConf.getCurrentPeers();
+    final Collection<RaftPeer> expectedListeners =
+        expectedConf.getCurrentPeers(RaftProtos.RaftPeerRole.LISTENER);
+    int numIncluded = 0;
+
+    for (RaftServer.Division d : cluster.iterateDivisions()) {
+      final RaftServerImpl server = (RaftServerImpl)d;
+      final RaftConfigurationImpl actual = server.getState().getRaftConf();
+
+      if (expectedConf.containsInConf(
+          server.getId(), RaftProtos.RaftPeerRole.FOLLOWER, RaftProtos.RaftPeerRole.LISTENER)) {
+        Assertions.assertTrue(actual.isStable(),
+            () -> server.getId() + ": configuration is transitional: " + actual);
+        Assertions.assertTrue(actual.hasNoChange(expectedPeers, expectedListeners),
+            () -> "configuration mismatch for " + server.getId()
+                + ": expected=" + expectedConf + ", actual=" + actual);
+        numIncluded++;
+      }
+    }
+
+    Assertions.assertEquals(expectedPeers.size() + expectedListeners.size(), numIncluded,
+        "Number of expected members checked");
+  }
+
   public static long getNextIndex(RaftServer.Division server) {
     return ((RaftServerImpl)server).getState().getNextIndex();
   }

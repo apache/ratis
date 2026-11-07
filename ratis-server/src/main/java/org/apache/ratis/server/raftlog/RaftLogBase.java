@@ -54,10 +54,6 @@ public abstract class RaftLogBase implements RaftLog {
   private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", getName(), s);
   private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", getName(), s);
 
-  /** The least valid log index, i.e. the index used when writing to an empty log. */
-  public static final long LEAST_VALID_LOG_INDEX = 0L;
-  public static final long INVALID_LOG_INDEX = LEAST_VALID_LOG_INDEX - 1;
-
   private final String name;
   /**
    * The largest committed index. Note the last committed log may be included
