@@ -26,6 +26,7 @@ import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
@@ -56,6 +57,19 @@ import static org.apache.ratis.netty.server.DataStreamManagement.replyDataStream
 
 public class ReadStreamManagement {
   public static final Logger LOG = LoggerFactory.getLogger(ReadStreamManagement.class);
+
+  /** Does the class override {@link DataStreamApi#transferTo(Message, DataStreamApi.WritableChannel)}? */
+  private static final ClassValue<Boolean> OVERRIDES_WRITABLE_CHANNEL_TRANSFER_TO = new ClassValue<Boolean>() {
+    @Override
+    protected Boolean computeValue(Class<?> clazz) {
+      try {
+        return clazz.getMethod("transferTo", Message.class, DataStreamApi.WritableChannel.class)
+            .getDeclaringClass() != DataStreamApi.class;
+      } catch (NoSuchMethodException e) {
+        return false;
+      }
+    }
+  };
 
   static class ReadStream implements WritableByteChannel {
     private final ClientId clientId;
@@ -209,7 +223,7 @@ public class ReadStreamManagement {
       if (dataApi != null) {
         final RaftClientReply reply = RaftClientReply.newBuilder().setRequest(request).setSuccess().build();
         final long streamId = requestBuf.getStreamId();
-        requestExecutor.execute(() -> transfer(dataApi, request, streamId, ctx, reply));
+        requestExecutor.execute(() -> transferAny(dataApi, request, streamId, ctx, reply));
         return true;
       }
     }
@@ -241,11 +255,21 @@ public class ReadStreamManagement {
         return;
       }
 
-      transfer(division.getStateMachine().data(), request, requestBuf.getStreamId(), ctx, readCheckReply);
+      transferAny(division.getStateMachine().data(), request, requestBuf.getStreamId(), ctx, readCheckReply);
     }, requestExecutor);
     return true;
   }
 
+  private void transferAny(DataStreamApi dataApi, RaftClientRequest request, long streamId,
+      ChannelHandlerContext ctx, RaftClientReply terminalReply) {
+    if (OVERRIDES_WRITABLE_CHANNEL_TRANSFER_TO.get(dataApi.getClass())) {
+      transferToWritableChannel(dataApi, request, streamId, ctx, terminalReply);
+    } else {
+      transfer(dataApi, request, streamId, ctx, terminalReply);
+    }
+  }
+
+  @SuppressWarnings("deprecation")
   private void transfer(DataStreamApi dataApi, RaftClientRequest request, long streamId,
       ChannelHandlerContext ctx, RaftClientReply terminalReply) {
     try (ReadStream stream = new ReadStream(request, streamId, ctx, terminalReply)) {
@@ -265,6 +289,35 @@ public class ReadStreamManagement {
           }
         }
       }
+    } catch (IOException e) {
+      LOG.warn("{}: Failed to close read-only data stream for {}", this, request, e);
+    }
+  }
+
+  /**
+   * Transfer using {@link DataStreamApi#transferTo(Message, DataStreamApi.WritableChannel)}.
+   * The stream is owned by Ratis: it is closed if transferTo returns normally, or failed if transferTo throws.
+   */
+  private void transferToWritableChannel(DataStreamApi dataApi, RaftClientRequest request, long streamId,
+      ChannelHandlerContext ctx, RaftClientReply terminalReply) {
+    final ReadStream stream = new ReadStream(request, streamId, ctx, terminalReply);
+    try {
+      dataApi.transferTo(request.getMessage(), stream::write);
+    } catch (Throwable t) {
+      LOG.error("{}: Failed read-only data stream transferTo for {}", this, request, t);
+      final RaftClientReply failure = RaftClientReply.newBuilder()
+          .setRequest(request)
+          .setException(new DataStreamException(server.getId(), t))
+          .build();
+      try {
+        stream.fail(failure);
+      } catch (IOException e) {
+        LOG.warn("{}: Failed to send read-only data stream error for {}", this, request, e);
+      }
+      return;
+    }
+    try {
+      stream.close();
     } catch (IOException e) {
       LOG.warn("{}: Failed to close read-only data stream for {}", this, request, e);
     }
