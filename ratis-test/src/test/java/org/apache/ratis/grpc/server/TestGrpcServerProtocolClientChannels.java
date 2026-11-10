@@ -44,7 +44,7 @@ public class TestGrpcServerProtocolClientChannels extends BaseTest {
   @Test
   public void testOneConnectionUsesMainChannel() {
     final GrpcServerProtocolClient client = newClient(1);
-    final GrpcAppendEntriesStreams streams = client.getAppendEntriesStreamsForTesting();
+    final GrpcAppendEntriesChannels streams = client.getAppendEntriesStreamsForTesting();
     try {
       // no other channels; appendEntries uses the main channel
       assertNull(streams.getOtherChannelsForTesting());
@@ -63,7 +63,7 @@ public class TestGrpcServerProtocolClientChannels extends BaseTest {
   public void testStreamsTakeConnectionsInTurn() {
     final int connections = 4;
     final GrpcServerProtocolClient client = newClient(connections);
-    final GrpcAppendEntriesStreams streams = client.getAppendEntriesStreamsForTesting();
+    final GrpcAppendEntriesChannels streams = client.getAppendEntriesStreamsForTesting();
     final List<ManagedChannel> others = streams.getOtherChannelsForTesting();
     try {
       // the channels dedicated to appendEntries
@@ -75,7 +75,7 @@ public class TestGrpcServerProtocolClientChannels extends BaseTest {
       assertEquals(others, streams.getAppendEntriesChannelsForTesting());
 
       for (int i = 0; i < 100; i++) {
-        assertEquals(i % connections, streams.nextStreamIndex());
+        assertEquals(i % connections, streams.nextChannelIndex());
       }
 
       // called by GrpcLogAppender when it resets the client

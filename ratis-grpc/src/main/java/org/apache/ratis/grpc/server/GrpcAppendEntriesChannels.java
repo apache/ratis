@@ -33,17 +33,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
- * The appendEntries streams to a peer.
+ * Channels for creating appendEntries streams to a peer.
  * <p>
- * When there are no other channels, all the streams use the main channel,
+ * When there are no other channels, use only the main channel to create streams,
  * which is shared with the other RPCs (requestVote, installSnapshot, etc.).
- * Otherwise, the streams use only the other channels, which are dedicated to appendEntries;
+ * Otherwise, use only the other channels, which are dedicated to appendEntries;
  * each stream uses one channel and the new streams take the channels in turn.
  * <p>
  * All the channels, including the other channels, are owned by the caller,
  * which is also responsible for shutting them down.
  */
-class GrpcAppendEntriesStreams {
+class GrpcAppendEntriesChannels {
   // The main channel; null if the other channels are used for appendEntries.
   private final ManagedChannel mainChannel;
   private final RaftServerProtocolServiceStub mainStub;
@@ -51,7 +51,7 @@ class GrpcAppendEntriesStreams {
   private final List<ManagedChannel> otherChannels;
   private final List<RaftServerProtocolServiceStub> otherStubs;
   // The index of the channel in otherChannels for the next stream
-  private final AtomicInteger streamIndex = new AtomicInteger();
+  private final AtomicInteger channelIndex = new AtomicInteger();
 
   /**
    * @param mainChannel   the main channel, used for appendEntries only if there are no other channels;
@@ -59,7 +59,7 @@ class GrpcAppendEntriesStreams {
    * @param otherChannels the channels dedicated to appendEntries;
    *                      null means that there are no other channels, otherwise it must be non-empty.
    */
-  GrpcAppendEntriesStreams(ManagedChannel mainChannel, List<ManagedChannel> otherChannels) {
+  GrpcAppendEntriesChannels(ManagedChannel mainChannel, List<ManagedChannel> otherChannels) {
     if (otherChannels == null) {
       this.mainChannel = mainChannel;
       this.mainStub = RaftServerProtocolServiceGrpc.newStub(mainChannel);
@@ -76,24 +76,20 @@ class GrpcAppendEntriesStreams {
     }
   }
 
-  /**
-   * Create a new appendEntries stream.
-   * Use the main channel if there are no other channels;
-   * otherwise, use the next other channel.
-   */
+  /** Create a new {@link CallStreamObserver} for appendEntries. */
   CallStreamObserver<AppendEntriesRequestProto> newStream(StreamObserver<AppendEntriesReplyProto> responseHandler) {
-    final RaftServerProtocolServiceStub stub = otherStubs != null ? otherStubs.get(nextStreamIndex()) : mainStub;
+    final RaftServerProtocolServiceStub stub = otherStubs != null ? otherStubs.get(nextChannelIndex()) : mainStub;
     return (CallStreamObserver<AppendEntriesRequestProto>) stub.appendEntries(responseHandler);
   }
 
   /**
    * This method must be called only when there are other channels.
    *
-   * @return the index in the other channels of the channel for a new stream.
+   * @return the index in the other channels for a new stream.
    */
-  int nextStreamIndex() {
+  int nextChannelIndex() {
     Objects.requireNonNull(otherStubs, "otherStubs == null");
-    return streamIndex.getAndUpdate(n -> (n + 1) % otherStubs.size());
+    return channelIndex.getAndUpdate(n -> (n + 1) % otherStubs.size());
   }
 
   List<ManagedChannel> getAppendEntriesChannelsForTesting() {

@@ -55,7 +55,7 @@ class GrpcServerProtocolClient implements Closeable {
   // All the channels: the main channel, the other appendEntries channels and the heartbeat channel
   private final List<ManagedChannel> allChannels;
   // The appendEntries streams, using either the main channel or the other channels dedicated to appendEntries
-  private final GrpcAppendEntriesStreams appendEntriesStreams;
+  private final GrpcAppendEntriesChannels appendEntriesStreams;
   private final GrpcStubPool<RaftServerProtocolServiceStub> pool;
   private final RaftServerProtocolServiceBlockingStub blockingStub;
 
@@ -86,7 +86,7 @@ class GrpcServerProtocolClient implements Closeable {
       }
       all.addAll(otherChannels);
     }
-    this.appendEntriesStreams = new GrpcAppendEntriesStreams(channel, otherChannels);
+    this.appendEntriesStreams = new GrpcAppendEntriesChannels(channel, otherChannels);
 
     // Channel and stub for heartbeat
     if (separateHBChannel) {
@@ -193,7 +193,7 @@ class GrpcServerProtocolClient implements Closeable {
   /**
    * Create a new appendEntries stream.
    * A heartbeat stream uses the heartbeat channel if there is a separate one.
-   * Otherwise, the stream is created by {@link GrpcAppendEntriesStreams#newStream(StreamObserver)}.
+   * Otherwise, the stream is created by {@link GrpcAppendEntriesChannels#newStream(StreamObserver)}.
    */
   CallStreamObserver<AppendEntriesRequestProto> appendEntries(
       StreamObserver<AppendEntriesReplyProto> responseHandler, boolean isHeartbeat) {
@@ -204,7 +204,7 @@ class GrpcServerProtocolClient implements Closeable {
     }
   }
 
-  GrpcAppendEntriesStreams getAppendEntriesStreamsForTesting() {
+  GrpcAppendEntriesChannels getAppendEntriesStreamsForTesting() {
     return appendEntriesStreams;
   }
 
