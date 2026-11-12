@@ -28,7 +28,6 @@ import org.apache.ratis.util.Preconditions;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -88,7 +87,7 @@ class GrpcAppendEntriesChannels {
    * @return the index in the other channels for a new stream.
    */
   int nextChannelIndex() {
-    Objects.requireNonNull(otherStubs, "otherStubs == null");
+    Preconditions.assertNotNull(otherStubs, "The method should not be called when otherStubs == null");
     return channelIndex.getAndUpdate(n -> (n + 1) % otherStubs.size());
   }
 
