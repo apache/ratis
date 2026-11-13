@@ -18,9 +18,11 @@
 package org.apache.ratis.grpc.server;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -42,34 +44,46 @@ public class TestGrpcServerProtocolClientChannels extends BaseTest {
   @Test
   public void testOneConnectionUsesMainChannel() {
     final GrpcServerProtocolClient client = newClient(1);
+    final GrpcAppendEntriesChannels streams = client.getAppendEntriesStreamsForTesting();
     try {
-      final List<ManagedChannel> channels = client.getAppendEntriesChannels();
-      assertEquals(1, channels.size());
-      assertSame(client.getMainChannel(), channels.get(0));
-      for (int i = 0; i < 10; i++) {
-        assertEquals(0, client.nextAppendEntriesIndex());
-      }
+      // no other channels; appendEntries uses the main channel
+      assertNull(streams.getOtherChannelsForTesting());
+      assertEquals(Collections.singletonList(client.getMainChannelForTesting()),
+          streams.getAppendEntriesChannelsForTesting());
+
+      // called by GrpcLogAppender when it resets the client
+      client.resetConnectBackoff();
     } finally {
       client.close();
     }
+    assertTrue(client.getMainChannelForTesting().isShutdown(), "the main channel is not shut down");
   }
 
   @Test
-  public void testAppendersTakeConnectionsInTurn() {
+  public void testStreamsTakeConnectionsInTurn() {
     final int connections = 4;
     final GrpcServerProtocolClient client = newClient(connections);
-    final List<ManagedChannel> channels = client.getAppendEntriesChannels();
+    final GrpcAppendEntriesChannels streams = client.getAppendEntriesStreamsForTesting();
+    final List<ManagedChannel> others = streams.getOtherChannelsForTesting();
     try {
-      assertEquals(connections, channels.size());
-      assertSame(client.getMainChannel(), channels.get(0));
-      assertEquals(connections, new HashSet<>(channels).size());
+      // the channels dedicated to appendEntries
+      assertEquals(connections, others.size());
+      assertEquals(connections, new HashSet<>(others).size());
+
+      // the main channel is not used for appendEntries
+      assertFalse(others.contains(client.getMainChannelForTesting()));
+      assertEquals(others, streams.getAppendEntriesChannelsForTesting());
 
       for (int i = 0; i < 100; i++) {
-        assertEquals(i % connections, client.nextAppendEntriesIndex());
+        assertEquals(i % connections, streams.nextChannelIndex());
       }
+
+      // called by GrpcLogAppender when it resets the client
+      client.resetConnectBackoff();
     } finally {
       client.close();
     }
-    channels.forEach(c -> assertTrue(c.isShutdown(), c + " is not shut down"));
+    assertTrue(client.getMainChannelForTesting().isShutdown(), "the main channel is not shut down");
+    others.forEach(c -> assertTrue(c.isShutdown(), c + " is not shut down"));
   }
 }

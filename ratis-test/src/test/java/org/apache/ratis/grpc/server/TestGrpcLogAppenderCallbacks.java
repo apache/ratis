@@ -62,7 +62,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -189,7 +188,7 @@ public class TestGrpcLogAppenderCallbacks {
       when(serverRpc.getProxies().getProxy(destination)).thenThrow(error);
     } else {
       error = new IllegalStateException("Failed to create append stream");
-      when(client.appendEntries(anyInt(), any(), eq(false))).thenThrow(error);
+      when(client.appendEntries(any(), eq(false))).thenThrow(error);
     }
     Assertions.assertSame(error, Assertions.assertThrows(Exception.class, () -> appender.appendLog(false)));
     final InOrder order = inOrder(appendEntries);
