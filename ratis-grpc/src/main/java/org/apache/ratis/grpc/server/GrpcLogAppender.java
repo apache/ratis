@@ -62,6 +62,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -151,6 +152,8 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   private final AtomicLong callId = new AtomicLong();
+
+  private final AtomicBoolean snapshotInstallInProgress = new AtomicBoolean();
 
   private final RequestMap pendingRequests = new RequestMap();
   private final int maxPendingRequestsNum;
@@ -272,6 +275,14 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
   }
 
+  private void setSnapshotInstallInProgress(boolean inProgress) {
+    snapshotInstallInProgress.set(inProgress);
+  }
+
+  private boolean isSnapshotInstallInProgress() {
+    return snapshotInstallInProgress.get();
+  }
+
   private boolean isFollowerCommitBehindLastCommitIndex() {
     return getRaftLog().getLastCommittedIndex() > getFollower().getCommitIndex();
   }
@@ -298,8 +309,10 @@ public class GrpcLogAppender extends LogAppenderBase {
   public void run() throws IOException {
     try {
       for(; isRunning(); mayWait()) {
+        // Skip sending the snapshot notification and the heartbeat until the heartbeat interval has elapsed.
+        final boolean skipSending = isSnapshotInstallInProgress() && getHeartbeatWaitTimeMs() > 0;
         //HB period is expired OR we have messages OR follower is behind with commit index
-        if (shouldSendAppendEntries() || isFollowerCommitBehindLastCommitIndex()) {
+        if (!skipSending && (shouldSendAppendEntries() || isFollowerCommitBehindLastCommitIndex())) {
           final boolean installingSnapshot = installSnapshot();
           appendLog(installingSnapshot || haveTooManyPendingRequests());
         }
@@ -314,8 +327,10 @@ public class GrpcLogAppender extends LogAppenderBase {
   }
 
   public long getWaitTimeMs() {
-    if (haveTooManyPendingRequests()) {
-      return getHeartbeatWaitTimeMs(); // Should wait for a short time
+    if (haveTooManyPendingRequests() || isSnapshotInstallInProgress()) {
+      // Either the follower has too many pending requests, or it is installing a snapshot
+      // (replies are always IN_PROGRESS/INCONSISTENCY): wait until the next heartbeat.
+      return getHeartbeatWaitTimeMs();
     } else if (shouldSendAppendEntries() && !isSlowFollower()) {
       // For normal nodes, new entries should be sent ASAP
       // however for slow followers (especially when the follower is down),
@@ -737,6 +752,8 @@ public class GrpcLogAppender extends LogAppenderBase {
       // update the last rpc time
       getFollower().updateLastRpcResponseTime();
       replyState.process(Event.SNAPSHOT_REPLY);
+      // Throttle only while the follower is still installing, and any other reply ends it.
+      setSnapshotInstallInProgress(reply.getResult() == InstallSnapshotResult.IN_PROGRESS);
 
       final long followerSnapshotIndex;
       switch (reply.getResult()) {
@@ -800,6 +817,8 @@ public class GrpcLogAppender extends LogAppenderBase {
 
     @Override
     public void onError(Throwable t) {
+      // The progress of a snapshot notification is unknown after an error, so stop skipping the sending.
+      setSnapshotInstallInProgress(false);
       if (!isRunning()) {
         LOG.info("{} is stopped", GrpcLogAppender.this);
         return;
