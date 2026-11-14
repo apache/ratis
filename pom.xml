@@ -186,7 +186,7 @@
     <shaded.grpc.version>1.82.4</shaded.grpc.version>
 
     <!-- OpenTelemetry versions -->
-    <opentelemetry.version>1.67.0</opentelemetry.version>
+    <opentelemetry.version>1.68.0</opentelemetry.version>
     <opentelemetry-javaagent.version>2.33.1</opentelemetry-javaagent.version>
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
