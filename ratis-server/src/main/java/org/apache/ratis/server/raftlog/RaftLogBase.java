@@ -116,23 +116,17 @@ public abstract class RaftLogBase implements RaftLog {
 
   @Override
   public boolean updateCommitIndex(long majorityIndex, long currentTerm, boolean isLeader) {
-    try(AutoCloseableLock writeLock = tryWriteLock(TimeDuration.ONE_SECOND)) {
-      final long oldCommittedIndex = getLastCommittedIndex();
-      final long newCommitIndex = Math.min(majorityIndex, getFlushIndex());
-      if (oldCommittedIndex < newCommitIndex) {
-        if (!isLeader) {
-          return commitIndex.updateToMax(newCommitIndex, traceIndexChange);
-        }
-
-        // Only update last committed index for current term. See §5.4.2 in paper for details.
-        final TermIndex entry = getTermIndex(newCommitIndex);
-        if (entry != null && entry.getTerm() == currentTerm) {
-          return commitIndex.updateToMax(newCommitIndex, traceIndexChange);
-        }
-      }
-    } catch (InterruptedException e) {
-      LOG.warn("{}: Interrupted to updateCommitIndex: majorityIndex={}, currentTerm={}, isLeader={}",
-          getName(), majorityIndex, currentTerm, isLeader, e);
+    final long newCommitIndex = Math.min(majorityIndex, getFlushIndex());
+    if (newCommitIndex <= getLastCommittedIndex()) {
+      return false;
+    }
+    if (!isLeader) {
+      return commitIndex.updateToMax(newCommitIndex, traceIndexChange);
+    }
+    // Only update last committed index for current term. See §5.4.2 in paper for details.
+    final TermIndex entry = getTermIndex(newCommitIndex);
+    if (entry != null && entry.getTerm() == currentTerm) {
+      return commitIndex.updateToMax(newCommitIndex, traceIndexChange);
     }
     return false;
   }
