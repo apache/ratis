@@ -56,6 +56,15 @@ public final class RetryCacheTestUtil {
     return ((RetryCacheImpl.CacheEntry)entry).isFailed();
   }
 
+  public static RetryCache.Entry createFailedEntry(RaftServer.Division server, ClientId clientId,
+      long callId, Throwable t) {
+    final RetryCacheImpl cache = (RetryCacheImpl) server.getRetryCache();
+    final RetryCacheImpl.CacheEntry entry =
+        cache.getOrCreateEntry(ClientInvocationId.valueOf(clientId, callId));
+    entry.failWithException(t);
+    return entry;
+  }
+
   public static void assertFailure(RetryCache cache, LogEntryProto logEntry, boolean isFailed) {
     if(logEntry.hasStateMachineLogEntry()) {
       final ClientInvocationId invocationId = ClientInvocationId.valueOf(logEntry.getStateMachineLogEntry());

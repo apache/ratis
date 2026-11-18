@@ -20,6 +20,9 @@ package org.apache.ratis.statemachine;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -34,6 +37,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Slf4jUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -200,5 +204,30 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
         Assertions.assertSame(e.getValue(), server.getDivision(e.getKey()).getStateMachine());
       }
     }
+  }
+
+  @Test
+  public void testTransactionContextFromLogEntry() {
+    final LogEntryProto entry = LogEntryProto.newBuilder()
+        .setTerm(1)
+        .setIndex(1)
+        .setStateMachineLogEntry(StateMachineLogEntryProto.newBuilder()
+            .setLogData(ByteString.copyFromUtf8("log-data")))
+        .build();
+    final StateMachine sm = new SimpleStateMachine4Testing();
+
+    final Object context = new Object();
+    final TransactionContext withContext = TransactionContext.newBuilder()
+        .setStateMachine(sm)
+        .setLogEntry(entry)
+        .setServerRole(RaftPeerRole.FOLLOWER)
+        .setStateMachineContext(context)
+        .build();
+    Assertions.assertSame(context, withContext.getStateMachineContext());
+    Assertions.assertSame(entry, withContext.getLogEntry());
+    assertEquals(RaftPeerRole.FOLLOWER, withContext.getServerRole());
+
+    final TransactionContext withoutContext = sm.startTransaction(entry, RaftPeerRole.FOLLOWER);
+    assertNull(withoutContext.getStateMachineContext());
   }
 }
