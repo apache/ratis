@@ -143,8 +143,8 @@ public abstract class RaftLogBase implements RaftLog {
 
   @Override
   public void updateSnapshotIndex(long newSnapshotIndex) {
-    snapshotIndex.updateToMax(newSnapshotIndex, infoIndexChange);
     commitIndex.updateToMax(newSnapshotIndex, traceIndexChange);
+    snapshotIndex.updateToMax(newSnapshotIndex, infoIndexChange);
   }
 
   @Override
@@ -357,10 +357,6 @@ public abstract class RaftLogBase implements RaftLog {
 
   public AutoCloseableLock writeLock() {
     return AutoCloseableLock.acquire(lock.writeLock());
-  }
-
-  public AutoCloseableLock tryWriteLock(TimeDuration timeout) throws InterruptedException {
-    return AutoCloseableLock.tryAcquire(lock.writeLock(), null, timeout);
   }
 
   public boolean hasWriteLock() {
