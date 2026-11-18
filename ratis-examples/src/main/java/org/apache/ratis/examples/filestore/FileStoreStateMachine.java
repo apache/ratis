@@ -150,8 +150,12 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
   @Override
   public TransactionContext startTransaction(LogEntryProto entry, RaftProtos.RaftPeerRole role) {
-    final TransactionContext trx = super.startTransaction(entry, role);
-    return trx.setStateMachineContext(getProto(entry));
+    return TransactionContext.newBuilder()
+        .setStateMachine(this)
+        .setLogEntry(entry)
+        .setServerRole(role)
+        .setStateMachineContext(getProto(entry))
+        .build();
   }
 
   void simulateFailure(String path) throws Exception {
