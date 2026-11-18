@@ -43,6 +43,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -745,5 +746,59 @@ public class TestRaftStorage extends BaseTest {
     final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(mockStorageDir, SizeInBytes.valueOf("100M"));
     StorageState state = sd.analyzeStorage(false);
     Assertions.assertEquals(StorageState.NO_SPACE, state);
+  }
+
+  /** The storage directory exists but is not writable. */
+  @Test
+  public void testInsufficientPrivilegeExistingDir() throws IOException {
+    FileUtils.createDirectories(storageDir);
+    Assertions.assertTrue(storageDir.setWritable(false));
+    try {
+      assumeNotWritable(storageDir);
+      final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir, SizeInBytes.ZERO);
+      Assertions.assertEquals(StorageState.INSUFFICIENT_PRIVILEGE, sd.analyzeStorage(false));
+    } finally {
+      Assertions.assertTrue(storageDir.setWritable(true));
+    }
+  }
+
+  /** The storage directory does not exist and its parent is not writable, so it cannot be created. */
+  @Test
+  public void testInsufficientPrivilegeCannotCreateDir() throws IOException {
+    final File parent = storageDir.getParentFile();
+    FileUtils.createDirectories(parent);
+    Assertions.assertFalse(storageDir.exists());
+    Assertions.assertTrue(parent.setWritable(false));
+    try {
+      assumeNotWritable(parent);
+      final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir, SizeInBytes.ZERO);
+      Assertions.assertEquals(StorageState.INSUFFICIENT_PRIVILEGE, sd.analyzeStorage(false));
+      Assertions.assertFalse(storageDir.exists());
+    } finally {
+      Assertions.assertTrue(parent.setWritable(true));
+    }
+  }
+
+  /** RaftStorage initialization should fail with a message containing INSUFFICIENT_PRIVILEGE. */
+  @Test
+  public void testInsufficientPrivilegeInitialize() throws IOException {
+    FileUtils.createDirectories(storageDir);
+    Assertions.assertTrue(storageDir.setWritable(false));
+    try {
+      assumeNotWritable(storageDir);
+      final IOException e = Assertions.assertThrows(IOException.class, () -> newRaftStorage(storageDir));
+      Assertions.assertTrue(e.getMessage().contains(StorageState.INSUFFICIENT_PRIVILEGE.name()), e.getMessage());
+
+      final IOException f = Assertions.assertThrows(IOException.class, () -> formatRaftStorage(storageDir));
+      Assertions.assertTrue(f.getMessage().contains("Cannot format"), f.getMessage());
+    } finally {
+      Assertions.assertTrue(storageDir.setWritable(true));
+    }
+  }
+
+  /** Skip the test if permissions are not enforced, e.g. when running as root. */
+  private static void assumeNotWritable(File dir) {
+    Assumptions.assumeFalse(Files.isWritable(dir.toPath()),
+        () -> "Permissions are not enforced for " + dir + " (running as root?)");
   }
 }
