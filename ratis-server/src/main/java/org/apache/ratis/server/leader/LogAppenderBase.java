@@ -213,7 +213,8 @@ public abstract class LogAppenderBase implements LogAppender {
   public AppendEntriesRequestProto newAppendEntriesRequest(long callId, boolean heartbeat)
       throws RaftLogIOException {
     final long heartbeatWaitTimeMs = getHeartbeatWaitTimeMs();
-    final TermIndex previous = getPrevious(follower.getNextIndex());
+    final long followerNext = follower.getNextIndex();
+    final TermIndex previous = getPrevious(followerNext);
     if (heartbeatWaitTimeMs <= 0L || heartbeat) {
       // heartbeat
       return leaderState.newAppendEntriesRequestProto(follower, Collections.emptyList(),
@@ -224,7 +225,6 @@ public abstract class LogAppenderBase implements LogAppender {
 
     final long snapshotIndex = follower.getSnapshotIndex();
     final long leaderNext = getRaftLog().getNextIndex();
-    final long followerNext = follower.getNextIndex();
 
     if (previous == null && followerNext > RaftLog.LEAST_VALID_LOG_INDEX && followerNext != snapshotIndex + 1) {
       LOG.info("{}: Skipping appendEntries since the previous log entry is unavailable:" +

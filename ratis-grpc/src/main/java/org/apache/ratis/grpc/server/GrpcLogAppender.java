@@ -437,8 +437,8 @@ public class GrpcLogAppender extends LogAppenderBase {
     AppendEntriesRequest request = null;
     try {
       try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
-        // Prepare and send the append request.
-        // Note changes on follower's nextIndex and ops on pendingRequests should always be done under the write-lock
+        // Order request preparation and registration with stream resets and snapshot updates.
+        // Successful append replies may advance the indexes independently.
         pending = newAppendEntriesRequest(callId.getAndIncrement(), heartbeat);
         if (pending == null) {
           return;
@@ -446,7 +446,7 @@ public class GrpcLogAppender extends LogAppenderBase {
         request = new AppendEntriesRequest(pending, getFollowerId(), grpcServerMetrics);
         pendingRequests.put(request);
         notifyAppendEntriesListener(l -> l.onRequest(pending));
-        increaseNextIndex(pending);
+        updateNextIndexForAppendEntries(pending);
         if (appendLogRequestObserver == null) {
           appendLogRequestObserver = new StreamObservers(getClient(),
               new AppendLogResponseHandler(), useSeparateHBChannel, getWaitTimeMin());
@@ -513,14 +513,15 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
   }
 
-  private void increaseNextIndex(AppendEntriesRequestProto request) {
+  private void updateNextIndexForAppendEntries(AppendEntriesRequestProto request) {
     final int count = request.getEntriesCount();
     if (count > 0) {
-      getFollower().increaseNextIndex(request.getEntries(count - 1).getIndex() + 1);
+      // A concurrent successful reply may already have advanced nextIndex beyond this request.
+      getFollower().updateNextIndex(request.getEntries(count - 1).getIndex() + 1);
     }
   }
 
-  private void increaseNextIndex(final long installedSnapshotIndex, Object reason) {
+  private void updateNextIndexForSnapshot(final long installedSnapshotIndex, Object reason) {
     final long newNextIndex = installedSnapshotIndex + 1;
     LOG.info("{}: updateNextIndex {} for {}", this, newNextIndex, reason);
     getFollower().updateNextIndex(newNextIndex);
@@ -591,7 +592,7 @@ public class GrpcLogAppender extends LogAppenderBase {
               suffix -> LOG.warn("{}: received {} reply with nextIndex {}, errorCount={}, request={} {}",
               this, reply.getResult(), reply.getNextIndex(), errorCount, request, suffix));
           final long requestFirstIndex = request != null? request.getFirstIndex(): RaftLog.INVALID_LOG_INDEX;
-          updateNextIndex(getNextIndexForInconsistency(requestFirstIndex, reply.getNextIndex()));
+          updateNextIndexForInconsistency(requestFirstIndex, reply.getNextIndex());
           break;
         default:
           throw new IllegalStateException("Unexpected reply result: " + reply.getResult());
@@ -634,11 +635,11 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
   }
 
-  private void updateNextIndex(long replyNextIndex) {
+  private void updateNextIndexForInconsistency(long requestFirstIndex, long replyNextIndex) {
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
       notifyAppendEntriesListener(GrpcLogAppenderListener.AppendEntries::onReplyInconsistency);
       pendingRequests.clear();
-      getFollower().setNextIndex(replyNextIndex);
+      getFollower().computeNextIndex(ignored -> getNextIndexForInconsistency(requestFirstIndex, replyNextIndex));
     }
   }
 
@@ -753,10 +754,12 @@ public class GrpcLogAppender extends LogAppenderBase {
         case ALREADY_INSTALLED:
           followerSnapshotIndex = reply.getSnapshotIndex();
           LOG.info("{}: Follower snapshot is already at index {}.", this, followerSnapshotIndex);
-          getFollower().setSnapshotIndex(followerSnapshotIndex);
+          try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
+            getFollower().setSnapshotIndex(followerSnapshotIndex);
+            updateNextIndexForSnapshot(followerSnapshotIndex, reply.getResult());
+          }
           getFollower().setAttemptedToInstallSnapshot();
           getLeaderState().onFollowerCommitIndex(getFollower(), followerSnapshotIndex);
-          increaseNextIndex(followerSnapshotIndex, reply.getResult());
           removePending(reply);
           break;
         case NOT_LEADER:
@@ -770,10 +773,12 @@ public class GrpcLogAppender extends LogAppenderBase {
         case SNAPSHOT_INSTALLED:
           followerSnapshotIndex = reply.getSnapshotIndex();
           LOG.info("{}: Follower installed snapshot at index {}", this, followerSnapshotIndex);
-          getFollower().setSnapshotIndex(followerSnapshotIndex);
+          try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
+            getFollower().setSnapshotIndex(followerSnapshotIndex);
+            updateNextIndexForSnapshot(followerSnapshotIndex, reply.getResult());
+          }
           getFollower().setAttemptedToInstallSnapshot();
           getLeaderState().onFollowerCommitIndex(getFollower(), followerSnapshotIndex);
-          increaseNextIndex(followerSnapshotIndex, reply.getResult());
           onFollowerCatchup(followerSnapshotIndex);
           removePending(reply);
           break;
@@ -861,7 +866,9 @@ public class GrpcLogAppender extends LogAppenderBase {
     responseHandler.waitForResponse();
 
     if (responseHandler.hasAllResponse()) {
-      getFollower().setSnapshotIndex(snapshot.getTermIndex().getIndex());
+      try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
+        getFollower().setSnapshotIndex(snapshot.getTermIndex().getIndex());
+      }
       LOG.info("{}: installed snapshot {} successfully", this, snapshot);
     }
   }
