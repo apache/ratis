@@ -1561,9 +1561,9 @@ class RaftServerImpl implements RaftServer.Division,
     if (getInfo().isLeader() && cacheEntry.isCompletedNormally()) {
       LOG.warn("{} retry cache entry of leader should be pending: {}", this, cacheEntry);
     }
-    if (cacheEntry.isFailed()) {
-      retryCache.refreshEntry(new CacheEntry(cacheEntry.getKey()));
-    }
+    final CacheEntry entryToComplete = cacheEntry.isFailed()
+        ? retryCache.refreshEntry(new CacheEntry(cacheEntry.getKey()))
+        : cacheEntry;
 
     return stateMachineFuture.whenComplete((reply, exception) -> {
       getTransactionManager().remove(termIndex);
@@ -1581,9 +1581,9 @@ class RaftServerImpl implements RaftServer.Division,
       // update pending request
       final LeaderStateImpl leader = role.getLeaderState().orElse(null);
       if (leader != null) {
-        leader.replyPendingRequest(termIndex, r, cacheEntry);
+        leader.replyPendingRequest(termIndex, r, entryToComplete);
       } else {
-        cacheEntry.updateResult(r);
+        entryToComplete.updateResult(r);
       }
     });
   }
