@@ -24,10 +24,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.ClientInvocationId;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
@@ -60,10 +57,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -78,10 +71,7 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
@@ -288,102 +278,6 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       }
 
       cluster.shutdown();
-    }
-  }
-
-  @Test
-  public void testRetryCacheCompletesAfterLeaderTransfer() throws Exception {
-    try (final MiniRaftCluster cluster = newCluster(3)) {
-      cluster.start();
-      waitForLeader(cluster);
-      // Give peer connections time to recover from connection failures during startup.
-      TimeDuration.valueOf(3, TimeUnit.SECONDS).sleep();
-      final RaftServerImpl oldLeader = (RaftServerImpl) waitForLeader(cluster);
-
-      try (RaftClient client = cluster.createClient(oldLeader.getId())) {
-        final RaftServer.Division target = cluster.getFollowers().get(0);
-        final RaftClientRequest request = cluster.newRaftClientRequest(
-            ClientId.randomId(), oldLeader.getId(), 100L, new RaftTestUtil.SimpleMessage("W"));
-        final ClientInvocationId invocationId = ClientInvocationId.valueOf(request);
-
-        final CountDownLatch reachedAppend = new CountDownLatch(1);
-        final CountDownLatch resumeAppend = new CountDownLatch(1);
-        final ExecutorService writer = Executors.newSingleThreadExecutor();
-
-        CodeInjectionForTesting.put(RaftServerImpl.APPEND_TRANSACTION, (localId, remoteId, args) -> {
-          // The cache entry exists, but appendTransaction has yet to check the role.
-          reachedAppend.countDown();
-          try {
-            assertTrue(resumeAppend.await(60, TimeUnit.SECONDS), "Timed out waiting to resume the write");
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new AssertionError("Interrupted while pausing the write", e);
-          }
-          return true;
-        });
-
-        try {
-          // Submit a single attempt to the old leader without client-side retry.
-          final Future<CompletableFuture<RaftClientReply>> submission =
-              writer.submit(() -> oldLeader.submitClientRequestAsync(request));
-
-          assertTrue(reachedAppend.await(10, TimeUnit.SECONDS), "Write did not reach appendTransaction");
-
-          final RetryCacheImpl.CacheEntry originalCacheEntry = oldLeader.getRetryCache().getIfPresent(invocationId);
-          assertNotNull(originalCacheEntry, "W should already be in the retry cache");
-          assertFalse(originalCacheEntry.getReplyFuture().isDone());
-
-          assertTrue(client.admin().transferLeadership(target.getId(), oldLeader.getId(), 20000).isSuccess());
-          assertEquals(target.getId(), waitForLeader(cluster).getId());
-          RaftTestUtil.waitFor(
-              () -> oldLeader.getInfo().isFollower() && !oldLeader.getRole().getLeaderState().isPresent(),
-              10, 5000);
-
-          resumeAppend.countDown();
-
-          final RaftClientReply reply = submission.get(10, TimeUnit.SECONDS).get(10, TimeUnit.SECONDS);
-          assertNotNull(reply.getNotLeaderException());
-          assertSame(originalCacheEntry, oldLeader.getRetryCache().getIfPresent(invocationId));
-          assertTrue(originalCacheEntry.isFailed());
-
-          final RaftServerImpl newLeader = (RaftServerImpl) target;
-          final RaftClientRequest retry = cluster.newRaftClientRequest(
-              request.getClientId(), newLeader.getId(), request.getCallId(), request.getMessage());
-          final RaftClientReply committed = newLeader.submitClientRequestAsync(retry)
-              .get(10, TimeUnit.SECONDS);
-          assertTrue(committed.isSuccess(), committed::toString);
-
-          final RaftClientRequest marker = cluster.newRaftClientRequest(
-              request.getClientId(), newLeader.getId(), request.getCallId() + 1,
-              new RaftTestUtil.SimpleMessage("after W"));
-          final ClientInvocationId markerId = ClientInvocationId.valueOf(marker);
-          final RaftClientReply markerReply = newLeader.submitClientRequestAsync(marker)
-              .get(10, TimeUnit.SECONDS);
-          assertTrue(markerReply.isSuccess(), markerReply::toString);
-
-          // Wait for the marker's reply to be cached on the old leader.
-          // With BaseStateMachine, the updater runs W's reply callback before it processes the marker.
-          RaftTestUtil.waitFor(() -> {
-            final RetryCacheImpl.CacheEntry markerEntry = oldLeader.getRetryCache().getIfPresent(markerId);
-            return markerEntry != null && markerEntry.isCompletedNormally();
-          }, 10, 10000);
-
-          final RetryCacheImpl.CacheEntry refreshedCacheEntry = oldLeader.getRetryCache().getIfPresent(invocationId);
-          assertNotNull(refreshedCacheEntry);
-          assertNotSame(originalCacheEntry, refreshedCacheEntry);
-
-          final RaftClientReply cachedReply = refreshedCacheEntry.getReplyFuture().getNow(null);
-          assertNotNull(cachedReply, "Applying W should complete the replacement retry-cache entry");
-          assertTrue(cachedReply.isSuccess(), cachedReply::toString);
-        } finally {
-          resumeAppend.countDown();
-          CodeInjectionForTesting.remove(RaftServerImpl.APPEND_TRANSACTION);
-          writer.shutdown();
-          if (!writer.awaitTermination(10, TimeUnit.SECONDS)) {
-            writer.shutdownNow();
-          }
-        }
-      }
     }
   }
 

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis;
 
+import org.apache.ratis.server.RetryCache;
 import org.apache.ratis.server.impl.MiniRaftCluster;
 import org.apache.ratis.server.impl.PeerChanges;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -163,6 +164,36 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
 
       // check the new leader and make sure the retry did not get committed
       Assertions.assertEquals(0, count(cluster.getLeader().getRaftLog(), oldLastApplied + 1));
+    }
+  }
+
+  @Test
+  public void testApplyCompletesReplacementOfFailedEntry() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestApplyCompletesReplacementOfFailedEntry);
+  }
+
+  void runTestApplyCompletesReplacementOfFailedEntry(CLUSTER cluster) throws Exception {
+    final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+    final RaftServer.Division follower = cluster.getFollowers().get(0);
+
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      final long callId = 999;
+      final RetryCache.Entry failed = RetryCacheTestUtil.createFailedEntry(follower, client.getId(),
+          callId, new IllegalStateException("Injected failure"));
+
+      final RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
+          callId, new SimpleMessage("message"));
+      assertReply(client.getClientRpc().sendRequest(r), client, callId);
+
+      JavaUtils.attempt(() -> {
+        final RetryCache.Entry entry = RetryCacheTestUtil.get(follower, client.getId(), callId);
+        Assertions.assertNotNull(entry, "No retry cache entry on the follower");
+        Assertions.assertNotSame(failed, entry);
+
+        final RaftClientReply reply = entry.getReplyFuture().getNow(null);
+        Assertions.assertNotNull(reply, "The replacement entry is not completed");
+        assertReply(reply, client, callId);
+      }, 20, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "wait for the follower to apply", LOG);
     }
   }
 }
