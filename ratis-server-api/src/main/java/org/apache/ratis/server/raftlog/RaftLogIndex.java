@@ -80,7 +80,7 @@ public class RaftLogIndex {
     final boolean updated = old < newIndex;
     if (updated) {
       log.accept(StringUtils.stringSupplierAsObject(
-          () -> name + ": updateToMax old=" + old + ", new=" + newIndex + ", updated? " + updated));
+          () -> name + ": updateToMax old=" + old + ", new=" + newIndex));
     }
     return updated;
   }
