@@ -24,8 +24,10 @@ import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -39,7 +41,6 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
 
   enum StorageState {
     UNINITIALIZED,
-    NON_EXISTENT,
     NOT_FORMATTED,
     NO_SPACE,
     NORMAL
@@ -139,16 +140,15 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
       }
       // or is inaccessible
       if (!root.isDirectory()) {
-        LOG.warn("{} is not a directory", rootPath);
-        return StorageState.NON_EXISTENT;
+        throw new NotDirectoryException(rootPath);
       }
       if (!Files.isWritable(root.toPath())) {
-        LOG.warn("The storage directory {} is not writable.", rootPath);
-        return StorageState.NON_EXISTENT;
+        throw new AccessDeniedException(rootPath, null, "not writable");
       }
     } catch(SecurityException ex) {
-      LOG.warn("Cannot access storage directory " + rootPath, ex);
-      return StorageState.NON_EXISTENT;
+      final AccessDeniedException ade = new AccessDeniedException(rootPath);
+      ade.initCause(ex);
+      throw ade;
     }
 
     if (toLock) {

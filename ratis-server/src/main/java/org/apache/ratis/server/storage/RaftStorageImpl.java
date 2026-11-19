@@ -57,9 +57,7 @@ public class RaftStorageImpl implements RaftStorage {
   public void initialize() throws IOException {
     try {
       if (startupOption == StartupOption.FORMAT) {
-        if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
-          throw new IOException("Cannot format " + storageDir);
-        }
+        storageDir.analyzeStorage(false);
         storageDir.lock();
         format();
         state = storageDir.analyzeStorage(false);
@@ -108,9 +106,7 @@ public class RaftStorageImpl implements RaftStorage {
     StorageState storageState = storageDir.analyzeStorage(toLock);
     // Existence of raft-meta.tmp means the change of votedFor/term has not
     // been committed. Thus we should delete the tmp file.
-    if (storageState != StorageState.NON_EXISTENT) {
-      cleanMetaTmpFile();
-    }
+    cleanMetaTmpFile();
     if (storageState == StorageState.NORMAL) {
       final File f = storageDir.getMetaFile();
       if (!f.exists()) {
