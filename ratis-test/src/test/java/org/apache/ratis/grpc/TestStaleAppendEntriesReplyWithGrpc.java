@@ -106,11 +106,11 @@ public class TestStaleAppendEntriesReplyWithGrpc extends BaseTest
       Assertions.assertFalse(containsMessage(target, message),
           "target should not contain the entry before the blocked append is released");
 
-      // Unfreeze the candidate so it can run an election, and isolate the old
-      // leader so that only the candidate and the target can talk to each other.
-      BlockRequestHandlingInjection.getInstance().unblockReplier(candidateId.toString());
+      // Isolate the old leader before unfreezing the candidate so a queued append cannot
+      // reach the candidate and commit the entry before the higher-term election.
       BlockRequestHandlingInjection.getInstance().blockRequestor(oldLeaderId.toString());
       BlockRequestHandlingInjection.getInstance().blockReplier(oldLeaderId.toString());
+      BlockRequestHandlingInjection.getInstance().unblockReplier(candidateId.toString());
 
       // The target grants a higher-term vote to the candidate and the candidate
       // becomes the new leader in a term higher than the old leader's.
@@ -121,6 +121,8 @@ public class TestStaleAppendEntriesReplyWithGrpc extends BaseTest
           150, HUNDRED_MILLIS, "candidate becomes new leader", LOG);
       Assertions.assertTrue(target.getInfo().getCurrentTerm() > oldTerm,
           "target did not move to a higher term; term=" + target.getInfo().getCurrentTerm());
+      Assertions.assertFalse(containsMessage(candidate, message),
+          "candidate should not contain the old leader's entry");
 
       // Release the blocked old-leader append: it must now reply NOT_LEADER,
       // not a stale SUCCESS, so the old leader cannot commit the entry.
