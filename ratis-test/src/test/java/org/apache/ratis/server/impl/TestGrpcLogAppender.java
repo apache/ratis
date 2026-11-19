@@ -52,6 +52,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -129,6 +130,45 @@ class TestGrpcLogAppender extends BaseTest {
     }
   }
 
+  @Test
+  void testInconsistencyRecomputesNextIndexAfterConcurrentAppendReply() throws Exception {
+    try (Appender appender = new Appender()) {
+      appender.follower.updateMatchIndex(1);
+      final Runnable receiveSuccess = appender.newAppendReply();
+      final Runnable receiveInconsistency = appender.newAppendReply(AppendEntriesReplyProto.newBuilder()
+          .setResult(AppendEntriesReplyProto.AppendResult.INCONSISTENCY).setNextIndex(1).build());
+      final CountDownLatch matchIndexRead = new CountDownLatch(1);
+      final CountDownLatch proceed = new CountDownLatch(1);
+      final AtomicBoolean first = new AtomicBoolean(true);
+      doAnswer(invocation -> {
+        final long matchIndex = (long) invocation.callRealMethod();
+        if (first.compareAndSet(true, false)) {
+          matchIndexRead.countDown();
+          Assertions.assertTrue(proceed.await(5, TimeUnit.SECONDS));
+        }
+        return matchIndex;
+      }).when(appender.follower).getMatchIndex();
+
+      final ExecutorService executor = Executors.newFixedThreadPool(2);
+      try {
+        final Future<?> inconsistency = executor.submit(receiveInconsistency);
+        Assertions.assertTrue(matchIndexRead.await(5, TimeUnit.SECONDS));
+        // Advance both indexes after the inconsistency handler reads the old matchIndex.
+        executor.submit(receiveSuccess).get(5, TimeUnit.SECONDS);
+        Assertions.assertEquals(6, appender.follower.getNextIndex());
+
+        proceed.countDown();
+        inconsistency.get(5, TimeUnit.SECONDS);
+        Assertions.assertEquals(5, appender.follower.getMatchIndex());
+        Assertions.assertEquals(6, appender.follower.getNextIndex());
+      } finally {
+        proceed.countDown();
+        executor.shutdown();
+        Assertions.assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+      }
+    }
+  }
+
   private static class Appender implements AutoCloseable {
     private final RaftLog log = mock(RaftLog.class);
     private final FollowerInfoImpl follower;
@@ -140,7 +180,7 @@ class TestGrpcLogAppender extends BaseTest {
       RaftServerConfigKeys.Log.Appender.setBufferElementLimit(properties, 1);
       final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(RaftPeerId.valueOf("leader"), RaftGroupId.randomId());
       final RaftPeer peer = RaftPeer.newBuilder().setId("follower").build();
-      follower = new FollowerInfoImpl(memberId, peer, id -> peer, Timestamp.currentTime(), 2, true);
+      follower = spy(new FollowerInfoImpl(memberId, peer, id -> peer, Timestamp.currentTime(), 2, true));
       final RaftServer raftServer = mock(RaftServer.class);
       when(raftServer.getProperties()).thenReturn(properties);
       final RaftServer.Division server = mock(RaftServer.Division.class);
@@ -181,15 +221,19 @@ class TestGrpcLogAppender extends BaseTest {
       return requests.size();
     }
 
-    @SuppressWarnings("unchecked")
     Runnable newAppendReply() throws Exception {
+      return newAppendReply(AppendEntriesReplyProto.newBuilder()
+          .setResult(AppendEntriesReplyProto.AppendResult.SUCCESS).setMatchIndex(5).setNextIndex(6).build());
+    }
+
+    @SuppressWarnings("unchecked")
+    Runnable newAppendReply(AppendEntriesReplyProto reply) throws Exception {
       final Constructor<?> constructor = Class.forName(GrpcLogAppender.class.getName() + "$AppendLogResponseHandler")
           .getDeclaredConstructor(GrpcLogAppender.class);
       constructor.setAccessible(true);
       final StreamObserver<AppendEntriesReplyProto> handler =
           (StreamObserver<AppendEntriesReplyProto>) constructor.newInstance(appender);
-      return () -> handler.onNext(AppendEntriesReplyProto.newBuilder()
-          .setResult(AppendEntriesReplyProto.AppendResult.SUCCESS).setMatchIndex(5).setNextIndex(6).build());
+      return () -> handler.onNext(reply);
     }
 
     @Override

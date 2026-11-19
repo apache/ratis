@@ -521,12 +521,6 @@ public class GrpcLogAppender extends LogAppenderBase {
     }
   }
 
-  private void updateNextIndexForSnapshot(final long installedSnapshotIndex, Object reason) {
-    final long newNextIndex = installedSnapshotIndex + 1;
-    LOG.info("{}: updateNextIndex {} for {}", this, newNextIndex, reason);
-    getFollower().updateNextIndex(newNextIndex);
-  }
-
   /**
    * StreamObserver for handling responses from the follower
    */
@@ -639,6 +633,8 @@ public class GrpcLogAppender extends LogAppenderBase {
     try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
       notifyAppendEntriesListener(GrpcLogAppenderListener.AppendEntries::onReplyInconsistency);
       pendingRequests.clear();
+      // Successful replies do not take this lock. Recompute the bound on a CAS retry so that
+      // a concurrent reply's nextIndex update is checked against the latest matchIndex.
       getFollower().computeNextIndex(ignored -> getNextIndexForInconsistency(requestFirstIndex, replyNextIndex));
     }
   }
@@ -756,7 +752,6 @@ public class GrpcLogAppender extends LogAppenderBase {
           LOG.info("{}: Follower snapshot is already at index {}.", this, followerSnapshotIndex);
           try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
             getFollower().setSnapshotIndex(followerSnapshotIndex);
-            updateNextIndexForSnapshot(followerSnapshotIndex, reply.getResult());
           }
           getFollower().setAttemptedToInstallSnapshot();
           getLeaderState().onFollowerCommitIndex(getFollower(), followerSnapshotIndex);
@@ -775,7 +770,6 @@ public class GrpcLogAppender extends LogAppenderBase {
           LOG.info("{}: Follower installed snapshot at index {}", this, followerSnapshotIndex);
           try (AutoCloseableLock writeLock = lock.writeLock(caller, LOG::trace)) {
             getFollower().setSnapshotIndex(followerSnapshotIndex);
-            updateNextIndexForSnapshot(followerSnapshotIndex, reply.getResult());
           }
           getFollower().setAttemptedToInstallSnapshot();
           getLeaderState().onFollowerCommitIndex(getFollower(), followerSnapshotIndex);
