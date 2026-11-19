@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -40,11 +41,9 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
 
   enum StorageState {
     UNINITIALIZED,
-    NON_EXISTENT,
     NOT_FORMATTED,
     NO_SPACE,
-    NORMAL,
-    INSUFFICIENT_PRIVILEGE
+    NORMAL
   }
 
   private final File root; // root directory
@@ -141,19 +140,15 @@ class RaftStorageDirectoryImpl implements RaftStorageDirectory {
       }
       // or is inaccessible
       if (!root.isDirectory()) {
-        LOG.warn("{} is not a directory", rootPath);
-        return StorageState.NON_EXISTENT;
+        throw new NotDirectoryException(rootPath);
       }
       if (!Files.isWritable(root.toPath())) {
-        LOG.warn("The storage directory {} is not writable.", rootPath);
-        return StorageState.INSUFFICIENT_PRIVILEGE;
+        throw new AccessDeniedException(rootPath, null, "not writable");
       }
     } catch(SecurityException ex) {
-      LOG.warn("Cannot access storage directory " + rootPath, ex);
-      return StorageState.INSUFFICIENT_PRIVILEGE;
-    } catch(AccessDeniedException ex) {
-      LOG.warn("Insufficient privilege to create storage directory " + rootPath, ex);
-      return StorageState.INSUFFICIENT_PRIVILEGE;
+      final AccessDeniedException ade = new AccessDeniedException(rootPath);
+      ade.initCause(ex);
+      throw ade;
     }
 
     if (toLock) {

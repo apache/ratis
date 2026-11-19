@@ -51,7 +51,9 @@ import org.mockito.Mockito;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
+import java.nio.file.NotDirectoryException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -119,12 +121,7 @@ public class TestRaftStorage extends BaseTest {
     storage.close();
     FileUtils.deleteFully(storageDir);
     Assertions.assertTrue(storageDir.createNewFile());
-    try (RaftStorage ignored = newRaftStorage(storageDir)) {
-      Assertions.fail();
-    } catch (IOException e) {
-      Assertions.assertTrue(
-          e.getMessage().contains(StorageState.NON_EXISTENT.name()));
-    }
+    Assertions.assertThrows(NotDirectoryException.class, () -> newRaftStorage(storageDir));
   }
 
   /**
@@ -756,7 +753,7 @@ public class TestRaftStorage extends BaseTest {
     try {
       assumeNotWritable(storageDir);
       final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir, SizeInBytes.ZERO);
-      Assertions.assertEquals(StorageState.INSUFFICIENT_PRIVILEGE, sd.analyzeStorage(false));
+      Assertions.assertThrows(AccessDeniedException.class, () -> sd.analyzeStorage(false));
     } finally {
       Assertions.assertTrue(storageDir.setWritable(true));
     }
@@ -772,25 +769,22 @@ public class TestRaftStorage extends BaseTest {
     try {
       assumeNotWritable(parent);
       final RaftStorageDirectoryImpl sd = new RaftStorageDirectoryImpl(storageDir, SizeInBytes.ZERO);
-      Assertions.assertEquals(StorageState.INSUFFICIENT_PRIVILEGE, sd.analyzeStorage(false));
+      Assertions.assertThrows(AccessDeniedException.class, () -> sd.analyzeStorage(false));
       Assertions.assertFalse(storageDir.exists());
     } finally {
       Assertions.assertTrue(parent.setWritable(true));
     }
   }
 
-  /** RaftStorage initialization should fail with a message containing INSUFFICIENT_PRIVILEGE. */
+  /** RaftStorage initialization (RECOVER and FORMAT) should fail with AccessDeniedException. */
   @Test
   public void testInsufficientPrivilegeInitialize() throws IOException {
     FileUtils.createDirectories(storageDir);
     Assertions.assertTrue(storageDir.setWritable(false));
     try {
       assumeNotWritable(storageDir);
-      final IOException e = Assertions.assertThrows(IOException.class, () -> newRaftStorage(storageDir));
-      Assertions.assertTrue(e.getMessage().contains(StorageState.INSUFFICIENT_PRIVILEGE.name()), e.getMessage());
-
-      final IOException f = Assertions.assertThrows(IOException.class, () -> formatRaftStorage(storageDir));
-      Assertions.assertTrue(f.getMessage().contains("Cannot format"), f.getMessage());
+      Assertions.assertThrows(AccessDeniedException.class, () -> newRaftStorage(storageDir));
+      Assertions.assertThrows(AccessDeniedException.class, () -> formatRaftStorage(storageDir));
     } finally {
       Assertions.assertTrue(storageDir.setWritable(true));
     }
