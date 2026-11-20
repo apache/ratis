@@ -36,13 +36,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -54,6 +54,8 @@ import java.util.function.Consumer;
  */
 public class ZeroCopyMessageMarshaller<T extends MessageLite> implements PrototypeMarshaller<T> {
   static final Logger LOG = LoggerFactory.getLogger(ZeroCopyMessageMarshaller.class);
+  /** The most to copy at once from a buffer without a ByteBuffer. */
+  private static final int COPY_CHUNK_SIZE = 1024;
 
   private final String name;
   private final Map<T, InputStream> unclosedStreams = Collections.synchronizedMap(new IdentityHashMap<>());
@@ -129,21 +131,59 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
     }
   }
 
+  /** @return the ByteBuffer of the stream's current buffer, or null if that buffer does not have one. */
+  private static ByteBuffer getByteBuffer(HasByteBuffer stream) {
+    try {
+      return stream.getByteBuffer();
+    } catch (UnsupportedOperationException e) {
+      return null;
+    }
+  }
+
   private List<ByteString> getByteStrings(InputStream detached, int exactSize) throws IOException {
     Preconditions.assertTrue(detached instanceof HasByteBuffer);
 
     // This mark call is to keep buffer while traversing buffers using skip.
     detached.mark(exactSize);
-    final List<ByteString> byteStrings = new LinkedList<>();
+    // each piece is either a ByteBuffer of the stream or a byte[] copied from a buffer without one
+    final List<Object> pieces = new ArrayList<>();
+    int copiedSize = 0;
     while (detached.available() != 0) {
-      final ByteBuffer buffer = ((HasByteBuffer)detached).getByteBuffer();
-      Objects.requireNonNull(buffer, "buffer == null");
-      byteStrings.add(UnsafeByteOperations.unsafeWrap(buffer));
+      final ByteBuffer buffer = getByteBuffer((HasByteBuffer) detached);
+      if (buffer == null) {
+        // A buffer without a ByteBuffer, e.g. small buffers that gRPC has coalesced into an array: copy a little.
+        final byte[] copy = new byte[Math.min(detached.available(), COPY_CHUNK_SIZE)];
+        for (int offset = 0; offset < copy.length; ) {
+          final int n = detached.read(copy, offset, copy.length - offset);
+          Preconditions.assertTrue(n > 0, () -> "Unexpected end of stream: read " + n);
+          offset += n;
+        }
+        pieces.add(copy);
+        copiedSize += copy.length;
+        continue;
+      }
+      pieces.add(buffer);
       final int remaining = buffer.remaining();
       final long skipped = detached.skip(buffer.remaining());
       Preconditions.assertSame(remaining, skipped, "skipped");
     }
     detached.reset();
+
+    // The copies go to one direct buffer, since protobuf aliases bytes fields only when all the buffers are direct.
+    final ByteBuffer copies = copiedSize == 0 ? null : ByteBuffer.allocateDirect(copiedSize);
+    final List<ByteString> byteStrings = new ArrayList<>(pieces.size());
+    for (Object piece : pieces) {
+      if (piece instanceof ByteBuffer) {
+        byteStrings.add(UnsafeByteOperations.unsafeWrap((ByteBuffer) piece));
+      } else {
+        final byte[] copy = (byte[]) piece;
+        final ByteBuffer slice = copies.slice();
+        ((Buffer) slice).limit(copy.length);
+        slice.put(copy).flip();
+        ((Buffer) copies).position(copies.position() + copy.length);
+        byteStrings.add(UnsafeByteOperations.unsafeWrap(slice));
+      }
+    }
     return byteStrings;
   }
 
@@ -166,8 +206,8 @@ public class ZeroCopyMessageMarshaller<T extends MessageLite> implements Prototy
       return null;
     }
     if (!((HasByteBuffer) stream).byteBufferSupported()) {
+      // Some of its buffers have no ByteBuffer, e.g. gRPC coalesces small buffers into an array; those are copied.
       LOG.debug("stream is HasByteBuffer but not byteBufferSupported: {}", stream.getClass());
-      return null;
     }
 
     final int exactSize = stream.available();
