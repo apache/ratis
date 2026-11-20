@@ -61,6 +61,10 @@ public interface GrpcConfigKeys {
     setBoolean(properties::setBoolean, USE_EPOLL_KEY, useEpoll);
   }
 
+  /** The default channel shutdown timeouts for both {@link Client} and {@link Server}. */
+  TimeDuration CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT = TimeDuration.valueOf(3, TimeUnit.SECONDS);
+  TimeDuration CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT = TimeDuration.valueOf(2, TimeUnit.SECONDS);
+
   interface TLS {
     String PREFIX = GrpcConfigKeys.PREFIX + ".tls";
 
@@ -181,7 +185,7 @@ public interface GrpcConfigKeys {
      * which waits for the calls on the channel to finish.  Zero skips the graceful shutdown.
      */
     String CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_KEY = PREFIX + ".channel.shutdown.graceful.timeout";
-    TimeDuration CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT = TimeDuration.valueOf(3, TimeUnit.SECONDS);
+    TimeDuration CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT = GrpcConfigKeys.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT;
     static TimeDuration channelShutdownGracefulTimeout(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT.getUnit()),
           CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_KEY, CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT, getDefaultLog());
@@ -195,7 +199,7 @@ public interface GrpcConfigKeys {
      * which cancels the calls on the channel.
      */
     String CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_KEY = PREFIX + ".channel.shutdown.forceful.timeout";
-    TimeDuration CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT = TimeDuration.valueOf(2, TimeUnit.SECONDS);
+    TimeDuration CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT = GrpcConfigKeys.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT;
     static TimeDuration channelShutdownForcefulTimeout(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT.getUnit()),
           CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_KEY, CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT, getDefaultLog());
@@ -378,6 +382,35 @@ public interface GrpcConfigKeys {
     }
     static void setLogAppenderConnections(RaftProperties properties, int connections) {
       setInt(properties::setInt, LOG_APPENDER_CONNECTIONS_KEY, connections);
+    }
+
+    /**
+     * How long closing a server's connection to a peer waits for each of its channels to terminate
+     * after a graceful shutdown, which waits for the calls on the channel to finish.
+     * Zero skips the graceful shutdown.
+     */
+    String CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_KEY = PREFIX + ".channel.shutdown.graceful.timeout";
+    TimeDuration CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT = GrpcConfigKeys.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT;
+    static TimeDuration channelShutdownGracefulTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT.getUnit()),
+          CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_KEY, CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT, getDefaultLog());
+    }
+    static void setChannelShutdownGracefulTimeout(RaftProperties properties, TimeDuration timeout) {
+      setTimeDuration(properties::setTimeDuration, CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_KEY, timeout);
+    }
+
+    /**
+     * How long closing a server's connection to a peer waits for each of its channels to terminate
+     * after a forceful shutdown, which cancels the calls on the channel.
+     */
+    String CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_KEY = PREFIX + ".channel.shutdown.forceful.timeout";
+    TimeDuration CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT = GrpcConfigKeys.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT;
+    static TimeDuration channelShutdownForcefulTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT.getUnit()),
+          CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_KEY, CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT, getDefaultLog());
+    }
+    static void setChannelShutdownForcefulTimeout(RaftProperties properties, TimeDuration timeout) {
+      setTimeDuration(properties::setTimeDuration, CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_KEY, timeout);
     }
 
     String BOSS_GROUP_SIZE_KEY = PREFIX + ".boss-group.size";

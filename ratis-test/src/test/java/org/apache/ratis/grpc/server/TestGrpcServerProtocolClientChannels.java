@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.util.TimeDuration;
@@ -38,7 +39,9 @@ public class TestGrpcServerProtocolClientChannels extends BaseTest {
 
   private static GrpcServerProtocolClient newClient(int appendEntriesConnections) {
     return new GrpcServerProtocolClient(PEER, 1, appendEntriesConnections, 1 << 20,
-        TimeDuration.valueOf(3, TimeUnit.SECONDS), null, true, null);
+        TimeDuration.valueOf(3, TimeUnit.SECONDS), null, true, null,
+        GrpcConfigKeys.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
+        GrpcConfigKeys.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
   }
 
   @Test

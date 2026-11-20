@@ -237,8 +237,8 @@ public interface GrpcUtil {
   /** Shut down the given channel using the default timeouts. */
   static void shutdownManagedChannel(ManagedChannel channel) {
     shutdownManagedChannel(channel,
-        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
-        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
+        GrpcConfigKeys.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
+        GrpcConfigKeys.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
   }
 
   /** The same as shutdownManagedChannels(Collections.singleton(channel), gracefulTimeout, forcefulTimeout). */
@@ -250,8 +250,8 @@ public interface GrpcUtil {
   /** Shut down the given channels using the default timeouts. */
   static void shutdownManagedChannels(Collection<ManagedChannel> channels) {
     shutdownManagedChannels(channels,
-        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
-        GrpcConfigKeys.Client.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
+        GrpcConfigKeys.CHANNEL_SHUTDOWN_GRACEFUL_TIMEOUT_DEFAULT,
+        GrpcConfigKeys.CHANNEL_SHUTDOWN_FORCEFUL_TIMEOUT_DEFAULT);
   }
 
   /**
