@@ -119,6 +119,8 @@ public final class GrpcServicesImpl
     private SizeInBytes flowControlWindow;
     private TimeDuration requestTimeoutDuration;
     private boolean separateHeartbeatChannel;
+    private TimeDuration channelShutdownGracefulTimeout;
+    private TimeDuration channelShutdownForcefulTimeout;
 
     private EventLoopGroup serverBosses;
     private EventLoopGroup serverWorkers;
@@ -142,6 +144,8 @@ public final class GrpcServicesImpl
       this.separateHeartbeatChannel = GrpcConfigKeys.Server.heartbeatChannel(properties);
       this.serverStubPoolSize = GrpcConfigKeys.Server.stubPoolSize(properties);
       this.logAppenderConnections = GrpcConfigKeys.Server.logAppenderConnections(properties);
+      this.channelShutdownGracefulTimeout = GrpcConfigKeys.Server.channelShutdownGracefulTimeout(properties);
+      this.channelShutdownForcefulTimeout = GrpcConfigKeys.Server.channelShutdownForcefulTimeout(properties);
 
       final SizeInBytes appenderBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
       final SizeInBytes gap = SizeInBytes.ONE_MB;
@@ -169,7 +173,7 @@ public final class GrpcServicesImpl
     private GrpcServerProtocolClient newGrpcServerProtocolClient(RaftPeer target, EventLoopGroup eventLoopGroup) {
       return new GrpcServerProtocolClient(target, serverStubPoolSize, logAppenderConnections,
           flowControlWindow.getSizeInt(), requestTimeoutDuration, serverSslContextForClient, separateHeartbeatChannel,
-          eventLoopGroup);
+          eventLoopGroup, channelShutdownGracefulTimeout, channelShutdownForcefulTimeout);
     }
 
     private ExecutorService newExecutor() {
