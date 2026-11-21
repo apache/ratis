@@ -286,8 +286,7 @@ class SnapshotInstallationHandler {
       state.setLeader(leaderId, UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
       server.updateLastRpcTime(UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
 
-      if (inProgressInstallSnapshotIndex.compareAndSet(INVALID_LOG_INDEX, firstAvailableLogIndex)) {
-        LOG.info("{}: Received notification to install snapshot at index {}", getMemberId(), firstAvailableLogIndex);
+      if (inProgressInstallSnapshotIndex.get() == INVALID_LOG_INDEX) {
         // Check if snapshot index is already at par or ahead of the first
         // available log index of the Leader.
         final long snapshotIndex = state.getLog().getSnapshotIndex();
@@ -296,13 +295,15 @@ class SnapshotInstallationHandler {
           // State Machine has already installed the snapshot. Return the
           // latest snapshot index to the Leader.
 
-          inProgressInstallSnapshotIndex.compareAndSet(firstAvailableLogIndex, INVALID_LOG_INDEX);
           LOG.info("{}: InstallSnapshot notification result: {}, current snapshot index: {}", getMemberId(),
               InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
           final InstallSnapshotReplyProto reply = toInstallSnapshotReplyProto(leaderId, getMemberId(), currentTerm,
               InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
           return future.thenApply(dummy -> reply);
         }
+        // Installation starts only after ruling out an already installed snapshot, under the server monitor.
+        inProgressInstallSnapshotIndex.set(firstAvailableLogIndex);
+        LOG.info("{}: Received notification to install snapshot at index {}", getMemberId(), firstAvailableLogIndex);
         server.getState().getReadRequests().fail(
             server.getReadRequestHandler().getReadException("to wait for readIndex", firstAvailableLogIndex, true));
 
