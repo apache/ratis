@@ -20,25 +20,34 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.leader.LogAppender;
-import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Preconditions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Map;
-import java.util.NavigableMap;
+import java.util.List;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
+/**
+ * Confirms, for the reads of a leader, that it still leads: a read is answered after a majority acknowledged
+ * an appendEntries request that was sent after the read arrived.
+ * <p>
+ * The confirmations are made in rounds. A round sends a heartbeat to every follower
+ * and ends when a majority has acknowledged a request not older than the round.
+ * A read never joins a round that has started, since the requests of that round may have been sent before the read
+ * arrived, and an acknowledgement of such a request does not show that this server led when the read arrived:
+ * another leader may have been elected, and may have committed a write, in between.
+ * For the same reason a finished round confirms nothing for the reads that arrive after it,
+ * whatever the commit index.
+ * <p>
+ * At most {@link #MAX_STARTED_ROUNDS} rounds are started at a time; the reads that arrive meanwhile share one round,
+ * which starts when one of those ends. So a read waits for at most two round trips, and the number of heartbeats
+ * does not grow with the number of reads.
+ */
 class ReadIndexHeartbeats {
-  private static final Logger LOG = LoggerFactory.getLogger(ReadIndexHeartbeats.class);
+  static final int MAX_STARTED_ROUNDS = 2;
 
   /** The acknowledgement from a {@link LogAppender} of a heartbeat for a particular call id. */
   static class HeartbeatAck {
@@ -82,39 +91,31 @@ class ReadIndexHeartbeats {
     }
   }
 
+  /** A round of leadership confirmation. */
   static class AppendEntriesListener {
-    private final long commitIndex;
-    private final CompletableFuture<Long> future = new CompletableFuture<>();
+    private final CompletableFuture<Void> future = new CompletableFuture<>();
     private final ConcurrentHashMap<RaftPeerId, HeartbeatAck> replies = new ConcurrentHashMap<>();
 
-    AppendEntriesListener(long commitIndex, Iterable<LogAppender> logAppenders) {
-      this.commitIndex = commitIndex;
+    /** Start this round: the acknowledgements counted are the ones of the requests sent from now on. */
+    void start(Iterable<LogAppender> logAppenders) {
       for (LogAppender a : logAppenders) {
-        a.triggerHeartbeat();
+        // Before the trigger: the heartbeat it causes has a call id not smaller than the one read here.
         replies.put(a.getFollowerId(), new HeartbeatAck(a));
+        a.triggerHeartbeat();
       }
     }
 
-    CompletableFuture<Long> getFuture() {
+    CompletableFuture<Void> getFuture() {
       return future;
     }
 
+    /** @return true if a majority has acknowledged this round. */
     boolean receive(LogAppender logAppender, AppendEntriesReplyProto proto,
                     Predicate<Predicate<RaftPeerId>> hasMajority) {
-      if (JavaUtils.isCompletedNormally(future)) {
-        return true;
-      }
-
+      // An appender made after the start of this round: its requests are counted from its next one.
       final HeartbeatAck reply = replies.computeIfAbsent(
           logAppender.getFollowerId(), key -> new HeartbeatAck(logAppender));
-      if (reply.receive(proto)) {
-        if (hasMajority.test(this::isAcknowledged)) {
-          future.complete(commitIndex);
-          return true;
-        }
-      }
-
-      return JavaUtils.isCompletedNormally(future);
+      return reply.receive(proto) && hasMajority.test(this::isAcknowledged);
     }
 
     boolean isAcknowledged(RaftPeerId id) {
@@ -122,70 +123,79 @@ class ReadIndexHeartbeats {
     }
   }
 
-  class AppendEntriesListeners {
-    private final NavigableMap<Long, AppendEntriesListener> sorted = new TreeMap<>();
-    private Exception exception = null;
+  /** The rounds that have started and have not ended. */
+  private final List<AppendEntriesListener> started = new ArrayList<>(MAX_STARTED_ROUNDS);
+  /** The round of the reads that arrived when {@link #started} was full; it has not started. */
+  private AppendEntriesListener waiting = null;
+  private Iterable<LogAppender> waitingAppenders = null;
+  private Exception exception = null;
 
-    synchronized AppendEntriesListener add(long commitIndex, Function<Long, AppendEntriesListener> constructor) {
-      if (exception != null) {
-        Preconditions.assertTrue(sorted.isEmpty());
-        final AppendEntriesListener listener = constructor.apply(commitIndex);
-        listener.getFuture().completeExceptionally(exception);
-        return listener;
-      }
-      return sorted.computeIfAbsent(commitIndex, constructor);
+  /**
+   * Confirm the leadership for a read that arrives now.
+   *
+   * @return a future completed once a majority acknowledged a request sent after this call,
+   *         or failed when the leader steps down.
+   */
+  synchronized CompletableFuture<Void> confirm(Iterable<LogAppender> logAppenders) {
+    if (exception != null) {
+      return JavaUtils.completeExceptionally(exception);
     }
-
-    synchronized void onAppendEntriesReply(LogAppender appender, AppendEntriesReplyProto reply,
-                                           Predicate<Predicate<RaftPeerId>> hasMajority) {
-      final long followerCommit = reply.getFollowerCommit();
-
-      Iterator<Map.Entry<Long, AppendEntriesListener>> iterator = sorted.entrySet().iterator();
-      while (iterator.hasNext()) {
-        Map.Entry<Long, AppendEntriesListener> entry = iterator.next();
-        if (entry.getKey() > followerCommit) {
-          return;
-        }
-
-        final AppendEntriesListener listener = entry.getValue();
-        if (listener == null) {
-          continue;
-        }
-
-        if (listener.receive(appender, reply, hasMajority)) {
-          ackedCommitIndex.updateToMax(listener.commitIndex, s -> LOG.debug("{}: {}", this, s));
-          iterator.remove();
-        }
-      }
+    if (waiting == null) {
+      waiting = new AppendEntriesListener();
     }
-
-    synchronized void failAll(Exception e) {
-      if (exception != null) {
-        return;
-      }
-      exception = e;
-      sorted.forEach((index, listener) -> listener.getFuture().completeExceptionally(e));
-      sorted.clear();
-    }
+    waitingAppenders = logAppenders;
+    final AppendEntriesListener round = waiting;
+    startWaiting();
+    return round.getFuture();
   }
 
-  private final AppendEntriesListeners appendEntriesListeners = new AppendEntriesListeners();
-  private final RaftLogIndex ackedCommitIndex = new RaftLogIndex("ackedCommitIndex", RaftLog.INVALID_LOG_INDEX);
-
-  AppendEntriesListener addAppendEntriesListener(long commitIndex, Function<Long, AppendEntriesListener> constructor) {
-    if (commitIndex <= ackedCommitIndex.get()) {
-      return null;
+  private void startWaiting() {
+    if (waiting != null && started.size() < MAX_STARTED_ROUNDS) {
+      final AppendEntriesListener round = waiting;
+      waiting = null;
+      started.add(round);
+      round.start(waitingAppenders);
     }
-    LOG.debug("listen commitIndex {}", commitIndex);
-    return appendEntriesListeners.add(commitIndex, constructor);
   }
 
   void onAppendEntriesReply(LogAppender appender, AppendEntriesReplyProto reply,
                             Predicate<Predicate<RaftPeerId>> hasMajority) {
-    appendEntriesListeners.onAppendEntriesReply(appender, reply, hasMajority);
+    List<AppendEntriesListener> confirmed = null;
+    synchronized (this) {
+      for (final Iterator<AppendEntriesListener> i = started.iterator(); i.hasNext(); ) {
+        final AppendEntriesListener round = i.next();
+        if (round.receive(appender, reply, hasMajority)) {
+          i.remove();
+          if (confirmed == null) {
+            confirmed = new ArrayList<>(MAX_STARTED_ROUNDS);
+          }
+          confirmed.add(round);
+        }
+      }
+      if (confirmed != null) {
+        startWaiting();
+      }
+    }
+    // Outside the lock: the reads continue on this thread.
+    if (confirmed != null) {
+      confirmed.forEach(round -> round.getFuture().complete(null));
+    }
   }
 
   void failListeners(Exception e) {
-    appendEntriesListeners.failAll(e);
+    final List<AppendEntriesListener> failed;
+    synchronized (this) {
+      if (exception != null) {
+        return;
+      }
+      exception = e;
+      failed = new ArrayList<>(started);
+      started.clear();
+      if (waiting != null) {
+        failed.add(waiting);
+        waiting = null;
+      }
+    }
+    failed.forEach(round -> round.getFuture().completeExceptionally(e));
   }
 }
