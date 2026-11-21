@@ -38,6 +38,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.RoutingTable;
 import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.api.DataStreamApi.WritableChannel;
 import org.apache.ratis.server.raftlog.LogEntryHeader;
 import org.apache.ratis.server.raftlog.LogProtoUtils;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -61,7 +62,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -203,19 +203,11 @@ public interface DataStreamTestUtils {
     }
 
     @Override
-    public long transferTo(Message request, WritableByteChannel stream) throws IOException {
-      return streamReadOnlyImpl(request, stream);
-    }
-
-    private long streamReadOnlyImpl(Message request, WritableByteChannel stream) throws IOException {
+    public long transferTo(Message request, WritableChannel channel) throws IOException {
       long transferred = 0;
-      try {
-        for (int i = 0; i < READ_ONLY_STREAM_CHUNKS; i++) {
-          final ByteString chunk = getReadOnlyStreamChunk(request.getContent(), i);
-          transferred += stream.write(chunk.asReadOnlyByteBuffer());
-        }
-      } finally {
-        stream.close();
+      for (int i = 0; i < READ_ONLY_STREAM_CHUNKS; i++) {
+        final ByteString chunk = getReadOnlyStreamChunk(request.getContent(), i);
+        transferred += channel.write(chunk.asReadOnlyByteBuffer());
       }
       return transferred;
     }
