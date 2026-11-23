@@ -33,7 +33,6 @@ import org.apache.ratis.proto.RaftProtos.ReadRequestTypeProto;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.AdminProtocol;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftClientProtocol;
 import org.apache.ratis.protocol.RaftGroup;
@@ -147,30 +146,39 @@ public interface RaftServer extends Closeable, RpcType.Get,
     StateMachine getStateMachine();
 
     /**
-     * Execute a local read-only query after applying the configured
-     * {@link RaftServerConfigKeys.Read.Option} consistency checks.
+     * Establish a local read barrier using the default read request semantics.
+     * Remote clients should use
+     * {@link org.apache.ratis.client.api.AsyncApi#sendReadOnly(org.apache.ratis.protocol.Message)}.
      *
-     * <p>This API is intended for embedded users that already have a local
-     * server division.  Applications may use local {@link Message}
-     * implementations so that their state machine can avoid materializing
-     * application request bytes.  Remote clients should continue to use
-     * {@link org.apache.ratis.client.api.AsyncApi#sendReadOnly(Message)}.
+     * @see #readIndexAsync(ClientId, ReadRequestTypeProto)
      */
-    default CompletableFuture<Message> readOnlyAsync(Message queryMessage) throws IOException {
-      return readOnlyAsync(ClientId.randomId(), ReadRequestTypeProto.getDefaultInstance(), queryMessage);
+    default CompletableFuture<Long> readIndexAsync() throws IOException {
+      return readIndexAsync(ClientId.randomId(), ReadRequestTypeProto.getDefaultInstance());
     }
 
     /**
-     * Execute a local read-only query after applying the configured
-     * {@link RaftServerConfigKeys.Read.Option} consistency checks.
+     * Establish a read barrier without executing a state machine query.
+     * The returned future completes with the confirmed ReadIndex only after that index has been applied locally.
+     * This API uses the existing ReadIndex configuration regardless of the configured
+     * {@link RaftServerConfigKeys.Read.Option}.
      *
-     * <p>The {@code clientId} and {@code readRequestType} identify the read
-     * semantics.  In particular, callers requesting read-after-write
-     * consistency must use the same client ID as their prior writes.
+     * <p>For read-after-write consistency, use the same client ID as the prior writes and set
+     * {@code readAfterWriteConsistent} in {@code readRequestType}.
+     * The existing ReadIndex and local apply-wait timeouts apply; this API does not introduce an overall timeout.
+     * Cancelling or timing out the returned future does not cancel shared work or other readers.
+     *
+     * <p>Embedded callers can wait for this future and then execute their local query on the calling thread,
+     * or use an asynchronous continuation with an application executor. Non-async continuations may execute on
+     * Ratis completion threads, so attaching a query that way does not isolate query execution from the barrier.
+     *
+     * @param clientId the client requesting the read barrier.
+     * @param readRequestType the read consistency semantics.
+     * @return the confirmed ReadIndex, which may be less than the current local applied index.
+     * @throws IllegalArgumentException if {@code preferNonLinearizable} is set.
      */
-    default CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
-        Message queryMessage) throws IOException {
-      throw new UnsupportedOperationException("readOnlyAsync is not supported");
+    default CompletableFuture<Long> readIndexAsync(ClientId clientId, ReadRequestTypeProto readRequestType)
+        throws IOException {
+      throw new UnsupportedOperationException("readIndexAsync is not supported");
     }
 
     /** @return the raft log of this division. */

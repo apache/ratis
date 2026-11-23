@@ -1174,9 +1174,9 @@ class RaftServerImpl implements RaftServer.Division,
   }
 
   @Override
-  public CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
-      Message queryMessage) throws IOException {
-    return readRequestHandler.readOnlyAsync(clientId, readRequestType, queryMessage);
+  public CompletableFuture<Long> readIndexAsync(ClientId clientId, ReadRequestTypeProto readRequestType)
+      throws IOException {
+    return readRequestHandler.readIndexAsync(clientId, readRequestType);
   }
 
   @Override

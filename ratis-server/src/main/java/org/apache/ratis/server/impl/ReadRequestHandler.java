@@ -29,7 +29,6 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.ReadException;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.StaleReadException;
@@ -141,29 +140,18 @@ class ReadRequestHandler {
     });
   }
 
-  CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
-      Message queryMessage) throws IOException {
+  CompletableFuture<Long> readIndexAsync(ClientId clientId, ReadRequestTypeProto readRequestType) throws IOException {
     Objects.requireNonNull(clientId, "clientId == null");
     Objects.requireNonNull(readRequestType, "readRequestType == null");
-    Objects.requireNonNull(queryMessage, "queryMessage == null");
-    server.assertLifeCycleState(LifeCycle.States.RUNNING);
-    if (readRequestType.getPreferNonLinearizable() || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
-      if (!server.getInfo().isLeader()) {
-        return JavaUtils.completeExceptionally(server.newNotLeaderException());
-      }
-      if (!server.getInfo().isLeaderReady()) {
-        return JavaUtils.completeExceptionally(new LeaderNotReadyException(getMemberId()));
-      }
-      return stateMachine.query(queryMessage);
-    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
-      final LeaderStateImpl leader = server.getRole().getLeaderState().orElse(null);
-      return getReadIndex(clientId, readRequestType, leader)
-          .thenCompose(readIndex -> state.getReadRequests().waitToAdvance(readIndex,
-              () -> getReadExceptionIfInstallingSnapshot("local read")))
-          .thenCompose(readIndex -> stateMachine.query(queryMessage));
-    } else {
-      throw new IllegalStateException("Unexpected read option: " + readOption);
+    if (readRequestType.getPreferNonLinearizable()) {
+      throw new IllegalArgumentException("readIndexAsync does not support preferNonLinearizable");
     }
+    server.assertLifeCycleState(LifeCycle.States.RUNNING);
+    final LeaderStateImpl leader = server.getRole().getLeaderState().orElse(null);
+    return getReadIndex(clientId, readRequestType, leader)
+        .thenCompose(readIndex -> state.getReadRequests().waitToAdvance(readIndex,
+            () -> getReadExceptionIfInstallingSnapshot("local read"))
+            .thenApply(appliedIndex -> readIndex));
   }
 
   CompletableFuture<RaftClientReply> readAsync(RaftClientRequest request) {
