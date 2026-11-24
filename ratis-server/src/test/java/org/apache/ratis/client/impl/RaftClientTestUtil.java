@@ -33,6 +33,12 @@ public interface RaftClientTestUtil {
         .assertRequestSemaphore(expectedAvailablePermits, expectedQueueLength);
   }
 
+  static void assertAsyncRequestSemaphore(RaftClient client, RaftPeerId server,
+      int expectedAvailablePermits, int expectedQueueLength) {
+    ((RaftClientImpl) client).getOrderedAsync(null)
+        .assertRequestSemaphore(server, expectedAvailablePermits, expectedQueueLength);
+  }
+
   static ClientInvocationId getClientInvocationId(RaftClient client) {
     return ClientInvocationId.valueOf(client.getId(), CallId.get());
   }

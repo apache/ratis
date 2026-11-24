@@ -128,38 +128,60 @@ public final class OrderedAsync {
     return ordered;
   }
 
+  /** A {@link SlidingWindow} together with the {@link Semaphore} limiting its outstanding requests. */
+  private static final class WindowEntry {
+    private final SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> window;
+    private final Semaphore semaphore;
+
+    private WindowEntry(SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> window, int maxOutstanding) {
+      this.window = window;
+      this.semaphore = new Semaphore(maxOutstanding);
+    }
+
+    SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> getWindow() {
+      return window;
+    }
+
+    Semaphore getSemaphore() {
+      return semaphore;
+    }
+  }
+
   private final RaftClientImpl client;
-  /** Map: id -> {@link SlidingWindow}, in order to support async calls to the Raft service or individual servers. */
-  private final ConcurrentMap<String, SlidingWindow.Client<PendingOrderedRequest, RaftClientReply>> slidingWindows
-      = new ConcurrentHashMap<>();
-  private final Semaphore requestSemaphore;
+  /** Map: id -> {@link WindowEntry}, in order to support async calls to the Raft service or individual servers. */
+  private final ConcurrentMap<String, WindowEntry> slidingWindows = new ConcurrentHashMap<>();
+  /** The maximum number of outstanding requests for each window. */
+  private final int outstandingRequestsMax;
 
   private OrderedAsync(RaftClientImpl client, RaftProperties properties) {
     this.client = Objects.requireNonNull(client, "client == null");
-    this.requestSemaphore = new Semaphore(RaftClientConfigKeys.Async.outstandingRequestsMax(properties));
+    this.outstandingRequestsMax = RaftClientConfigKeys.Async.outstandingRequestsMax(properties);
   }
 
   private void resetSlidingWindow(RaftClientRequest request) {
-    getSlidingWindow(request).resetFirstSeqNum();
+    getSlidingWindow(request).getWindow().resetFirstSeqNum();
   }
 
-  private SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> getSlidingWindow(RaftClientRequest request) {
+  private WindowEntry getSlidingWindow(RaftClientRequest request) {
     return getSlidingWindow(request.isToLeader()? null: request.getServerId());
   }
 
-  private SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> getSlidingWindow(RaftPeerId target) {
+  private WindowEntry getSlidingWindow(RaftPeerId target) {
     final String id = target != null ? target.toString() : "RAFT";
-    return slidingWindows.computeIfAbsent(id, key -> new SlidingWindow.Client<>(client.getId() + "->" + key));
+    return slidingWindows.computeIfAbsent(id,
+        key -> new WindowEntry(new SlidingWindow.Client<>(client.getId() + "->" + key), outstandingRequestsMax));
   }
 
   private void failAllAsyncRequests(RaftClientRequest request, Throwable t) {
-    getSlidingWindow(request).fail(request.getSlidingWindowEntry().getSeqNum(), t);
+    getSlidingWindow(request).getWindow().fail(request.getSlidingWindowEntry().getSeqNum(), t);
   }
 
   CompletableFuture<RaftClientReply> send(RaftClientRequest.Type type, Message message, RaftPeerId server) {
     if (!type.is(TypeCase.WATCH) && !type.is(TypeCase.MESSAGESTREAM)) {
       Objects.requireNonNull(message, "message == null");
     }
+    final WindowEntry entry = getSlidingWindow(server);
+    final Semaphore requestSemaphore = entry.getSemaphore();
     try {
       requestSemaphore.acquire();
     } catch (InterruptedException e) {
@@ -171,7 +193,7 @@ public final class OrderedAsync {
     final long callId = CallId.getAndIncrement();
     final LongFunction<PendingOrderedRequest> constructor = seqNum -> new PendingOrderedRequest(callId, seqNum,
         slidingWindowEntry -> client.newRaftClientRequest(server, callId, message, type, slidingWindowEntry));
-    return getSlidingWindow(server).submitNewRequest(constructor, this::sendRequestWithRetry
+    return entry.getWindow().submitNewRequest(constructor, this::sendRequestWithRetry
     ).getReplyFuture(
     ).thenApply(reply -> RaftClientImpl.handleRaftException(reply, CompletionException::new)
     ).whenComplete((r, e) -> {
@@ -200,7 +222,7 @@ public final class OrderedAsync {
       return;
     }
 
-    if (getSlidingWindow(request).isFirst(pending.getSeqNum())) {
+    if (getSlidingWindow(request).getWindow().isFirst(pending.getSeqNum())) {
       Preconditions.assertTrue(request.getSlidingWindowEntry().getIsFirst(),
           () -> "The first request is not marked as first: " + request);
     }
@@ -209,7 +231,7 @@ public final class OrderedAsync {
       LOG.debug("{}: receive* {}", client.getId(), reply);
       Objects.requireNonNull(reply, "reply == null");
       client.handleReply(request, reply);
-      getSlidingWindow(request).receiveReply(
+      getSlidingWindow(request).getWindow().receiveReply(
           request.getSlidingWindowEntry().getSeqNum(), reply, this::sendRequestWithRetry);
     }).exceptionally(e -> {
       final Throwable exception = e;
@@ -268,14 +290,21 @@ public final class OrderedAsync {
     final TimeDuration sleepTime = client.getEffectiveSleepTime(e, action.getSleepTime());
     LOG.debug("schedule* retry with sleep {} for attempt #{} of {}, {}",
         sleepTime, event.getAttemptCount(), request, retryPolicy);
-    final SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> slidingWindow = getSlidingWindow(request);
+    final SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> slidingWindow
+        = getSlidingWindow(request).getWindow();
     client.getScheduler().onTimeout(sleepTime,
         () -> slidingWindow.retry(pending, this::sendRequestWithRetry),
         LOG, () -> "Failed* to retry " + pending);
   }
 
   void assertRequestSemaphore(int expectedAvailablePermits, int expectedQueueLength) {
-    Preconditions.assertSame(expectedAvailablePermits, requestSemaphore.availablePermits(), "availablePermits");
-    Preconditions.assertSame(expectedQueueLength, requestSemaphore.getQueueLength(), "queueLength");
+    assertRequestSemaphore(null, expectedAvailablePermits, expectedQueueLength);
+  }
+
+  /** Assert the semaphore of the window for the given target, where null means the leader. */
+  void assertRequestSemaphore(RaftPeerId target, int expectedAvailablePermits, int expectedQueueLength) {
+    final Semaphore semaphore = getSlidingWindow(target).getSemaphore();
+    Preconditions.assertSame(expectedAvailablePermits, semaphore.availablePermits(), "availablePermits");
+    Preconditions.assertSame(expectedQueueLength, semaphore.getQueueLength(), "queueLength");
   }
 }
