@@ -263,6 +263,41 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     }
   }
 
+  @Test
+  public void testAsyncRequestSemaphorePerWindow() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestAsyncRequestSemaphorePerWindow);
+  }
+
+  void runTestAsyncRequestSemaphorePerWindow(CLUSTER cluster) throws Exception {
+    final RaftServer.Division leader = waitForLeader(cluster);
+    final RaftPeerId follower = cluster.getFollowers().get(0).getId();
+    final int max = RaftClientConfigKeys.Async.outstandingRequestsMax(getProperties());
+    final RetryPolicy retryPolicy = RetryPolicies.retryForeverWithSleep(
+        TimeDuration.valueOf(100, TimeUnit.MILLISECONDS));
+
+    try (RaftClient client = cluster.createClient(leader.getId(), retryPolicy)) {
+      // The first async request initializes OrderedAsync, which may also send a dummy request to the same target.
+      // Send it to the leader, so that the dummy request does not take a permit from the follower window.
+      Assertions.assertTrue(client.async().send(new SimpleMessage("init")).get(10, TimeUnit.SECONDS).isSuccess());
+      RaftClientTestUtil.assertAsyncRequestSemaphore(client, max, 0);
+
+      // The follower is down: the reads sent to it keep retrying and hold all the permits of its window.
+      cluster.killServer(follower);
+      for (int i = 0; i < max; i++) {
+        client.async().sendReadOnly(new SimpleMessage("stalled" + i), follower);
+      }
+      RaftClientTestUtil.assertAsyncRequestSemaphore(client, follower, 0, 0);
+
+      // The leader window has its own permits, so writes are not blocked by the stalled window.
+      RaftClientTestUtil.assertAsyncRequestSemaphore(client, max, 0);
+      final RaftClientReply reply = CompletableFuture.supplyAsync(
+          () -> client.async().send(new SimpleMessage("leader"))
+      ).thenCompose(f -> f).get(10, TimeUnit.SECONDS);
+      Assertions.assertTrue(reply.isSuccess());
+      RaftClientTestUtil.assertAsyncRequestSemaphore(client, max, 0);
+    }
+  }
+
   void runTestBasicAppendEntriesAsync(boolean killLeader) throws Exception {
     runWithNewCluster(killLeader? 5: 3,
         cluster -> RaftBasicTests.runTestBasicAppendEntries(true, killLeader, 100, cluster, LOG));

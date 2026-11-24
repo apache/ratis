@@ -779,11 +779,11 @@ Client configurations are located at `RaftClientConfigKeys`.
 
 ### Async - Configurations related to async requests.
 
-| **Property**    | `raft.client.async.outstanding-requests.max` |
-|:----------------|:---------------------------------------------|
-| **Description** | maximum number of outstanding async requests |
-| **Type**        | int                                          |
-| **Default**     | 100                                          |
+| **Property**    | `raft.client.async.outstanding-requests.max`                                                                                                      |
+|:----------------|:--------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Description** | maximum number of outstanding async requests per sliding window (the client has one window for the leader and one for each target server)        |
+| **Type**        | int                                                                                                                                               |
+| **Default**     | 100                                                                                                                                               |
 
 ### DataStream - Configurations related to DataStream Api.
 
