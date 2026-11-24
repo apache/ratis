@@ -17,6 +17,7 @@
  */
 package org.apache.ratis;
 
+import org.apache.ratis.ReadOnlyRequestWithLongTimeoutTests.BlockingCounterStateMachine;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
@@ -32,6 +33,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -207,6 +209,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testFollowerLinearizableReadFailsWhenInstallingSnapshot() throws Exception {
+    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, BlockingCounterStateMachine.class, StateMachine.class);
     runWithNewCluster(ReadOnlyRequestTests::runTestFollowerLinearizableReadFailsWhenInstallingSnapshot);
   }
 

@@ -236,7 +236,8 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
 
   static <C extends MiniRaftCluster> void runTestFollowerLinearizableReadFailsWhenInstallingSnapshot(C cluster)
       throws Exception {
-    final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId leaderId = leader.getId();
 
     final List<RaftServer.Division> followers = cluster.getFollowers();
     Assertions.assertEquals(2, followers.size());
@@ -250,31 +251,42 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
       assertReplyExact(1, followerClient.io().sendReadOnly(QUERY, followerId));
 
       final CompletableFuture<RaftClientReply> writeReply = leaderClient.async().send(WAIT_AND_INCREMENT);
-      Thread.sleep(100);
-      final CompletableFuture<RaftClientReply> pendingRead = followerClient.async().sendReadOnly(QUERY, followerId);
-      // Include the pending write even when ReadIndex is configured to use the replied index.
-      final CompletableFuture<Long> pendingReadIndex = follower.readIndexAsync(leaderClient.getId(),
-          RaftClientRequest.readAfterWriteConsistentRequestType().getRead());
-      Assertions.assertFalse(pendingRead.isDone(), () -> "pendingRead=" + pendingRead);
-      Assertions.assertFalse(pendingReadIndex.isDone(), () -> "pendingReadIndex=" + pendingReadIndex);
-
-      startSnapshotInstallation(follower, 1);
       try {
-        final CompletableFuture<Long> readIndex = follower.readIndexAsync();
-        final CompletionException localException = Assertions.assertThrows(CompletionException.class, readIndex::join);
-        assertSnapshotInstallationReadException(localException);
-        assertSnapshotInstallationReadException(Assertions.assertThrows(CompletionException.class,
-            pendingReadIndex::join));
+        // Hold the leader write until the reads are issued and snapshot installation starts.
+        final BlockingCounterStateMachine stateMachine = (BlockingCounterStateMachine) leader.getStateMachine();
+        Assertions.assertTrue(stateMachine.writeStarted.await(10, TimeUnit.SECONDS), "Write did not start");
+        // This reader is a different client, so global consistency must include the pending write.
+        Assertions.assertEquals(followerId, followerClient.getLeaderId());
+        final CompletableFuture<RaftClientReply> pendingRead = followerClient.async().sendReadAfterWrite(QUERY, true);
+        final CompletableFuture<Long> pendingReadIndex = follower.readIndexAsync(leaderClient.getId(),
+            RaftClientRequest.readAfterWriteConsistentRequestType().getRead());
+        Assertions.assertFalse(pendingRead.isDone(), () -> "pendingRead=" + pendingRead);
+        Assertions.assertFalse(pendingReadIndex.isDone(), () -> "pendingReadIndex=" + pendingReadIndex);
 
-        final CompletionException pendingException = Assertions.assertThrows(CompletionException.class,
-            pendingRead::join);
-        assertSnapshotInstallationReadException(pendingException);
+        startSnapshotInstallation(follower, 1);
+        try {
+          // Let the leader advance its applied/replied index so pending ReadIndex heartbeats can complete.
+          stateMachine.allowWrite.countDown();
+          final CompletableFuture<Long> readIndex = follower.readIndexAsync();
+          final CompletionException localException = Assertions.assertThrows(CompletionException.class, readIndex::join);
+          assertSnapshotInstallationReadException(localException);
+          assertSnapshotInstallationReadException(Assertions.assertThrows(CompletionException.class,
+              pendingReadIndex::join));
 
-        final ReadException readException = Assertions.assertThrows(ReadException.class,
-            () -> followerClient.io().sendReadOnly(QUERY, followerId));
-        assertSnapshotInstallationReadException(readException);
+          final CompletionException pendingException = Assertions.assertThrows(CompletionException.class,
+              pendingRead::join);
+          assertSnapshotInstallationReadException(pendingException);
+
+          final ReadException readException = Assertions.assertThrows(ReadException.class,
+              () -> followerClient.io().sendReadOnly(QUERY, followerId));
+          assertSnapshotInstallationReadException(readException);
+        } finally {
+          setInProgressInstallSnapshotIndex(follower, -1);
+        }
       } finally {
-        setInProgressInstallSnapshotIndex(follower, -1);
+        for (RaftServer.Division server : cluster.iterateDivisions()) {
+          ((BlockingCounterStateMachine) server.getStateMachine()).allowWrite.countDown();
+        }
       }
 
       assertReplyExact(2, writeReply.join());
