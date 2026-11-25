@@ -41,7 +41,6 @@ import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.ReconfigurationTimeoutException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
-import org.apache.ratis.server.impl.ReadIndexHeartbeats.AppendEntriesListener;
 import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.leader.LeaderState;
 import org.apache.ratis.server.leader.LogAppender;
@@ -1220,16 +1219,8 @@ class LeaderStateImpl implements LeaderState {
       return CompletableFuture.completedFuture(readIndex);
     }
 
-    // send heartbeats and wait for majority acknowledgments
-    final AppendEntriesListener listener = readIndexHeartbeats.addAppendEntriesListener(
-        readIndex, i -> new AppendEntriesListener(i, senders));
-
-    // the readIndex is already acknowledged before
-    if (listener == null) {
-      return CompletableFuture.completedFuture(readIndex);
-    }
-
-    return listener.getFuture();
+    // send heartbeats and wait for majority acknowledgments of requests sent after this read arrived
+    return readIndexHeartbeats.confirm(senders).thenApply(confirmed -> readIndex);
   }
 
   @Override
