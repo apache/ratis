@@ -317,7 +317,9 @@ public class TransferLeadership {
     final Result result = tryTransferLeadership(context);
     final Result.Type type = result.getType();
     if (type != Result.Type.SUCCESS && type != Result.Type.NOT_UP_TO_DATE) {
-      pendingRequest.complete(result);
+      if (pending.compareAndSet(pendingRequest, null)) {
+        pendingRequest.complete(result);
+      }
     } else {
       // if timeout is not specified in request, use default request timeout
       final TimeDuration timeout = request.getTimeoutMs() == 0 ? requestTimeout
