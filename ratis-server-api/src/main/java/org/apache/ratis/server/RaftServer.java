@@ -156,6 +156,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
      * implementations so that their state machine can avoid materializing
      * application request bytes.  Remote clients should continue to use
      * {@link org.apache.ratis.client.api.AsyncApi#sendReadOnly(Message)}.
+     *
+     * <p>This is an experimental API, subject to incompatible changes and removal in future releases.
      */
     default CompletableFuture<Message> readOnlyAsync(Message queryMessage) throws IOException {
       return readOnlyAsync(ClientId.randomId(), ReadRequestTypeProto.getDefaultInstance(), queryMessage);
@@ -164,6 +166,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
     /**
      * Execute a local read-only query using the given executor after the configured consistency checks.
      * See {@link #readOnlyAsync(ClientId, ReadRequestTypeProto, Message, Executor)} for executor semantics.
+     *
+     * <p>This is an experimental API, subject to incompatible changes and removal in future releases.
      */
     default CompletableFuture<Message> readOnlyAsync(Message queryMessage, Executor executor) throws IOException {
       return readOnlyAsync(ClientId.randomId(), ReadRequestTypeProto.getDefaultInstance(), queryMessage, executor);
@@ -177,6 +181,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
      * semantics.  In particular, callers requesting read-after-write
      * consistency must use the same client ID as their prior writes.
      * The query is submitted to the division's server executor.
+     *
+     * <p>This is an experimental API, subject to incompatible changes and removal in future releases.
      */
     default CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
         Message queryMessage) throws IOException {
@@ -195,6 +201,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
      * <p>This API does not coordinate query execution with snapshot installation.
      * The state machine remains responsible for safe access to its query resources.
      *
+     * <p>This is an experimental API, subject to incompatible changes and removal in future releases.
+     *
      * @param clientId the client requesting the read; use the same ID as prior writes for read-after-write consistency.
      * @param readRequestType the read consistency semantics.
      * @param queryMessage the local state machine query.
@@ -210,6 +218,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
      * Establish a local read barrier using the default read request semantics.
      * Remote clients should use
      * {@link org.apache.ratis.client.api.AsyncApi#sendReadOnly(org.apache.ratis.protocol.Message)}.
+     *
+     * <p>This is an experimental API, subject to incompatible changes and removal in future releases.
      *
      * @see #readIndexAsync(ClientId, ReadRequestTypeProto)
      */
@@ -231,6 +241,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
      * <p>Embedded callers can wait for this future and then execute their local query on the calling thread,
      * or use an asynchronous continuation with an application executor. Non-async continuations may execute on
      * Ratis completion threads, so attaching a query that way does not isolate query execution from the barrier.
+     *
+     * <p>This is an experimental API, subject to incompatible changes and removal in future releases.
      *
      * @param clientId the client requesting the read barrier.
      * @param readRequestType the read consistency semantics.
