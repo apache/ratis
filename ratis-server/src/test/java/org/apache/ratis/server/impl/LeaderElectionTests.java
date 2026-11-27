@@ -21,6 +21,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.LongCounter;
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.metrics.impl.DefaultTimekeeperImpl;
 import org.apache.ratis.proto.RaftProtos;
@@ -35,6 +36,7 @@ import org.apache.ratis.protocol.exceptions.TransferLeadershipException;
 import org.apache.ratis.server.DivisionInfo;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.leader.FollowerInfo;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
@@ -57,6 +59,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -67,6 +70,7 @@ import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_COUNT_METRIC;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIME_TAKEN;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.TRANSFER_LEADERSHIP_COUNT_METRIC;
 import org.apache.ratis.statemachine.impl.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 
@@ -344,6 +348,68 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       }
 
       cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testSkipUnreachableHigherPriorityFollower() throws Exception {
+    try (final MiniRaftCluster cluster = newCluster(3)) {
+      cluster.start();
+      final RaftServerImpl leader = (RaftServerImpl) waitForLeader(cluster);
+      final long leaderTerm = leader.getInfo().getCurrentTerm();
+      final RaftServer.Division target = cluster.getFollowers().get(0);
+      final RaftPeerId targetId = target.getId();
+      final LeaderStateImpl leaderState = leader.getRole().getLeaderState().get();
+      final FollowerInfo follower = leaderState.getLogAppender(targetId).get().getFollower();
+      final LongCounter transfers = leader.getLeaderElectionMetrics().getRegistry()
+          .counter(TRANSFER_LEADERSHIP_COUNT_METRIC);
+      final TimeDuration maxTimeout = cluster.getTimeoutMax();
+      final CountDownLatch transferStarted = new CountDownLatch(1);
+      final BlockRequestHandlingInjection block = BlockRequestHandlingInjection.getInstance();
+
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        // Hold the first election request until the target is shutting down.
+        CodeInjectionForTesting.put(RaftServerImpl.START_LEADER_ELECTION, (localId, remoteId, args) -> {
+          if (targetId.equals(localId)) {
+            transferStarted.countDown();
+            try {
+              RaftTestUtil.block(target.getInfo()::isAlive);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+            }
+            return true;
+          }
+          return block.execute(localId, remoteId, args);
+        });
+        try {
+          final List<RaftPeer> peers = getPeersWithPriority(cluster.getPeers(), target.getPeer());
+          assertTrue(client.admin().setConfiguration(peers).isSuccess());
+          assertTrue(transferStarted.await(10, TimeUnit.SECONDS), "The target should catch up and receive a transfer");
+          cluster.killServer(targetId);
+        } finally {
+          CodeInjectionForTesting.put(RaftServerImpl.START_LEADER_ELECTION, block);
+        }
+
+        JavaUtils.attemptUntilTrue(() -> follower.getLastRpcResponseTime().elapsedTimeMs() > leader.getMaxTimeoutMs(),
+            100, HUNDRED_MILLIS, "the target's last RPC response is stale", LOG);
+        final long transferCount = transfers.getCount();
+
+        // Keep the log idle so the disconnected target still looks caught up to the leader.
+        assertEquals(leader.getState().getLastEntry().getIndex(), follower.getMatchIndex());
+        maxTimeout.apply(duration -> duration * 3).sleep();
+        assertEquals(transferCount, transfers.getCount(), "Leader retried a transfer to the unreachable follower");
+        assertEquals(leader.getId(), waitForLeader(cluster).getId());
+        final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("write while target is offline"));
+        assertTrue(reply.isSuccess());
+        assertEquals(leaderTerm, leader.getInfo().getCurrentTerm());
+
+        cluster.restartServer(targetId, false);
+        JavaUtils.attemptUntilTrue(() -> {
+          final RaftServer.Division currentLeader = cluster.getLeader();
+          return currentLeader != null && targetId.equals(currentLeader.getId())
+              && currentLeader.getInfo().isLeaderReady();
+        }, 100, HUNDRED_MILLIS, "the recovered target becomes leader", LOG);
+      }
     }
   }
 

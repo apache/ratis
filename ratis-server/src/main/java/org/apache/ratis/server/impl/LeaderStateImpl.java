@@ -1122,7 +1122,7 @@ class LeaderStateImpl implements LeaderState {
     int highestPriority = Integer.MIN_VALUE;
     for (LogAppender logAppender : senders) {
       final RaftPeer follower = conf.getPeer(logAppender.getFollowerId());
-      if (follower == null) {
+      if (follower == null || !hasRecentRpcResponse(logAppender)) {
         continue;
       }
       final int followerPriority = follower.getPriority();
@@ -1139,6 +1139,10 @@ class LeaderStateImpl implements LeaderState {
     if (appender != null) {
       server.getTransferLeadership().start(appender);
     }
+  }
+
+  private boolean hasRecentRpcResponse(LogAppender appender) {
+    return appender.getFollower().getLastRpcResponseTime().elapsedTimeMs() <= server.getMaxTimeoutMs();
   }
 
   /**
@@ -1161,9 +1165,7 @@ class LeaderStateImpl implements LeaderState {
     }
 
     final List<RaftPeerId> activePeers = getLogAppenders()
-        .filter(sender -> sender.getFollower()
-                                .getLastRpcResponseTime()
-                                .elapsedTimeMs() <= server.getMaxTimeoutMs())
+        .filter(this::hasRecentRpcResponse)
         .map(LogAppender::getFollowerId)
         .collect(Collectors.toList());
 
