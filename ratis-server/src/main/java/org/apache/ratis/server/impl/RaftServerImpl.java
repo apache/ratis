@@ -125,6 +125,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -1171,6 +1172,12 @@ class RaftServerImpl implements RaftServer.Division,
     return role.getLeaderState()
         .map(ls -> ls.streamEndOfRequestAsync(request))
         .orElse(null);
+  }
+
+  @Override
+  public CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
+      Message queryMessage, Executor executor) throws IOException {
+    return readRequestHandler.readOnlyAsync(clientId, readRequestType, queryMessage, executor);
   }
 
   @Override

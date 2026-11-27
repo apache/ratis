@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.ReadException;
 import org.apache.ratis.protocol.exceptions.ReadIndexException;
 import org.apache.ratis.protocol.exceptions.StaleReadException;
@@ -46,6 +47,7 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 
 import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexReplyProto;
 import static org.apache.ratis.server.impl.ServerProtoUtils.toReadIndexRequestProto;
@@ -138,6 +140,30 @@ class ReadRequestHandler {
                 + ": Failed to get read index from the leader: " + reply));
       }
     });
+  }
+
+  CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
+      Message queryMessage, Executor executor) throws IOException {
+    Objects.requireNonNull(clientId, "clientId == null");
+    Objects.requireNonNull(readRequestType, "readRequestType == null");
+    Objects.requireNonNull(queryMessage, "queryMessage == null");
+    server.assertLifeCycleState(LifeCycle.States.RUNNING);
+    final CompletableFuture<?> read;
+    if (readRequestType.getPreferNonLinearizable() || readOption == RaftServerConfigKeys.Read.Option.DEFAULT) {
+      if (!server.getInfo().isLeader()) {
+        return JavaUtils.completeExceptionally(server.newNotLeaderException());
+      }
+      if (!server.getInfo().isLeaderReady()) {
+        return JavaUtils.completeExceptionally(new LeaderNotReadyException(getMemberId()));
+      }
+      read = CompletableFuture.completedFuture(null);
+    } else if (readOption == RaftServerConfigKeys.Read.Option.LINEARIZABLE) {
+      read = readIndexAsync(clientId, readRequestType);
+    } else {
+      throw new IllegalStateException("Unexpected read option: " + readOption);
+    }
+    return read.thenComposeAsync(ignored -> stateMachine.query(queryMessage),
+        executor != null ? executor : server.getServerExecutor());
   }
 
   CompletableFuture<Long> readIndexAsync(ClientId clientId, ReadRequestTypeProto readRequestType) throws IOException {

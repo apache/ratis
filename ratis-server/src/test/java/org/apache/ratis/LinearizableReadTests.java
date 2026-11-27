@@ -107,6 +107,11 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testLocalReadOnlyExecutor() throws Exception {
+    runWithNewCluster(ReadOnlyRequestTests::runTestLocalReadOnlyExecutor);
+  }
+
+  @Test
   public void testLinearizableReadTimeout() throws Exception {
     runWithNewCluster(cluster -> ReadOnlyRequestTests.runTestReadTimeout(ReadIndexException.class, cluster));
   }

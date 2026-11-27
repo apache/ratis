@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -33,6 +34,7 @@ import org.apache.ratis.proto.RaftProtos.ReadRequestTypeProto;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.AdminProtocol;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftClientProtocol;
 import org.apache.ratis.protocol.RaftGroup;
@@ -144,6 +146,65 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** @return the {@link StateMachine} for this division. */
     StateMachine getStateMachine();
+
+    /**
+     * Execute a local read-only query after applying the configured
+     * {@link RaftServerConfigKeys.Read.Option} consistency checks.
+     *
+     * <p>This API is intended for embedded users that already have a local
+     * server division.  Applications may use local {@link Message}
+     * implementations so that their state machine can avoid materializing
+     * application request bytes.  Remote clients should continue to use
+     * {@link org.apache.ratis.client.api.AsyncApi#sendReadOnly(Message)}.
+     */
+    default CompletableFuture<Message> readOnlyAsync(Message queryMessage) throws IOException {
+      return readOnlyAsync(ClientId.randomId(), ReadRequestTypeProto.getDefaultInstance(), queryMessage);
+    }
+
+    /**
+     * Execute a local read-only query using the given executor after the configured consistency checks.
+     * See {@link #readOnlyAsync(ClientId, ReadRequestTypeProto, Message, Executor)} for executor semantics.
+     */
+    default CompletableFuture<Message> readOnlyAsync(Message queryMessage, Executor executor) throws IOException {
+      return readOnlyAsync(ClientId.randomId(), ReadRequestTypeProto.getDefaultInstance(), queryMessage, executor);
+    }
+
+    /**
+     * Execute a local read-only query after applying the configured
+     * {@link RaftServerConfigKeys.Read.Option} consistency checks.
+     *
+     * <p>The {@code clientId} and {@code readRequestType} identify the read
+     * semantics.  In particular, callers requesting read-after-write
+     * consistency must use the same client ID as their prior writes.
+     * The query is submitted to the division's server executor.
+     */
+    default CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
+        Message queryMessage) throws IOException {
+      return readOnlyAsync(clientId, readRequestType, queryMessage, null);
+    }
+
+    /**
+     * Execute a local read-only query after applying the configured consistency checks,
+     * submitting {@link StateMachine#query(Message)} to the given executor.
+     *
+     * <p>A null executor selects the division's existing server executor, which is shared with other server work.
+     * A supplied executor remains owned by the caller. To keep queries off Ratis completion threads,
+     * use an executor that dispatches to another thread rather than executing inline or using a caller-runs policy.
+     * Applications are responsible for propagating any required thread-local context to the query thread.
+     *
+     * <p>This API does not coordinate query execution with snapshot installation.
+     * The state machine remains responsible for safe access to its query resources.
+     *
+     * @param clientId the client requesting the read; use the same ID as prior writes for read-after-write consistency.
+     * @param readRequestType the read consistency semantics.
+     * @param queryMessage the local state machine query.
+     * @param executor the query executor, or null to use the division's server executor.
+     * @return the query result, or an exceptional future if the read, query, or executor submission fails.
+     */
+    default CompletableFuture<Message> readOnlyAsync(ClientId clientId, ReadRequestTypeProto readRequestType,
+        Message queryMessage, Executor executor) throws IOException {
+      throw new UnsupportedOperationException("readOnlyAsync is not supported");
+    }
 
     /**
      * Establish a local read barrier using the default read request semantics.

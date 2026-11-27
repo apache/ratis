@@ -49,6 +49,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -85,6 +86,35 @@ public abstract class ReadOnlyRequestTests<CLUSTER extends MiniRaftCluster>
   public void testReadOnly() throws Exception {
     assertOption(RaftServerConfigKeys.Read.Option.DEFAULT,  getProperties());
     runWithNewCluster(NUM_SERVERS, ReadOnlyRequestTests::runTestReadOnly);
+  }
+
+  @Test
+  public void testLocalReadOnlyExecutor() throws Exception {
+    runWithNewCluster(NUM_SERVERS, ReadOnlyRequestTests::runTestLocalReadOnlyExecutor);
+  }
+
+  static <C extends MiniRaftCluster> void runTestLocalReadOnlyExecutor(C cluster) throws Exception {
+    final RaftServer.Division leader = RaftTestUtil.waitForLeader(cluster);
+    final boolean linearizable = RaftServerConfigKeys.Read.option(cluster.getProperties())
+        == RaftServerConfigKeys.Read.Option.LINEARIZABLE;
+    try (RaftClient client = cluster.createClient(leader.getId())) {
+      assertReplyExact(1, client.io().send(INCREMENT));
+      for (RaftServer.Division server : cluster.iterateDivisions()) {
+        if (!linearizable && !server.getId().equals(leader.getId())) {
+          continue;
+        }
+        final LinkedBlockingQueue<Runnable> queries = new LinkedBlockingQueue<>();
+        final CompletableFuture<Message> read = server.readOnlyAsync(QUERY, queries::add);
+        final Runnable query = queries.poll(5, TimeUnit.SECONDS);
+        Assertions.assertNotNull(query);
+        Assertions.assertFalse(read.isDone());
+        query.run();
+        Assertions.assertEquals(1, retrieve(read.get(5, TimeUnit.SECONDS)));
+        Assertions.assertEquals(1, retrieve(server.readOnlyAsync(QUERY).get(5, TimeUnit.SECONDS)));
+        Assertions.assertEquals(1, retrieve(server.readOnlyAsync(client.getId(),
+            RaftClientRequest.readAfterWriteConsistentRequestType().getRead(), QUERY).get(5, TimeUnit.SECONDS)));
+      }
+    }
   }
 
   static <C extends MiniRaftCluster> void runTestReadOnly(C cluster) throws Exception {
