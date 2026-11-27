@@ -283,11 +283,13 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testRiskyLeadershipTransfer() throws Exception {
-    final RaftProperties p = getProperties();
+    final RaftProperties p = new RaftProperties(getProperties());
     RaftServerConfigKeys.LeaderElection.setLeaderTransferAppliedIndexGap(p, 10);
+    // Keep the last log index fixed while waiting for replication.
+    RaftServerConfigKeys.Log.setLogMetadataEnabled(p, false);
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, SimpleStateMachine4Testing.class, StateMachine.class);
 
-    try (final MiniRaftCluster cluster = newCluster(3)) {
+    try (final MiniRaftCluster cluster = getFactory().newCluster(3, p)) {
       cluster.start();
 
       final RaftServer.Division leader = waitForLeader(cluster);
@@ -301,14 +303,23 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
           client.io().send(new RaftTestUtil.SimpleMessage(messageId));
         }
 
+        // Replicate the log before transferring so that the applied-index check runs immediately.
+        final TermIndex lastEntry = leader.getRaftLog().getLastEntryTermIndex();
+        client.io().watch(lastEntry.getIndex(), RaftProtos.ReplicationLevel.ALL);
         try {
           client.admin().transferLeadership(target.getId(), 5000);
           fail("expected TransferLeadershipException");
         } catch (TransferLeadershipException e) {
           assertTrue(e.getMessage().contains(TransferLeadership.Result.Type.FAILED_APPLIED_INDEX_GAP.toString()));
         }
+
+        final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("after rejected transfer"));
+        assertTrue(reply.isSuccess());
+        assertEquals(leader.getId().toString(), reply.getReplierId());
+        assertEquals(lastEntry.getTerm(), leader.getInfo().getCurrentTerm());
+      } finally {
+        SimpleStateMachine4Testing.get(target).unblockApplyTransaction();
       }
-      SimpleStateMachine4Testing.get(target).unblockApplyTransaction();
       cluster.shutdown();
     }
   }
