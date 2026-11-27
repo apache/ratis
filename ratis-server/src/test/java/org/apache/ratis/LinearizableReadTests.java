@@ -17,6 +17,7 @@
  */
 package org.apache.ratis;
 
+import org.apache.ratis.ReadOnlyRequestWithLongTimeoutTests.BlockingCounterStateMachine;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
@@ -32,6 +33,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys.Read.ReadIndex.Type;
 import org.apache.ratis.server.impl.MiniRaftCluster;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Slf4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -55,8 +57,6 @@ import static org.apache.ratis.ReadOnlyRequestTests.assertLongAtLeast;
 import static org.apache.ratis.ReadOnlyRequestTests.assertOption;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyAtLeast;
 import static org.apache.ratis.ReadOnlyRequestTests.assertReplyExact;
-import static org.apache.ratis.ReadOnlyRequestTests.readOnlyAsync;
-import static org.apache.ratis.ReadOnlyRequestTests.readOnlyAsyncPreferNonLinearizable;
 import static org.apache.ratis.ReadOnlyRequestTests.retrieve;
 import static org.apache.ratis.server.RaftServerConfigKeys.Read.Option.LINEARIZABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -104,6 +104,11 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testLinearizableRead() throws Exception {
     runWithNewCluster(ReadOnlyRequestTests::runTestReadOnly);
+  }
+
+  @Test
+  public void testLocalReadOnlyExecutor() throws Exception {
+    runWithNewCluster(ReadOnlyRequestTests::runTestLocalReadOnlyExecutor);
   }
 
   @Test
@@ -163,7 +168,7 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
     final int n = 100;
     final List<Reply> f0Replies = new ArrayList<>(n);
     final List<Reply> f1Replies = new ArrayList<>(n);
-    final List<CompletableFuture<Message>> f0LocalReplies = new ArrayList<>(n);
+    final List<CompletableFuture<Long>> f0ReadIndexes = new ArrayList<>(n);
     try (RaftClient client = cluster.createClient(leaderId);
          RaftClient c0 = cluster.createClient(f0);
          RaftClient c1 = cluster.createClient(f1);
@@ -174,18 +179,17 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
 
         f0Replies.add(new Reply(count, c0.async().sendReadOnly(QUERY, f0)));
         f1Replies.add(new Reply(count, c1.async().sendReadOnly(QUERY, f1)));
-        f0LocalReplies.add(readOnlyAsync(followers.get(0), QUERY));
+        f0ReadIndexes.add(followers.get(0).readIndexAsync());
       }
 
       for (int i = 0; i < n; i++) {
         f0Replies.get(i).assertAtLeast();
         f1Replies.get(i).assertAtLeast();
-        assertLongAtLeast(i + 1, retrieve(f0LocalReplies.get(i).join()));
+        final RaftServer.Division follower = followers.get(0);
+        final long readIndex = f0ReadIndexes.get(i).join();
+        Assertions.assertTrue(follower.getInfo().getLastAppliedIndex() >= readIndex);
+        assertLongAtLeast(i + 1, retrieve(follower.getStateMachine().query(QUERY).get()));
       }
-
-      final CompletableFuture<Message> preferNonLinearizable =
-          readOnlyAsyncPreferNonLinearizable(followers.get(0), QUERY);
-      Assertions.assertThrows(CompletionException.class, preferNonLinearizable::join);
     }
   }
 
@@ -203,13 +207,14 @@ public abstract class LinearizableReadTests<CLUSTER extends MiniRaftCluster>
       return null;
     }, 10, ONE_SECOND, follower.getId() + " leader unknown", null);
 
-    final CompletableFuture<Message> read = readOnlyAsync(follower, QUERY);
+    final CompletableFuture<Long> read = follower.readIndexAsync();
     final CompletionException exception = Assertions.assertThrows(CompletionException.class, read::join);
     Assertions.assertInstanceOf(ReadIndexException.class, exception.getCause());
   }
 
   @Test
   public void testFollowerLinearizableReadFailsWhenInstallingSnapshot() throws Exception {
+    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, BlockingCounterStateMachine.class, StateMachine.class);
     runWithNewCluster(ReadOnlyRequestTests::runTestFollowerLinearizableReadFailsWhenInstallingSnapshot);
   }
 
